@@ -1,83 +1,274 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+// screens/auth/AdminLoginScreen.js
+import React, { useState } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    ScrollView,
+    TextInput,
+    Platform,
+    ActivityIndicator,
+    Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useDispatch } from 'react-redux';
-import { loginSuccess } from '../../../store/slices/authSlice';
-import { ROLES } from '../../../constants/roles';
-import { LightTheme } from '../../../styles/Theme';
-
-const C = LightTheme.colors;
+import { useSelector } from 'react-redux';
+import { useAuth } from '../../../hooks/useAuth'; // adjust path as needed
+import { LightTheme, DarkTheme } from '../../../styles/Theme';
 
 export default function AdminLoginScreen({ navigation }) {
-    const dispatch = useDispatch();
+    const themeMode = useSelector((state) => state.theme.mode);
+    const isDark = themeMode === 'dark';
+    const C = (isDark ? DarkTheme : LightTheme).colors;
 
-    const handleLogin = () => {
-        dispatch(loginSuccess({
-            token: 'dummy_admin_token',
-            user: { _id: '1', name: 'Admin User', email: 'admin@repairo.com', role: ROLES.ADMIN },
-        }));
+    const { login, loading, error } = useAuth();
+
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+
+    const handleLogin = async () => {
+        if (!email.trim() || !password.trim()) {
+            Alert.alert('Error', 'Please enter both email and password.');
+            return;
+        }
+
+        const result = await login(email, password, 'admin');
+        if (result.success) {
+            // Navigate to admin dashboard or home
+            navigation.replace('AdminDashboardScreen');
+        } else {
+            Alert.alert('Login Failed', result.error);
+        }
+    };
+
+    // Styles (unchanged from your original, but we'll keep them for completeness)
+    const s = {
+        safe: {
+            flex: 1,
+            backgroundColor: C.background,
+        },
+        scroll: {
+            flexGrow: 1,
+            paddingHorizontal: 24,
+            paddingBottom: 40,
+        },
+        logoBlock: {
+            alignItems: 'center',
+            paddingTop: 36,
+            paddingBottom: 32,
+        },
+        logoCircle: {
+            width: 64,
+            height: 64,
+            borderRadius: 20,
+            backgroundColor: C.primary,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: 12,
+            ...Platform.select({
+                ios: {
+                    shadowColor: C.primary,
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.45,
+                    shadowRadius: 16,
+                },
+                android: { elevation: 8 },
+            }),
+        },
+        logoText: {
+            fontSize: 28,
+            fontWeight: '900',
+            color: C.secondary,
+        },
+        logoWordmark: {
+            fontSize: 13,
+            fontWeight: '800',
+            letterSpacing: 4,
+            color: C.primary,
+        },
+        logoSub: {
+            fontSize: 10,
+            letterSpacing: 2,
+            color: C.textMuted,
+            marginTop: 2,
+        },
+        titleBlock: {
+            marginBottom: 32,
+            alignItems: 'center',
+        },
+        title: {
+            fontSize: 26,
+            fontWeight: '900',
+            letterSpacing: 1,
+            color: C.textPrimary,
+            marginBottom: 6,
+        },
+        subtitle: {
+            fontSize: 13,
+            color: C.textSecondary,
+            lineHeight: 19,
+            textAlign: 'center',
+        },
+        fieldLabel: {
+            fontSize: 9,
+            fontWeight: '700',
+            letterSpacing: 2,
+            color: C.textMuted,
+            marginBottom: 8,
+            marginTop: 20,
+        },
+        input: {
+            backgroundColor: C.surface,
+            borderWidth: 1,
+            borderColor: C.border,
+            borderRadius: 8,
+            paddingHorizontal: 16,
+            paddingVertical: Platform.OS === 'ios' ? 16 : 13,
+            fontSize: 14,
+            color: C.textPrimary,
+        },
+        passwordRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 20,
+            marginBottom: 8,
+        },
+        forgotBtn: {
+            fontSize: 9,
+            fontWeight: '700',
+            letterSpacing: 1.5,
+            color: C.primary,
+        },
+        loginBtn: {
+            marginTop: 28,
+            backgroundColor: C.primary,
+            borderRadius: 8,
+            paddingVertical: 17,
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'row',
+            gap: 10,
+            ...Platform.select({
+                ios: {
+                    shadowColor: C.primary,
+                    shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.4,
+                    shadowRadius: 12,
+                },
+                android: { elevation: 6 },
+            }),
+        },
+        loginBtnText: {
+            fontSize: 13,
+            fontWeight: '800',
+            letterSpacing: 2,
+            color: C.secondary,
+        },
+        loginBtnArrow: {
+            fontSize: 16,
+            fontWeight: '800',
+            color: C.secondary,
+        },
+        errorText: {
+            marginTop: 12,
+            fontSize: 12,
+            color: '#E54D4D',
+            textAlign: 'center',
+        },
+        footer: {
+            marginTop: 36,
+            alignItems: 'center',
+            paddingBottom: 8,
+        },
+        versionText: {
+            marginTop: 24,
+            fontSize: 8,
+            letterSpacing: 2,
+            color: C.textMuted,
+            textAlign: 'center',
+        },
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Text style={styles.backBtn}>← Back</Text>
-                </TouchableOpacity>
-            </View>
-            <ScrollView contentContainerStyle={styles.scroll}>
-                <Text style={styles.title}>Admin Login</Text>
-                
-                <TextInput 
-                    style={styles.input} 
-                    placeholder="Email" 
-                    value="admin@repairo.com" 
-                    editable={false}
-                />
-                <TextInput 
-                    style={styles.input} 
-                    placeholder="Password" 
-                    value="password123" 
-                    secureTextEntry 
-                    editable={false}
+        <SafeAreaView style={s.safe}>
+            <ScrollView
+                contentContainerStyle={s.scroll}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Logo Section */}
+                <View style={s.logoBlock}>
+                    <View style={s.logoCircle}>
+                        <Text style={s.logoText}>R</Text>
+                    </View>
+                    <Text style={s.logoWordmark}>REPAIRO MOTO</Text>
+                    <Text style={s.logoSub}>ADMIN CONSOLE</Text>
+                </View>
+
+                {/* Title */}
+                <View style={s.titleBlock}>
+                    <Text style={s.title}>AUTHENTICATION</Text>
+                    <Text style={s.subtitle}>
+                        Enter your credentials to continue to the dashboard.
+                    </Text>
+                </View>
+
+                {/* Email */}
+                <Text style={s.fieldLabel}>EMAIL ADDRESS</Text>
+                <TextInput
+                    style={s.input}
+                    placeholder="mechanic@repairo.moto"
+                    placeholderTextColor={C.textMuted}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
                 />
 
-                <TouchableOpacity style={styles.button} onPress={handleLogin}>
-                    <Text style={styles.buttonText}>Login as Admin</Text>
+                {/* Password */}
+                <View style={s.passwordRow}>
+                    <Text style={s.fieldLabel}>PASSWORD</Text>
+                    <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                        <Text style={s.forgotBtn}>FORGOT PASSWORD?</Text>
+                    </TouchableOpacity>
+                </View>
+                <TextInput
+                    style={s.input}
+                    placeholder="••••••••••••"
+                    placeholderTextColor={C.textMuted}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                />
+
+                {/* Login Button with Loading State */}
+                <TouchableOpacity
+                    style={[s.loginBtn, loading && { opacity: 0.7 }]}
+                    activeOpacity={0.85}
+                    onPress={handleLogin}
+                    disabled={loading}
+                >
+                    {loading ? (
+                        <ActivityIndicator color={C.secondary} />
+                    ) : (
+                        <>
+                            <Text style={s.loginBtnText}>IGNITE SESSION</Text>
+                            <Text style={s.loginBtnArrow}>→</Text>
+                        </>
+                    )}
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-                    <Text style={styles.forgotText}>Forgot Password?</Text>
-                </TouchableOpacity>
+                {/* Inline Error (optional, you can rely on Alert) */}
+                {error && !loading && <Text style={s.errorText}>{error}</Text>}
+
+                {/* Footer */}
+                <View style={s.footer}>
+                    <Text style={s.versionText}>
+                        2024 REPAIRO MOTO ENGINEERING · ALL SYSTEMS OPERATIONAL
+                    </Text>
+                </View>
             </ScrollView>
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: C.background },
-    header: { padding: 20 },
-    backBtn: { color: C.primary, fontSize: 16, fontWeight: 'bold' },
-    scroll: { padding: 20, alignItems: 'center' },
-    title: { fontSize: 26, fontWeight: 'bold', color: C.textPrimary, marginBottom: 30 },
-    input: {
-        width: '100%',
-        backgroundColor: C.surface,
-        padding: 15,
-        borderRadius: 8,
-        marginBottom: 15,
-        borderWidth: 1,
-        borderColor: C.border
-    },
-    button: {
-        backgroundColor: C.primary,
-        padding: 15,
-        borderRadius: 8,
-        width: '100%',
-        alignItems: 'center',
-        marginTop: 10,
-        marginBottom: 20,
-    },
-    buttonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-    forgotText: { color: C.secondary, fontSize: 14 }
-});

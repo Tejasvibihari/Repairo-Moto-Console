@@ -4,6 +4,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { LightTheme } from '../../styles/Theme';
 
+import CustomTabBar from '../../components/common/CustomTabBar';
+
 const Tab = createBottomTabNavigator();
 const C = LightTheme.colors;
 
@@ -16,18 +18,15 @@ const DummyScreen = ({ route }) => (
 export default function VendorNavigator() {
     return (
         <Tab.Navigator
+            tabBar={(props) => <CustomTabBar {...props} />}
             screenOptions={({ route }) => ({
-                headerStyle: { backgroundColor: C.surface },
-                headerTintColor: C.textPrimary,
+                headerShown: false,
                 tabBarIcon: ({ color, size }) => {
                     let iconName = 'list';
                     if (route.name === 'Orders') iconName = 'cart-outline';
                     else if (route.name === 'Profile') iconName = 'person-outline';
                     return <Ionicons name={iconName} size={size} color={color} />;
                 },
-                tabBarActiveTintColor: C.primary,
-                tabBarInactiveTintColor: C.textMuted,
-                tabBarStyle: { backgroundColor: C.surface }
             })}
         >
             <Tab.Screen name="Orders" component={DummyScreen} />

@@ -8,7 +8,7 @@ import { loginSuccess } from '../store/slices/authSlice';
 import { LightTheme, DarkTheme } from '../styles/Theme';
 
 import AuthNavigator from './AuthNavigator';
-import RoleRouter from './RoleRouter';
+import DrawerNavigator from './DrawerNavigator';
 
 export default function AuthGate() {
     const { isAuthenticated } = useAuth();
@@ -16,7 +16,7 @@ export default function AuthGate() {
     const [isBootstrapping, setIsBootstrapping] = useState(true);
 
     // ── Read theme from Redux — no hardcoded colors ──
-    const themeMode = useSelector((state) => state.theme.mode);
+    const themeMode = useSelector((state) => state.theme?.mode || 'light');
     const C = (themeMode === 'dark' ? DarkTheme : LightTheme).colors;
 
     useEffect(() => {
@@ -41,5 +41,5 @@ export default function AuthGate() {
         );
     }
 
-    return isAuthenticated ? <RoleRouter /> : <AuthNavigator />;
+    return isAuthenticated ? <DrawerNavigator /> : <AuthNavigator />;
 }

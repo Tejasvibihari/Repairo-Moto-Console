@@ -1,6 +1,7 @@
 // App.js
+import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
-import { StatusBar } from 'expo-status-bar';
+import StatusBar from './src/components/common/StatusBar';
 import { NavigationContainer } from '@react-navigation/native';
 import { Provider, useSelector, useDispatch } from 'react-redux';
 import { useColorScheme } from 'react-native';
@@ -27,10 +28,7 @@ function ThemedApp() {
 
   return (
     <>
-      <StatusBar
-        style={themeMode === 'dark' ? 'light' : 'dark'}
-        backgroundColor={activeTheme.colors.background}
-      />
+      <StatusBar />
       <AuthGate />
     </>
   );

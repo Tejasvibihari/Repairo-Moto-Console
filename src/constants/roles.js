@@ -1,17 +1,17 @@
 export const ROLES = {
-    ADMIN: 'Admin',
-    MECHANIC: 'Mechanic',
-    DELIVERY: 'Delivery',
-    OPERATIONAL_MANAGER: 'Operational Manager',
-    TELECALLER: 'Telecaller',
-    VENDOR: 'Vendor'
+    admin: 'admin',
+    mechanic: 'mechanic',
+    delivery: 'delivery',
+    operational_manager: 'operational_manager',
+    telecaller: 'telecaller',
+    vendor: 'vendor'
 };
 
 export const ROLE_CATEGORY = {
-    [ROLES.ADMIN]: 'admin',
-    [ROLES.MECHANIC]: 'employee',
-    [ROLES.DELIVERY]: 'employee',
-    [ROLES.OPERATIONAL_MANAGER]: 'employee',
-    [ROLES.TELECALLER]: 'employee',
-    [ROLES.VENDOR]: 'vendor'
+    [ROLES.admin]: 'admin',
+    [ROLES.Mechanic]: 'employee',
+    [ROLES.Delivery]: 'employee',
+    [ROLES.Operational_Manager]: 'employee',
+    [ROLES.Telecaller]: 'employee',
+    [ROLES.Vendor]: 'vendor'
 };
