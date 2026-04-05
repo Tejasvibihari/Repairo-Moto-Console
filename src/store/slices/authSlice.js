@@ -43,3 +43,8 @@ export const selectUser = (state) => state.auth.user;
 export const selectUserRole = (state) => state.auth?.user?.role;
 
 export default authSlice.reducer;
+
+
+
+// inside logout thunk or after logout action
+// await purgeStoredState(persistConfig);

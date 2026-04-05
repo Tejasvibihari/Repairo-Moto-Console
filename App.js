@@ -1,28 +1,29 @@
 // App.js
 import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
-import StatusBar from './src/components/common/StatusBar';
-import { NavigationContainer } from '@react-navigation/native';
 import { Provider, useSelector, useDispatch } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
+import { NavigationContainer } from '@react-navigation/native';
 import { useColorScheme } from 'react-native';
-import { store } from './src/store';
-import AuthGate from './src/navigation/AuthGate';
-import { LightTheme, DarkTheme } from './src/styles/Theme';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import StatusBar from './src/components/common/StatusBar';
+import AuthGate from './src/navigation/AuthGate';
+import { store, persistor } from './src/store';
+import { LightTheme, DarkTheme } from './src/styles/Theme';
 import { syncSystemTheme } from './src/store/slices/themeSlice';
 
-// ── Inner component — must be inside <Provider> to use Redux hooks ──
+// Inner component that uses Redux hooks
 function ThemedApp() {
   const dispatch = useDispatch();
-  const systemScheme = useColorScheme(); // "light" | "dark" | null — auto-updates on OS change
+  const systemScheme = useColorScheme();
   const themeMode = useSelector((state) => state.theme.mode);
 
-  // Fires on mount AND whenever the user flips their OS dark mode setting
   useEffect(() => {
     if (systemScheme) {
       dispatch(syncSystemTheme(systemScheme));
     }
-  }, [systemScheme]);
+  }, [systemScheme, dispatch]);
 
   const activeTheme = themeMode === 'dark' ? DarkTheme : LightTheme;
 
@@ -37,11 +38,13 @@ function ThemedApp() {
 export default function App() {
   return (
     <Provider store={store}>
-      <SafeAreaProvider>
-        <NavigationContainer>
-          <ThemedApp />
-        </NavigationContainer>
-      </SafeAreaProvider>
+      <PersistGate loading={null} persistor={persistor}>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <ThemedApp />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </PersistGate>
     </Provider>
   );
 }
