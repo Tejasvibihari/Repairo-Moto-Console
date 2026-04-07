@@ -1,4 +1,4 @@
-// hooks/useOrder.js
+// hooks/useOrder.js (updated)
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axiosClient from '../services/axiosClient';
 
@@ -17,9 +17,13 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
     const [page, setPage] = useState(initialPage);
     const [limit, setLimit] = useState(initialLimit);
 
-    // --- New mutation states ---
+    // --- Existing mutation states (for updates) ---
     const [mutationLoading, setMutationLoading] = useState(false);
     const [mutationError, setMutationError] = useState(null);
+
+    // --- NEW: dedicated create manual order states ---
+    const [createLoading, setCreateLoading] = useState(false);
+    const [createError, setCreateError] = useState(null);
 
     const abortControllerRef = useRef(null);
 
@@ -32,7 +36,7 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
         setPage(1);
     }, []);
 
-    // --- Existing fetchOrders (unchanged, but used by refetch) ---
+    // --- Existing fetchOrders (unchanged) ---
     const fetchOrders = useCallback(async () => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
@@ -170,13 +174,13 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
         setPage(1);
     }, []);
 
-    // --- NEW: Update Mechanic ---
+    // --- Existing update mutations ---
     const updateMechanic = useCallback(async (orderId, mechanicId) => {
         setMutationLoading(true);
         setMutationError(null);
         try {
             const response = await axiosClient.put(`/api/admin/order/update/updateMechanic/${orderId}`, { mechanicId });
-            await refetch(); // refresh the order list
+            await refetch();
             return response.data;
         } catch (err) {
             const errorMsg = err.response?.data?.message || 'Failed to update mechanic';
@@ -187,7 +191,6 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
         }
     }, [refetch]);
 
-    // --- NEW: Update Delivery Person ---
     const updateDelivery = useCallback(async (orderId, deliveryId) => {
         setMutationLoading(true);
         setMutationError(null);
@@ -204,7 +207,6 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
         }
     }, [refetch]);
 
-    // --- NEW: Update Vendor ---
     const updateVendor = useCallback(async (orderId, vendorId) => {
         setMutationLoading(true);
         setMutationError(null);
@@ -221,7 +223,6 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
         }
     }, [refetch]);
 
-    // --- NEW: Update Order Status ---
     const updateOrderStatus = useCallback(async (orderId, status) => {
         setMutationLoading(true);
         setMutationError(null);
@@ -238,7 +239,27 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
         }
     }, [refetch]);
 
-    // --- Clear mutation error helper ---
+    // --- NEW: Create Manual Order ---
+    const createManualOrder = useCallback(async (orderData) => {
+        setCreateLoading(true);
+        setCreateError(null);
+        try {
+            const response = await axiosClient.post('/api/admin/order/manualorder', orderData);
+            // Optionally refetch the order list so the new order appears
+            await refetch();
+            return response.data;
+        } catch (err) {
+            const errorMsg = err.response?.data?.message || 'Failed to create manual order';
+            setCreateError(errorMsg);
+            throw new Error(errorMsg);
+        } finally {
+            setCreateLoading(false);
+        }
+    }, [refetch]);
+
+    // Helper to clear create error
+    const clearCreateError = useCallback(() => setCreateError(null), []);
+
     const clearMutationError = useCallback(() => setMutationError(null), []);
 
     useEffect(() => {
@@ -262,7 +283,7 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
         filters,
         page,
         limit,
-        // New mutation methods & states
+        // Existing mutation methods & states
         updateMechanic,
         updateDelivery,
         updateVendor,
@@ -270,6 +291,11 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
         mutationLoading,
         mutationError,
         clearMutationError,
+        // NEW: manual order creation
+        createManualOrder,
+        createLoading,
+        createError,
+        clearCreateError,
     };
 };
 
