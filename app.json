@@ -13,7 +13,10 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "AIzaSyC-RRm-8NLc8XCOz89NbdpTdQvIr1if76c"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +24,12 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.tejasvibihari.repairomotoconsole"
+      "package": "com.tejasvibihari.repairomotoconsole",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyC-RRm-8NLc8XCOz89NbdpTdQvIr1if76c"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"

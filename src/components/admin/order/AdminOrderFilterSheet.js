@@ -47,7 +47,9 @@ const STATUS_OPTIONS = [
     { value: '', label: 'All Statuses', icon: 'ellipse-outline' },
     { value: 'pending', label: 'Pending', icon: 'time-outline' },
     { value: 'in_progress', label: 'In Progress', icon: 'sync-outline' },
+    { value: 'mechanic_assigned', label: 'Mechanic Assigned', icon: 'build-outline' },
     { value: 'completed', label: 'Completed', icon: 'checkmark-circle-outline' },
+    { value: 'invoice_generated', label: 'Invoice Generated', icon: 'receipt-outline' },
     { value: 'cancelled', label: 'Cancelled', icon: 'close-circle-outline' },
 ];
 

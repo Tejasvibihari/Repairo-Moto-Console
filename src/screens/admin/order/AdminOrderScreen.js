@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
 
 import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
 import AdminOrderCard from '../../../components/admin/order/AdminOrderCard';
@@ -27,7 +28,9 @@ const STATUS_PILLS = [
     { key: '', label: 'All' },
     { key: 'pending', label: 'Pending' },
     { key: 'in_progress', label: 'In Progress' },
+    { key: 'mechanic_assigned', label: 'Assigned' },
     { key: 'completed', label: 'Completed' },
+    { key: 'invoice_generated', label: 'Invoiced' },
     { key: 'cancelled', label: 'Cancelled' },
 ];
 
@@ -171,8 +174,8 @@ const SummaryStrip = ({ pagination, statusCounts, theme }) => {
     const items = [
         { label: 'Total', value: pagination.totalItems, color: theme.colors.primary },
         { label: 'Pending', value: statusCounts.pending ?? '–', color: theme.colors.textMuted },
-        { label: 'Active', value: statusCounts.in_progress ?? '–', color: '#e2a731' },
-        { label: 'Done', value: statusCounts.completed ?? '–', color: '#2ECC9A' },
+        { label: 'Assigned', value: statusCounts.mechanic_assigned ?? '–', color: '#e2a731' },
+        { label: 'Done', value: statusCounts.invoice_generated ?? '–', color: '#2ECC9A' },
     ];
     return (
         <View style={[sumStyles.strip, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
@@ -273,6 +276,7 @@ const pgStyles = StyleSheet.create({
 const AdminOrderScreen = () => {
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
+    const navigation = useNavigation();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [statusPill, setStatusPill] = useState('');
@@ -303,12 +307,23 @@ const AdminOrderScreen = () => {
 
     const handleStatusPill = useCallback((key) => {
         setStatusPill(key);
-        setFilters({ ...filters, search: searchQuery, status: key });
-    }, [filters, searchQuery, setFilters]);
+        setFilters(prevFilters => ({
+            ...prevFilters,
+            search: searchQuery,
+            status: key,
+        }));
+    }, [searchQuery, setFilters]);
 
     const handleFilterApply = useCallback((newFilters) => {
-        setFilters({ search: searchQuery, ...newFilters });
-        setStatusPill(newFilters.status || '');
+        // Fully replace all filter-sheet-controlled keys so Reset actually clears them.
+        // Only search (managed separately in local state) is preserved.
+        setFilters({
+            search: searchQuery,
+            ...newFilters,
+            // Ensure status is always present (empty string = "All") for pill sync
+            status: newFilters.status ?? '',
+        });
+        setStatusPill(newFilters.status ?? '');
         setShowFilter(false);
     }, [searchQuery, setFilters]);
 
@@ -316,14 +331,16 @@ const AdminOrderScreen = () => {
         <AdminOrderCard
             order={item}
             index={index}
-            onPress={() => console.log('Open order:', item._id)}
+            onPress={() => navigation.navigate('AdminOrderDetail', { order: item })}
         />
     ), []);
-
     const statusCounts = {
-        pending: data.filter(o => o.status === 'pending').length,
-        in_progress: data.filter(o => o.status === 'in_progress').length,
-        completed: data.filter(o => o.status === 'completed').length,
+        pending: data.filter(o => o.status === 'Pending').length,
+        in_progress: data.filter(o => o.status === 'In Progress').length,
+        mechanic_assigned: data.filter(o => o.status === 'Mechanic Assigned').length,
+        completed: data.filter(o => o.status === 'Completed').length,
+        invoice_generated: data.filter(o => o.status === 'Invoice Generated').length,
+        cancelled: data.filter(o => o.status === 'Cancelled').length,
     };
 
     const ListHeader = (
