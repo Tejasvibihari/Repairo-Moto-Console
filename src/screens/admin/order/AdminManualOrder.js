@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { useSelector } from 'react-redux';
 import { LightTheme, DarkTheme } from '../../../styles/Theme'; // adjust path
 import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
 import AdminManualOrderForm from '../../../components/admin/order/AdminManualOrderForm';
 import useOrder from '../../../hooks/useOrder';
+import PopUp from '../../../components/common/PopUp';
 
 // ─── Success Modal ────────────────────────────────────────────────────────────
 const SuccessModal = ({ visible, orderId, onClose, colors }) => (
@@ -51,6 +52,7 @@ const AdminManualOrder = () => {
 
     const { createManualOrder, createLoading, createError, clearCreateError } = useOrder();
     const [successModal, setSuccessModal] = useState({ visible: false, orderId: null });
+    const [errorPopup, setErrorPopup] = useState({ visible: false, message: '' });
 
     const handleSubmit = async (payload) => {
         try {
@@ -58,7 +60,7 @@ const AdminManualOrder = () => {
             const res = await createManualOrder(payload);
             setSuccessModal({ visible: true, orderId: res?.data?.orderId || null });
         } catch (err) {
-            Alert.alert('Order Failed', err?.message || 'Something went wrong. Please try again.');
+            setErrorPopup({ visible: true, message: err?.message || 'Something went wrong. Please try again.' });
         }
     };
 
@@ -83,6 +85,15 @@ const AdminManualOrder = () => {
                 orderId={successModal.orderId}
                 onClose={() => setSuccessModal({ visible: false, orderId: null })}
                 colors={colors}
+            />
+            
+            <PopUp
+                visible={errorPopup.visible}
+                title="Order Failed"
+                message={errorPopup.message}
+                primaryLabel="Okay"
+                onPrimary={() => setErrorPopup({ visible: false, message: '' })}
+                onClose={() => setErrorPopup({ visible: false, message: '' })}
             />
         </TabScreenWrapper>
     );

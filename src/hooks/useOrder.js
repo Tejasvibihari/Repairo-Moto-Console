@@ -243,6 +243,7 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
     const createManualOrder = useCallback(async (orderData) => {
         setCreateLoading(true);
         setCreateError(null);
+        console.log(orderData);
         try {
             const response = await axiosClient.post('/api/admin/order/manualorder', orderData);
             // Optionally refetch the order list so the new order appears

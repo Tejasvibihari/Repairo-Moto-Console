@@ -7,8 +7,10 @@ import CustomTabBar from '../../components/common/CustomTabBar';
 import AdminDashboardScreen from '../../screens/admin/dashboard/AdminDashboardScreen';
 import AdminOrderScreen from '../../screens/admin/order/AdminOrderScreen';
 import AdminManualOrder from '../../screens/admin/order/AdminManualOrder';
-import AdminBikesScreen from '../../screens/admin/bikes/AdminBikesScreen';
+import AdminBrandCatalog from '../../screens/admin/brand/AdminBrandCatalog';
 import AdminOrderDetail from '../../screens/admin/order/AdminOrderDetail';
+import AdminAddModelScreen from '../../screens/admin/brand/AdminAddModelsScreen';
+import AdminBrandsScreen from '../../screens/admin/brand/AdminBrandsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -25,7 +27,7 @@ function AdminTabs() {
                     if (route.name === 'Dashboard') iconName = 'pulse-outline';
                     else if (route.name === 'Orders') iconName = 'receipt-outline';
                     else if (route.name === 'ManualOrder') iconName = 'add-circle-outline';
-                    else if (route.name === 'Bikes') iconName = 'bicycle';
+                    else if (route.name === 'Brands') iconName = 'bicycle';
                     return <Ionicons name={iconName} size={size} color={color} />;
                 },
             })}
@@ -33,7 +35,8 @@ function AdminTabs() {
             <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
             <Tab.Screen name="Orders" component={AdminOrderScreen} />
             <Tab.Screen name="ManualOrder" component={AdminManualOrder} />
-            <Tab.Screen name="Bikes" component={AdminBikesScreen} />
+            <Tab.Screen name="Brands" component={AdminBrandCatalog} />
+
         </Tab.Navigator>
     );
 }
@@ -44,6 +47,9 @@ export default function AdminNavigator() {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="AdminTabs" component={AdminTabs} />
             <Stack.Screen name="AdminOrderDetail" component={AdminOrderDetail} />
+            <Stack.Screen name="AdminBrandCatalog" component={AdminBrandCatalog} />
+            <Stack.Screen name="AdminAddModelScreen" component={AdminAddModelScreen} />
+            <Stack.Screen name="AdminBrandsScreen" component={AdminBrandsScreen} />
         </Stack.Navigator>
     );
 }

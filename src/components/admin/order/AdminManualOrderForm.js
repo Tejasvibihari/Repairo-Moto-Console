@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -10,9 +10,13 @@ import {
     Animated,
     Platform,
     KeyboardAvoidingView,
+    Modal,
+    FlatList,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; // ✅ New import
 import { useSelector } from 'react-redux';
 import { LightTheme, DarkTheme } from '../../../styles/Theme'; // adjust path
+import axiosClient from '../../../services/axiosClient'; // adjust path
 
 // ─── Options ──────────────────────────────────────────────────────────────────
 const SERVICE_OPTIONS = [
@@ -117,13 +121,81 @@ const INITIAL = {
 };
 
 const AdminManualOrderForm = ({ onSubmit, loading }) => {
-    // ✅ Read theme mode from Redux store
     const themeMode = useSelector((state) => state.theme.mode);
     const colors = themeMode === 'dark' ? DarkTheme.colors : LightTheme.colors;
 
     const [form, setForm] = useState(INITIAL);
     const [errors, setErrors] = useState({});
     const shakeAnim = useRef(new Animated.Value(0)).current;
+
+    // Brand & Model fetching state
+    const [brands, setBrands] = useState([]);
+    const [models, setModels] = useState([]);
+    const [brandLoading, setBrandLoading] = useState(false);
+    const [modelLoading, setModelLoading] = useState(false);
+    const [showBrandPicker, setShowBrandPicker] = useState(false);
+    const [showModelPicker, setShowModelPicker] = useState(false);
+
+    // "Other" toggles
+    const [isOtherBrand, setIsOtherBrand] = useState(false);
+    const [isOtherModel, setIsOtherModel] = useState(false);
+
+    // Fetch brands on mount
+    useEffect(() => {
+        fetchBrands();
+    }, []);
+
+    const fetchBrands = async () => {
+        setBrandLoading(true);
+        try {
+            const res = await axiosClient.get('/api/admin/brands/getbrands');
+            setBrands(res.data);
+        } catch (error) {
+            console.error('Failed to fetch brands', error);
+        } finally {
+            setBrandLoading(false);
+        }
+    };
+
+    const fetchModels = async (brandId) => {
+        if (!brandId) return;
+        setModelLoading(true);
+        try {
+            const res = await axiosClient.get(`/api/admin/brands/getmodels?brandId=${brandId}`);
+            setModels(res.data);
+        } catch (error) {
+            console.error('Failed to fetch models', error);
+        } finally {
+            setModelLoading(false);
+        }
+    };
+
+    const handleBrandSelect = (brand) => {
+        if (brand === 'Other') {
+            setIsOtherBrand(true);
+            setForm(p => ({ ...p, selectedBrand: '', selectedModel: '' }));
+            setModels([]);
+            setIsOtherModel(false);
+        } else {
+            setIsOtherBrand(false);
+            setForm(p => ({ ...p, selectedBrand: brand.brandName, selectedModel: '' }));
+            fetchModels(brand._id);
+        }
+        setShowBrandPicker(false);
+        if (errors.selectedBrand) setErrors(p => ({ ...p, selectedBrand: '' }));
+    };
+
+    const handleModelSelect = (model) => {
+        if (model === 'Other') {
+            setIsOtherModel(true);
+            setForm(p => ({ ...p, selectedModel: '' }));
+        } else {
+            setIsOtherModel(false);
+            setForm(p => ({ ...p, selectedModel: model.name }));
+        }
+        setShowModelPicker(false);
+        if (errors.selectedModel) setErrors(p => ({ ...p, selectedModel: '' }));
+    };
 
     const set = (key, val) => {
         setForm((p) => ({ ...p, [key]: val }));
@@ -144,8 +216,21 @@ const AdminManualOrderForm = ({ onSubmit, loading }) => {
         if (!form.contactNo.trim()) e.contactNo = 'Contact number is required';
         else if (!/^\d{10}$/.test(form.contactNo.trim())) e.contactNo = 'Enter valid 10-digit number';
         if (!form.city.trim()) e.city = 'City is required';
-        if (!form.selectedBrand.trim()) e.selectedBrand = 'Brand is required';
-        if (!form.selectedModel.trim()) e.selectedModel = 'Model is required';
+
+        // Brand validation
+        if (isOtherBrand) {
+            if (!form.selectedBrand.trim()) e.selectedBrand = 'Brand name is required';
+        } else {
+            if (!form.selectedBrand) e.selectedBrand = 'Please select a brand';
+        }
+
+        // Model validation
+        if (isOtherModel) {
+            if (!form.selectedModel.trim()) e.selectedModel = 'Model name is required';
+        } else {
+            if (!form.selectedModel) e.selectedModel = 'Please select a model';
+        }
+
         if (!form.cc.trim()) e.cc = 'CC is required';
         if (!form.services.length) e.services = 'Select at least one service';
         if (!form.preferredDate) e.preferredDate = 'Date is required';
@@ -165,9 +250,91 @@ const AdminManualOrderForm = ({ onSubmit, loading }) => {
 
     const handleSubmit = () => {
         const e = validate();
-        if (Object.keys(e).length) { setErrors(e); shake(); return; }
-        onSubmit({ ...form, city: form.city.toUpperCase(), preferredDate: new Date(form.preferredDate).toISOString() });
+        if (Object.keys(e).length) {
+            setErrors(e);
+            shake();
+            return;
+        }
+        onSubmit({
+            ...form,
+            city: form.city.toUpperCase(),
+            preferredDate: new Date(form.preferredDate).toISOString(),
+        });
     };
+
+    // Helper to render dropdown field
+    const renderDropdownField = ({
+        label,
+        required,
+        error,
+        value,
+        placeholder,
+        onPress,
+        loadingState,
+        showPicker,
+        setShowPicker,
+        options,
+        renderOption,
+        keyExtractor,
+        isOther,
+        otherComponent,
+    }) => (
+        <Field label={label} required={required} error={error} colors={colors}>
+            <TouchableOpacity
+                onPress={onPress}
+                style={[
+                    inp.base,
+                    {
+                        backgroundColor: colors.surfaceLow,
+                        borderColor: colors.border,
+                        height: 46,
+                        justifyContent: 'center',
+                    },
+                ]}
+                disabled={loadingState}
+            >
+                {loadingState ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                    <Text style={{ color: value ? colors.textPrimary : colors.textMuted, fontSize: 14, fontWeight: '500' }}>
+                        {value || placeholder}
+                    </Text>
+                )}
+            </TouchableOpacity>
+            {!isOther && (
+                <Modal visible={showPicker} transparent animationType="slide">
+                    <SafeAreaView style={modalStyles.overlay} edges={['bottom']}>
+                        <View style={[modalStyles.container, { backgroundColor: colors.surface }]}>
+                            <FlatList
+                                data={options}
+                                keyExtractor={keyExtractor}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={[modalStyles.item, { borderBottomColor: colors.border }]}
+                                        onPress={() => renderOption(item)}
+                                    >
+                                        <Text style={{ color: colors.textPrimary, fontSize: 16 }}>
+                                            {typeof item === 'string' ? item : item.brandName || item.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                            />
+                            <TouchableOpacity
+                                style={[modalStyles.closeButton, { backgroundColor: colors.primary }]}
+                                onPress={() => setShowPicker(false)}
+                            >
+                                <Text style={{ color: '#fff', fontWeight: '600' }}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </SafeAreaView>
+                </Modal>
+            )}
+            {otherComponent}
+        </Field>
+    );
+
+    const brandOptions = [...brands, 'Other'];
+    const modelOptions = [...models, 'Other'];
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
@@ -198,14 +365,59 @@ const AdminManualOrderForm = ({ onSubmit, loading }) => {
                     <SectionHeader icon="🏍️" title="Vehicle Info" colors={colors} />
                     <View style={s.row}>
                         <View style={s.half}>
-                            <Field label="Brand" required error={errors.selectedBrand} colors={colors}>
-                                <StyledInput colors={colors} placeholder="Honda" value={form.selectedBrand} onChangeText={(v) => set('selectedBrand', v)} />
-                            </Field>
+                            {renderDropdownField({
+                                label: 'Brand',
+                                required: true,
+                                error: errors.selectedBrand,
+                                value: form.selectedBrand,
+                                placeholder: 'Select brand',
+                                onPress: () => !brandLoading && setShowBrandPicker(true),
+                                loadingState: brandLoading,
+                                showPicker: showBrandPicker,
+                                setShowPicker: setShowBrandPicker,
+                                options: brandOptions,
+                                renderOption: (item) => handleBrandSelect(item),
+                                keyExtractor: (item) => typeof item === 'string' ? 'other' : item._id,
+                                isOther: isOtherBrand,
+                                otherComponent: isOtherBrand && (
+                                    <StyledInput
+                                        colors={colors}
+                                        placeholder="Enter brand name"
+                                        value={form.selectedBrand}
+                                        onChangeText={(v) => set('selectedBrand', v)}
+                                        style={{ marginTop: 8 }}
+                                    />
+                                ),
+                            })}
                         </View>
                         <View style={s.half}>
-                            <Field label="Model" required error={errors.selectedModel} colors={colors}>
-                                <StyledInput colors={colors} placeholder="CB Shine" value={form.selectedModel} onChangeText={(v) => set('selectedModel', v)} />
-                            </Field>
+                            {renderDropdownField({
+                                label: 'Model',
+                                required: true,
+                                error: errors.selectedModel,
+                                value: form.selectedModel,
+                                placeholder: form.selectedBrand || isOtherBrand ? 'Select model' : 'Select brand first',
+                                onPress: () => {
+                                    if (!form.selectedBrand && !isOtherBrand) return;
+                                    setShowModelPicker(true);
+                                },
+                                loadingState: modelLoading,
+                                showPicker: showModelPicker,
+                                setShowPicker: setShowModelPicker,
+                                options: modelOptions,
+                                renderOption: (item) => handleModelSelect(item),
+                                keyExtractor: (item) => typeof item === 'string' ? 'other' : item._id || item.name,
+                                isOther: isOtherModel,
+                                otherComponent: isOtherModel && (
+                                    <StyledInput
+                                        colors={colors}
+                                        placeholder="Enter model name"
+                                        value={form.selectedModel}
+                                        onChangeText={(v) => set('selectedModel', v)}
+                                        style={{ marginTop: 8 }}
+                                    />
+                                ),
+                            })}
                         </View>
                     </View>
                     <Field label="Model Name / Variant" colors={colors}>
@@ -270,7 +482,7 @@ const AdminManualOrderForm = ({ onSubmit, loading }) => {
                     </TouchableOpacity>
                 </Animated.View>
 
-                <TouchableOpacity onPress={() => { setForm(INITIAL); setErrors({}); }} activeOpacity={0.7} style={s.resetBtn}>
+                <TouchableOpacity onPress={() => { setForm(INITIAL); setErrors({}); setIsOtherBrand(false); setIsOtherModel(false); }} activeOpacity={0.7} style={s.resetBtn}>
                     <Text style={[s.resetText, { color: colors.textMuted }]}>Reset Form</Text>
                 </TouchableOpacity>
 
@@ -280,10 +492,12 @@ const AdminManualOrderForm = ({ onSubmit, loading }) => {
     );
 };
 
-export default AdminManualOrderForm;
-
 const s = StyleSheet.create({
-    container: { padding: 16, paddingTop: 8 },
+    container: {
+        padding: 16,
+        paddingTop: 8,
+        paddingBottom: Platform.OS === 'ios' ? 100 : 120,
+    },
     card: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 14 },
     row: { flexDirection: 'row', gap: 10 },
     half: { flex: 1 },
@@ -292,3 +506,33 @@ const s = StyleSheet.create({
     resetBtn: { alignItems: 'center', paddingVertical: 8 },
     resetText: { fontSize: 13, fontWeight: '500' },
 });
+
+const modalStyles = StyleSheet.create({
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    container: {
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingTop: 16,
+        paddingBottom: 0, // SafeAreaView will handle bottom inset
+        maxHeight: '70%',
+    },
+    item: {
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    closeButton: {
+        marginTop: 8,
+        marginHorizontal: 16,
+        marginBottom: Platform.OS === 'android' ? 16 : 0,
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+});
+
+export default AdminManualOrderForm;
