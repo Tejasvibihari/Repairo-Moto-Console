@@ -12,6 +12,16 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/logo72.png",
+          "color": "#e2a731",
+          "defaultChannel": "orders"
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": true,
       "config": {
@@ -24,7 +34,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.tejasvibihari.repairomotoconsole",
+      "package": "com.roottechnology.repairomotoconsole",
+      "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyC-RRm-8NLc8XCOz89NbdpTdQvIr1if76c"
@@ -33,6 +44,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "cf007c76-9360-4e3c-b663-403dc0f884c7"
+      }
+    },
+    "owner": "tejasvibihari"
   }
 }

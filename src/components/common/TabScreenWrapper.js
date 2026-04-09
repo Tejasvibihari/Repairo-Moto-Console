@@ -33,8 +33,9 @@ const TabScreenWrapper = ({ children, showMenuIcon = false, showBookingIcon = fa
                 greeting={greeting}
                 avatarSource={getAvatarSource()}
                 onMenuPress={handleMenuPress}
+                onNotificationPress={() => navigation.navigate('Notifications')}
                 onAvatarPress={() => navigation.navigate('Profile')} // Adjust if Profile is in a different stack
-                onBookingPress={() => console.log('Booking Pressed')} // Adjust navigation target
+                onBookingPress={() => console.log('Boo  king Pressed')} // Adjust navigation target
                 showMenuIcon={showMenuIcon}
                 showBookingIcon={showBookingIcon}
             />

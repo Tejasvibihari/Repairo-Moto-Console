@@ -30,6 +30,7 @@ import VendorNavigator from './vendor/VendorNavigator';
 
 import AdminSupportScreen from '../screens/admin/support/AdminSupportScreen';
 import AdminSettingsScreen from '../screens/admin/settings/AdminSettingsScreen';
+import NotificationsScreen from '../screens/shared/NotificationScreen';
 const Drawer = createDrawerNavigator();
 
 // ─── Role conditional data ──────────────────────────────────────────────────────────
@@ -361,6 +362,7 @@ export default function DrawerNavigator() {
             <Drawer.Screen name="AdminHome" component={HomeNavComponent} />
             <Drawer.Screen name="AdminSupport" component={AdminSupportScreen} />
             <Drawer.Screen name="AdminSettings" component={AdminSettingsScreen} />
+            <Drawer.Screen name="Notifications" component={NotificationsScreen} />
             {/* <Drawer.Screen name="TermsConditions" component={TermsConditionsScreen} /> */}
         </Drawer.Navigator>
     );

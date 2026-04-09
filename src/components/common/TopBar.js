@@ -12,6 +12,7 @@ import { useSelector } from "react-redux";
 import { Ionicons } from "@expo/vector-icons";
 import { LightTheme, DarkTheme } from "../../styles/Theme";
 import { getImageUrl } from "../../utils/imageUtils";
+import { selectUnreadCount } from '../../store/slices/notificationSlice';
 
 // ─── Notification Badge ───────────────────────────────────────────────────────
 const Badge = ({ count, theme }) => {
@@ -77,7 +78,6 @@ const TopBar = ({
     userName = "User",
     greeting,
     avatarSource,
-    notificationCount = 0,
     onMenuPress,
     onNotificationPress,
     onAvatarPress,
@@ -89,6 +89,7 @@ const TopBar = ({
     const insets = useSafeAreaInsets();
     const mode = useSelector((state) => state.theme?.mode || 'light');
     const theme = mode === "dark" ? DarkTheme : LightTheme;
+    const notificationCount = useSelector(selectUnreadCount);
 
     const resolvedName = typeof userName === "string" ? userName : "User";
     const greetingText =
@@ -152,7 +153,7 @@ const TopBar = ({
 
                 {/* Right: Bell + Avatar */}
                 <View style={styles.right}>
-                    {showBookingIcon && (
+                    {/* {showBookingIcon && (
                         <TouchableOpacity
                             onPress={onBookingPress}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -164,7 +165,7 @@ const TopBar = ({
                                 color={theme.colors.textSecondary}
                             />
                         </TouchableOpacity>
-                    )}
+                    )} */}
 
                     <TouchableOpacity
                         onPress={onNotificationPress}
