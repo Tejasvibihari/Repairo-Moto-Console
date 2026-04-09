@@ -31,11 +31,12 @@ export function usePushNotifications(navigation) {
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
             const { title, body, data } = notification.request.content;
             dispatch(addNotification({
-                id: notification.request.identifier,
+                id: data?.notificationId || notification.request.identifier,  // Use MongoDB ID if available
                 title,
                 body,
                 type: data?.type || 'general',
                 orderId: data?.orderId || null,
+                data: data,
                 isRead: false,
                 createdAt: new Date().toISOString(),
             }));

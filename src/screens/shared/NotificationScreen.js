@@ -118,26 +118,25 @@ export default function NotificationsScreen({ navigation }) {
     const handlePress = async (item) => {
         if (!item.isRead) {
             dispatch(markAsRead(item.id));
-            await notificationService.markRead(item.id).catch(() => { });
+            try {
+                await notificationService.markRead(item.id);
+            } catch (e) {
+                console.error('[NotificationScreen] Failed to mark as read:', e);
+            }
         }
 
-        // Navigate based on type
+        // For order-related notifications, navigate to order detail
         const orderId = item.orderId || item.data?.orderId;
         if (!orderId) return;
 
-        switch (item.type) {
-            case 'new_order':
-            case 'order_update':
-            case 'order_cancelled':
-            case 'order_assigned':
-            case 'invoice_generated':
-                navigation.navigate('Orders', { orderId });
-                break;
-            case 'delivery_update':
-                navigation.navigate('Orders', { orderId });
-                break;
-            default:
-                break;
+        if (['new_order', 'order_update', 'order_cancelled', 'order_assigned', 'invoice_generated', 'delivery_update'].includes(item.type)) {
+            navigation.navigate('AdminHome', {
+                screen: 'AdminOrderDetail',
+                params: {
+                    orderId,
+                    screenOrderId: item.data?.screenOrderId
+                }
+            });
         }
     };
 

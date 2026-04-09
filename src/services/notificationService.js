@@ -9,8 +9,10 @@ const handleRequest = async (request) => {
             error.response?.data?.message ||
             error.message ||
             'Something went wrong';
-        console.error(`[NotificationService] ${message}`);
-        throw { success: false, message, status: error.response?.status };
+        const status = error.response?.status;
+        console.error(`[NotificationService] Request failed with status code ${status}: ${message}`);
+        console.error('[NotificationService] Full error:', error);
+        throw { success: false, message, status };
     }
 };
 
@@ -26,8 +28,12 @@ export const notificationService = {
         handleRequest(() => axiosClient.get('/api/notifications')),
 
     // Mark a single notification read
-    markRead: (id) =>
-        handleRequest(() => axiosClient.patch(`/api/notifications/${id}/read`)),
+    markRead: (id) => {
+        if (!id) {
+            throw { success: false, message: 'Notification ID is required' };
+        }
+        return handleRequest(() => axiosClient.patch(`/api/notifications/${id}/read`));
+    },
 
     // Mark all notifications read
     markAllRead: () =>

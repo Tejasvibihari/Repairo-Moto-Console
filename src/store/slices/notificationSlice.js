@@ -4,6 +4,7 @@ const initialState = {
     items: [],          // { id, title, body, type, orderId, isRead, createdAt }
     unreadCount: 0,
     expoPushToken: null,
+    pendingOrderNavigation: null, // { orderId, screenOrderId } from notification click
 };
 
 const notificationSlice = createSlice({
@@ -39,6 +40,12 @@ const notificationSlice = createSlice({
             state.items = [];
             state.unreadCount = 0;
         },
+        setPendingOrderNavigation: (state, action) => {
+            state.pendingOrderNavigation = action.payload;
+        },
+        clearPendingOrderNavigation: (state) => {
+            state.pendingOrderNavigation = null;
+        },
     },
 });
 
@@ -49,10 +56,13 @@ export const {
     markAsRead,
     markAllAsRead,
     clearNotifications,
+    setPendingOrderNavigation,
+    clearPendingOrderNavigation,
 } = notificationSlice.actions;
 
 export const selectNotifications = (state) => state.notifications.items;
 export const selectUnreadCount = (state) => state.notifications.unreadCount;
 export const selectExpoPushToken = (state) => state.notifications.expoPushToken;
+export const selectPendingOrderNavigation = (state) => state.notifications.pendingOrderNavigation;
 
 export default notificationSlice.reducer;

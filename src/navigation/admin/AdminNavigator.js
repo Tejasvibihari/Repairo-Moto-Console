@@ -44,7 +44,10 @@ function AdminTabs() {
 // ── Stack wraps tabs + detail screens ──
 export default function AdminNavigator() {
     return (
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Navigator
+            screenOptions={{ headerShown: false }}
+            initialRouteName="AdminTabs"
+        >
             <Stack.Screen name="AdminTabs" component={AdminTabs} />
             <Stack.Screen name="AdminOrderDetail" component={AdminOrderDetail} />
             <Stack.Screen name="AdminBrandCatalog" component={AdminBrandCatalog} />
