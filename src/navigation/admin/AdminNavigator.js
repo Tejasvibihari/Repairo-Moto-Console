@@ -11,6 +11,7 @@ import AdminBrandCatalog from '../../screens/admin/brand/AdminBrandCatalog';
 import AdminOrderDetail from '../../screens/admin/order/AdminOrderDetail';
 import AdminAddModelScreen from '../../screens/admin/brand/AdminAddModelsScreen';
 import AdminBrandsScreen from '../../screens/admin/brand/AdminBrandsScreen';
+import AdminGenerateInvoice from '../../screens/admin/order/AdminGenerateInvoice';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -53,6 +54,7 @@ export default function AdminNavigator() {
             <Stack.Screen name="AdminBrandCatalog" component={AdminBrandCatalog} />
             <Stack.Screen name="AdminAddModelScreen" component={AdminAddModelScreen} />
             <Stack.Screen name="AdminBrandsScreen" component={AdminBrandsScreen} />
+            <Stack.Screen name="AdminGenerateInvoice" component={AdminGenerateInvoice} />
         </Stack.Navigator>
     );
 }
