@@ -23,6 +23,13 @@ export const notificationService = {
             axiosClient.post('/api/notifications/register-token', { expoPushToken: token })
         ),
 
+    // Unregister expo push token on logout
+    unregisterToken: () =>
+        handleRequest(() =>
+            axiosClient.post('/api/notifications/unregister-token')
+        ),
+
+
     // Fetch all notifications for current user
     getAll: () =>
         handleRequest(() => axiosClient.get('/api/notifications')),

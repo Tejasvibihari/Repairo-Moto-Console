@@ -10,6 +10,7 @@ import {
     selectNotifications, selectUnreadCount,
     markAsRead, markAllAsRead, setNotifications,
 } from '../../store/slices/notificationSlice';
+import { selectUserRole } from '../../store/slices/authSlice';
 import { notificationService } from '../../services/notificationService';
 import { LightTheme, DarkTheme } from '../../styles/Theme';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
@@ -31,6 +32,7 @@ const TYPE_META = {
     order_cancelled: { icon: 'close-circle-outline', color: '#FF6B6B' },
     invoice_generated: { icon: 'document-text-outline', color: '#9B59B6' },
     delivery_update: { icon: 'bicycle-outline', color: '#3498DB' },
+    mechanic_assigned: { icon: 'build-outline', color: '#E67E22' },
     general: { icon: 'notifications-outline', color: '#9E8E78' },
 };
 
@@ -97,6 +99,7 @@ export default function NotificationsScreen({ navigation }) {
     const dispatch = useDispatch();
     const notifications = useSelector(selectNotifications);
     const unreadCount = useSelector(selectUnreadCount);
+    const role = useSelector(selectUserRole);
     const mode = useSelector(s => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const [loading, setLoading] = React.useState(false);
@@ -129,9 +132,10 @@ export default function NotificationsScreen({ navigation }) {
         const orderId = item.orderId || item.data?.orderId;
         if (!orderId) return;
 
-        if (['new_order', 'order_update', 'order_cancelled', 'order_assigned', 'invoice_generated', 'delivery_update'].includes(item.type)) {
+        if (['new_order', 'order_update', 'order_cancelled', 'order_assigned', 'mechanic_assigned', 'invoice_generated', 'delivery_update'].includes(item.type)) {
+            const isAdmin = role === 'admin' || role === 'Admin';
             navigation.navigate('AdminHome', {
-                screen: 'AdminOrderDetail',
+                screen: isAdmin ? 'AdminOrderDetail' : 'EmployeeOrderDetail',
                 params: {
                     orderId,
                     screenOrderId: item.data?.screenOrderId

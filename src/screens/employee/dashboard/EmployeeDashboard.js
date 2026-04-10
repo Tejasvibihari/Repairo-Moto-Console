@@ -443,7 +443,7 @@ const psStyles = StyleSheet.create({
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
-export default function AdminDashboardScreen() {
+export default function EmployeeDashboardScreen() {
     const navigation = useNavigation();
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;

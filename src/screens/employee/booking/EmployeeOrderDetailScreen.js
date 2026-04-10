@@ -13,6 +13,7 @@ import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import ScreenWrapper from '../../../components/common/ScreenWrapper';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import axiosClient from '../../../services/axiosClient';
+import PopUp from '../../../components/common/PopUp';
 
 // ─── Status config (display only) ─────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -675,6 +676,15 @@ export default function EmployeeOrderDetail({ route, navigation }) {
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [popupVisible, setPopupVisible] = useState(false);
+    const [popupConfig, setPopupConfig] = useState({
+        title: '',
+        message: '',
+        primaryLabel: 'OK',
+        secondaryLabel: 'Cancel',
+        onPrimary: () => { },
+        onSecondary: () => { },
+    });
 
     // Editable items state
     const [items, setItems] = useState([]);
@@ -684,7 +694,25 @@ export default function EmployeeOrderDetail({ route, navigation }) {
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(24)).current;
+    const showPopup = (title, message, primaryLabel = 'OK', secondaryLabel = null, onPrimary = null, onSecondary = null) => {
+        setPopupConfig({
+            title,
+            message,
+            primaryLabel,
+            secondaryLabel,
+            onPrimary: () => {
+                setPopupVisible(false);
+                onPrimary && onPrimary();
+            },
+            onSecondary: () => {
+                setPopupVisible(false);
+                onSecondary && onSecondary();
+            },
+        });
+        setPopupVisible(true);
+    };
 
+    const hidePopup = () => setPopupVisible(false);
     const fetchOrder = useCallback(async () => {
         if (!orderIdParam) { setLoading(false); return; }
         try {
@@ -750,20 +778,31 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                 serviceName: i.name,
                 quantity: i.quantity,
                 price: i.price,
-                discountType: i.discountType !== 'None' ? i.discountType : undefined,
                 discountPrice: i.discountValue || 0,
             }));
 
             const payload = { partsUsed: parts, serviceProvided: services };
-            await axiosClient.put(`/api/admin/order/${order._id}/update-items`, payload);
-            Alert.alert('Success', 'Parts and services updated successfully.');
-            fetchOrder(); // Refresh to get updated totals
+            await axiosClient.put(`/api/admin/order/bookings/${order._id}/update-parts`, payload);
+            showPopup('Success', 'Parts and services updated successfully.', 'OK', null, () => {
+                fetchOrder(); // Refresh after user acknowledges
+            });
         } catch (err) {
-            Alert.alert('Error', err?.response?.data?.message || 'Failed to update items.');
+            showPopup('Error', err?.response?.data?.message || 'Failed to update items.', 'OK');
         } finally {
             setSaving(false);
         }
     };
+
+    const removeItem = useCallback((id) => {
+        showPopup(
+            'Remove Item',
+            'Are you sure you want to remove this item?',
+            'Remove',
+            'Cancel',
+            () => setItems((prev) => prev.filter((i) => i.id !== id)),
+            () => { }
+        );
+    }, []);
 
     const openAddDrawer = useCallback((type) => { setEditingItem(null); setDrawerType(type); setDrawerVisible(true); }, []);
     const openEditDrawer = useCallback((item) => { setEditingItem(item); setDrawerType(item.type); setDrawerVisible(true); }, []);
@@ -773,12 +812,7 @@ export default function EmployeeOrderDetail({ route, navigation }) {
             return exists ? prev.map((i) => i.id === savedItem.id ? savedItem : i) : [...prev, savedItem];
         });
     }, []);
-    const removeItem = useCallback((id) => {
-        Alert.alert('Remove Item', 'Are you sure you want to remove this item?', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Remove', style: 'destructive', onPress: () => setItems((prev) => prev.filter((i) => i.id !== id)) },
-        ]);
-    }, []);
+
 
     if (loading) {
         return (
@@ -942,6 +976,16 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                 onSave={handleSaveItem}
                 theme={theme}
                 editItem={editingItem}
+            />
+            <PopUp
+                visible={popupVisible}
+                title={popupConfig.title}
+                message={popupConfig.message}
+                primaryLabel={popupConfig.primaryLabel}
+                secondaryLabel={popupConfig.secondaryLabel}
+                onPrimary={popupConfig.onPrimary}
+                onSecondary={popupConfig.onSecondary}
+                onClose={hidePopup}
             />
         </View>
     );

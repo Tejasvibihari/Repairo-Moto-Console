@@ -33,6 +33,9 @@ import AdminSettingsScreen from '../screens/admin/settings/AdminSettingsScreen';
 import NotificationsScreen from '../screens/shared/NotificationScreen';
 import AdminDashboardScreen from '../screens/admin/dashboard/AdminDashboardScreen';
 import EmployeeOrderDetailScreen from '../screens/employee/booking/EmployeeOrderDetailScreen';
+import EmployeeOrderDetail from '../screens/employee/booking/EmployeeOrderDetailScreen';
+import EmployeeOrdersScreen from '../screens/employee/booking/EmployeeOrdersScreen';
+import EmployeeDashboardScreen from '../screens/employee/dashboard/EmployeeDashboard';
 const Drawer = createDrawerNavigator();
 
 // ─── Role conditional data ──────────────────────────────────────────────────────────
@@ -44,24 +47,18 @@ const getDrawerConfig = (role) => {
     if (role === 'admin' || role === 'Admin') {
         HomeNav = AdminNavigator;
         group1 = [
-            { name: 'AdminHome', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
-            // { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
+            { name: 'Dashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
+            { name: 'Orders', label: 'Orders', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' },
         ];
-        // group2 = [
-        //     { name: 'AdminSupport', label: 'Support', icon: 'help-circle-outline', iconActive: 'help-circle', lib: 'ion' },
-        //     { name: 'TermsConditions', label: 'Terms & Conditions', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
-        // ];
     } else {
         // Employee default
         HomeNav = EmployeeNavigator;
-        group1 = [
-            { name: 'Home', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
-            { name: 'Orders', label: 'Orders', icon: 'list-outline', iconActive: 'list', lib: 'ion' },
-        ];
+        // group1 = [
+        //     { name: 'Dashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
+        //     { name: 'Orders', label: 'Orders', icon: 'list-outline', iconActive: 'list', lib: 'ion' },
+        // ];
         group2 = [
-            { name: 'ReferEarn', label: 'Refer & Earn', icon: 'gift-outline', iconActive: 'gift', lib: 'ion' },
             { name: 'TermsConditions', label: 'Terms & Conditions', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
-            { name: 'Settings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
         ];
     }
     // else if (role === 'vendor' || role === 'Vendor') {
@@ -178,8 +175,8 @@ function CustomDrawerContent(props) {
 
     const navigate = (name) => {
         navigation.closeDrawer();
-        if (name === 'Home' || name === 'Wallet' || name === 'Orders') {
-            navigation.navigate('Home', { screen: name });
+        if (['Dashboard', 'Orders', 'ManualOrder', 'Brands'].includes(name)) {
+            navigation.navigate('AdminHome', { screen: name });
         } else {
             navigation.navigate(name);
         }
@@ -273,8 +270,14 @@ function CustomDrawerContent(props) {
                 primaryLabel="Log Out"
                 secondaryLabel="Cancel"
                 primaryVariant="danger"
-                onPrimary={() => {
+                onPrimary={async () => {
                     setShowLogoutConfirm(false);
+                    try {
+                        const { notificationService } = require('../services/notificationService');
+                        await notificationService.unregisterToken();
+                    } catch (e) {
+                         console.error('Failed to unregister push token:', e);
+                    }
                     setTimeout(() => dispatch(logout()), 200);
                 }}
                 onSecondary={() => setShowLogoutConfirm(false)}
@@ -363,9 +366,6 @@ export default function DrawerNavigator() {
             <Drawer.Screen name="AdminSupport" component={AdminSupportScreen} />
             <Drawer.Screen name="AdminSettings" component={AdminSettingsScreen} />
             <Drawer.Screen name="Notifications" component={NotificationsScreen} />
-
-            {/* Employee Order Screen  */}
-            <Drawer.Screen name="EmployeeOrderDetail" component={EmployeeOrderDetailScreen} />
             {/* <Drawer.Screen name="TermsConditions" component={TermsConditionsScreen} /> */}
         </Drawer.Navigator>
     );
