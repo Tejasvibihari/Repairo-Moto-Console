@@ -7,12 +7,14 @@ import {
     TextInput,
     Platform,
     ActivityIndicator,
-    Alert,
+    KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../hooks/useAuth';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
+import PopUp from '../../../components/common/PopUp';
 
 export default function EmployeeLoginScreen({ navigation }) {
     const themeMode = useSelector((state) => state.theme.mode);
@@ -25,9 +27,26 @@ export default function EmployeeLoginScreen({ navigation }) {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
 
+    // Popup state
+    const [popupVisible, setPopupVisible] = useState(false);
+    const [popupTitle, setPopupTitle] = useState('');
+    const [popupMessage, setPopupMessage] = useState('');
+
+    const showAlert = (title, message) => {
+        setPopupTitle(title);
+        setPopupMessage(message);
+        setPopupVisible(true);
+    };
+
+    const closePopup = () => {
+        setPopupVisible(false);
+        setPopupTitle('');
+        setPopupMessage('');
+    };
+
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
-            Alert.alert('Error', 'Please enter both email and password.');
+            showAlert('Error', 'Please enter both email and password.');
             return;
         }
 
@@ -35,7 +54,7 @@ export default function EmployeeLoginScreen({ navigation }) {
         if (result.success) {
             // Navigation handled by auth state change
         } else {
-            Alert.alert('Login Failed', result.error);
+            showAlert('Login Failed', result.error);
         }
     };
 
@@ -43,6 +62,9 @@ export default function EmployeeLoginScreen({ navigation }) {
         safe: {
             flex: 1,
             backgroundColor: C.background,
+        },
+        keyboardView: {
+            flex: 1,
         },
         scroll: {
             flexGrow: 1,
@@ -139,6 +161,17 @@ export default function EmployeeLoginScreen({ navigation }) {
             marginTop: 20,
             marginBottom: 8,
         },
+        passwordInputWrapper: {
+            position: 'relative',
+            justifyContent: 'center',
+        },
+        passwordIcon: {
+            position: 'absolute',
+            right: 16,
+            top: 0,
+            bottom: 0,
+            justifyContent: 'center',
+        },
         forgotBtn: {
             fontSize: 9,
             fontWeight: '700',
@@ -200,34 +233,6 @@ export default function EmployeeLoginScreen({ navigation }) {
             color: C.textMuted,
         },
 
-        // ── Social buttons ──
-        socialRow: {
-            flexDirection: 'row',
-            gap: 12,
-            marginTop: 16,
-        },
-        socialBtn: {
-            flex: 1,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            paddingVertical: 13,
-            borderRadius: 8,
-            borderWidth: 1,
-            borderColor: C.border,
-            backgroundColor: C.surface,
-        },
-        socialIcon: {
-            fontSize: 16,
-        },
-        socialBtnText: {
-            fontSize: 11,
-            fontWeight: '700',
-            letterSpacing: 1.5,
-            color: C.textPrimary,
-        },
-
         // ── Footer ──
         footer: {
             marginTop: 36,
@@ -253,110 +258,116 @@ export default function EmployeeLoginScreen({ navigation }) {
 
     return (
         <SafeAreaView style={s.safe}>
-            <ScrollView
-                contentContainerStyle={s.scroll}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
+            <KeyboardAvoidingView
+                style={s.keyboardView}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
             >
-                {/* ── Logo ── */}
-                <View style={s.logoBlock}>
-                    <View style={s.logoCircle}>
-                        <Text style={s.logoText}>R</Text>
-                    </View>
-                    <Text style={s.logoWordmark}>REPAIRO MOTO</Text>
-                    <Text style={s.logoSub}>EMPLOYEE CONSOLE</Text>
-                </View>
-
-                {/* ── Title ── */}
-                <View style={s.titleBlock}>
-                    <Text style={s.title}>AUTHENTICATION</Text>
-                    <Text style={s.subtitle}>
-                        Enter your credentials to continue to the dashboard.
-                    </Text>
-                </View>
-
-                {/* ── Email ── */}
-                <Text style={s.fieldLabel}>EMAIL ADDRESS</Text>
-                <TextInput
-                    style={s.input}
-                    placeholder="mechanic@repairo.moto"
-                    placeholderTextColor={C.textMuted}
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                />
-
-                {/* ── Password ── */}
-                <View style={s.passwordRow}>
-                    <Text style={s.fieldLabel}>PASSWORD</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-                        <Text style={s.forgotBtn}>FORGOT PASSWORD?</Text>
-                    </TouchableOpacity>
-                </View>
-                <TextInput
-                    style={s.input}
-                    placeholder="••••••••••••"
-                    placeholderTextColor={C.textMuted}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                />
-
-                {/* ── Login Button ── */}
-                <TouchableOpacity
-                    style={[s.loginBtn, loading && { opacity: 0.7 }]}
-                    activeOpacity={0.85}
-                    onPress={handleLogin}
-                    disabled={loading}
+                <ScrollView
+                    contentContainerStyle={s.scroll}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
                 >
-                    {loading ? (
-                        <ActivityIndicator color={C.secondary} />
-                    ) : (
-                        <>
-                            <Text style={s.loginBtnText}>IGNITE SESSION</Text>
-                            <Text style={s.loginBtnArrow}>→</Text>
-                        </>
-                    )}
-                </TouchableOpacity>
+                    {/* ── Logo ── */}
+                    <View style={s.logoBlock}>
+                        <View style={s.logoCircle}>
+                            <Text style={s.logoText}>R</Text>
+                        </View>
+                        <Text style={s.logoWordmark}>REPAIRO MOTO</Text>
+                        <Text style={s.logoSub}>EMPLOYEE CONSOLE</Text>
+                    </View>
 
-                {error && !loading && <Text style={{ marginTop: 12, fontSize: 12, color: '#E54D4D', textAlign: 'center' }}>{error}</Text>}
-
-                {/* ── Divider ── */}
-                {/* <View style={s.dividerRow}>
-                    <View style={s.dividerLine} />
-                    <Text style={s.dividerText}>OR SECURE ACCESS VIA</Text>
-                    <View style={s.dividerLine} />
-                </View> */}
-
-                {/* ── Social ── */}
-                {/* <View style={s.socialRow}>
-                    <TouchableOpacity style={s.socialBtn} activeOpacity={0.8}>
-                        <Text style={s.socialIcon}>🔵</Text>
-                        <Text style={s.socialBtnText}>GOOGLE</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={s.socialBtn} activeOpacity={0.8}>
-                        <Text style={s.socialIcon}>🍎</Text>
-                        <Text style={s.socialBtnText}>APPLE</Text>
-                    </TouchableOpacity>
-                </View> */}
-
-                {/* ── Footer ── */}
-                <View style={s.footer}>
-                    {/* <Text style={s.footerText}>
-                        New to the workshop?{' '}
-                        <Text
-                            style={s.footerLink}
-                            onPress={() => navigation.navigate('Register')}
-                        >
-                            Apply for an Account
+                    {/* ── Title ── */}
+                    <View style={s.titleBlock}>
+                        <Text style={s.title}>AUTHENTICATION</Text>
+                        <Text style={s.subtitle}>
+                            Enter your credentials to continue to the dashboard.
                         </Text>
-                    </Text> */}
-                    <Text style={s.versionText}>
-                        2024 REPAIRO MOTO ENGINEERING · ALL SYSTEMS OPERATIONAL
-                    </Text>
-                </View>
-            </ScrollView>
+                    </View>
+
+                    {/* ── Email ── */}
+                    <Text style={s.fieldLabel}>EMAIL ADDRESS</Text>
+                    <TextInput
+                        style={s.input}
+                        placeholder="mechanic@repairo.moto"
+                        placeholderTextColor={C.textMuted}
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        returnKeyType="next"
+                        autoCorrect={false}
+                    />
+
+                    {/* ── Password ── */}
+                    <View style={s.passwordRow}>
+                        <Text style={s.fieldLabel}>PASSWORD</Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                            <Text style={s.forgotBtn}>FORGOT PASSWORD?</Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={s.passwordInputWrapper}>
+                        <TextInput
+                            style={s.input}
+                            placeholder="••••••••••••"
+                            placeholderTextColor={C.textMuted}
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry={!showPassword}
+                            returnKeyType="done"
+                            onSubmitEditing={handleLogin}
+                        />
+                        <TouchableOpacity
+                            style={s.passwordIcon}
+                            onPress={() => setShowPassword(!showPassword)}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons  // ✅ Changed from Icon to Ionicons
+                                name={showPassword ? 'eye-off' : 'eye'}
+                                size={22}
+                                color={C.textMuted}
+                            />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* ── Login Button ── */}
+                    <TouchableOpacity
+                        style={[s.loginBtn, loading && { opacity: 0.7 }]}
+                        activeOpacity={0.85}
+                        onPress={handleLogin}
+                        disabled={loading}
+                    >
+                        {loading ? (
+                            <ActivityIndicator color={C.secondary} />
+                        ) : (
+                            <>
+                                <Text style={s.loginBtnText}>IGNITE SESSION</Text>
+                                <Text style={s.loginBtnArrow}>→</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+
+                    {/* ── Footer ── */}
+                    <View style={s.footer}>
+                        <Text style={s.versionText}>
+                            2024 REPAIRO MOTO ENGINEERING · ALL SYSTEMS OPERATIONAL
+                        </Text>
+                    </View>
+                </ScrollView>
+            </KeyboardAvoidingView>
+
+            {/* Custom PopUp component */}
+            <PopUp
+                visible={popupVisible}
+                title={popupTitle}
+                message={popupMessage}
+                primaryLabel="OK"
+                secondaryLabel="Cancel"
+                onPrimary={closePopup}
+                onSecondary={closePopup}
+                onClose={closePopup}
+            />
         </SafeAreaView>
     );
 }

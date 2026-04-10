@@ -32,6 +32,7 @@ import AdminSupportScreen from '../screens/admin/support/AdminSupportScreen';
 import AdminSettingsScreen from '../screens/admin/settings/AdminSettingsScreen';
 import NotificationsScreen from '../screens/shared/NotificationScreen';
 import AdminDashboardScreen from '../screens/admin/dashboard/AdminDashboardScreen';
+import EmployeeOrderDetailScreen from '../screens/employee/booking/EmployeeOrderDetailScreen';
 const Drawer = createDrawerNavigator();
 
 // ─── Role conditional data ──────────────────────────────────────────────────────────
@@ -50,6 +51,18 @@ const getDrawerConfig = (role) => {
         //     { name: 'AdminSupport', label: 'Support', icon: 'help-circle-outline', iconActive: 'help-circle', lib: 'ion' },
         //     { name: 'TermsConditions', label: 'Terms & Conditions', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
         // ];
+    } else {
+        // Employee default
+        HomeNav = EmployeeNavigator;
+        group1 = [
+            { name: 'Home', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
+            { name: 'Orders', label: 'Orders', icon: 'list-outline', iconActive: 'list', lib: 'ion' },
+        ];
+        group2 = [
+            { name: 'ReferEarn', label: 'Refer & Earn', icon: 'gift-outline', iconActive: 'gift', lib: 'ion' },
+            { name: 'TermsConditions', label: 'Terms & Conditions', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
+            { name: 'Settings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
+        ];
     }
     // else if (role === 'vendor' || role === 'Vendor') {
     //     HomeNav = VendorNavigator;
@@ -63,21 +76,7 @@ const getDrawerConfig = (role) => {
     //         { name: 'TermsConditions', label: 'Terms & Conditions', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
     //         { name: 'Settings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
     //     ];
-    // } else {
-    //     // Employee default
-    //     HomeNav = EmployeeNavigator;
-    //     group1 = [
-    //         { name: 'Home', label: 'Tasks', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
-    //         { name: 'MyBikes', label: 'My Bikes', icon: 'bicycle', iconActive: 'bicycle', lib: 'mci' },
-    //         { name: 'Wallet', label: 'Wallet', icon: 'wallet-outline', iconActive: 'wallet', lib: 'ion' },
-    //     ];
-    //     group2 = [
-    //         { name: 'ReferEarn', label: 'Refer & Earn', icon: 'gift-outline', iconActive: 'gift', lib: 'ion' },
-    //         { name: 'Support', label: 'Support', icon: 'help-circle-outline', iconActive: 'help-circle', lib: 'ion' },
-    //         { name: 'TermsConditions', label: 'Terms & Conditions', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
-    //         { name: 'Settings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
-    //     ];
-    // }
+
 
     return { HomeNav, GROUP_1: group1, GROUP_2: group2 };
 };
@@ -364,6 +363,9 @@ export default function DrawerNavigator() {
             <Drawer.Screen name="AdminSupport" component={AdminSupportScreen} />
             <Drawer.Screen name="AdminSettings" component={AdminSettingsScreen} />
             <Drawer.Screen name="Notifications" component={NotificationsScreen} />
+
+            {/* Employee Order Screen  */}
+            <Drawer.Screen name="EmployeeOrderDetail" component={EmployeeOrderDetailScreen} />
             {/* <Drawer.Screen name="TermsConditions" component={TermsConditionsScreen} /> */}
         </Drawer.Navigator>
     );

@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LightTheme } from '../../styles/Theme';
 
 import CustomTabBar from '../../components/common/CustomTabBar';
+import EmployeeDashboard from '../../screens/employee/dashboard/EmplaoyeeDashboard';
+import EmployeeOrdersScreen from '../../screens/employee/booking/EmployeeOrdersScreen';
 
 const Tab = createBottomTabNavigator();
 const C = LightTheme.colors;
@@ -23,14 +25,14 @@ export default function EmployeeNavigator() {
                 headerShown: false,
                 tabBarIcon: ({ color, size }) => {
                     let iconName = 'list-outline';
-                    if (route.name === 'Tasks') iconName = 'hammer-outline';
-                    else if (route.name === 'Profile') iconName = 'person-outline';
+                    if (route.name === 'Home') iconName = 'home-outline';
+                    else if (route.name === 'Orders') iconName = 'list-outline';
                     return <Ionicons name={iconName} size={size} color={color} />;
                 },
             })}
         >
-            <Tab.Screen name="Tasks" component={DummyScreen} />
-            <Tab.Screen name="Profile" component={DummyScreen} />
+            <Tab.Screen name="Home" component={EmployeeDashboard} />
+            <Tab.Screen name="Orders" component={EmployeeOrdersScreen} />
         </Tab.Navigator>
     );
 }
