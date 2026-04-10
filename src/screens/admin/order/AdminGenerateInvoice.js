@@ -1,4 +1,5 @@
 // src/screens/admin/order/AdminGenerateInvoice.js
+// src/screens/admin/order/AdminGenerateInvoice.js
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View, Text, ScrollView, StyleSheet, TouchableOpacity,
@@ -15,19 +16,18 @@ import axiosClient from '../../../services/axiosClient';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const DISCOUNT_TYPES = ['None', 'Flat', 'Percentage'];
 const PAYMENT_STATUSES = [
     { key: 'unpaid', label: 'Unpaid', color: '#FF6B6B', bg: 'rgba(255,107,107,0.15)', icon: 'close-circle-outline' },
-    { key: 'partial', label: 'Partial', color: '#E2A731', bg: 'rgba(226,167,49,0.15)', icon: 'time-outline' },
+    // { key: 'partial', label: 'Partial', color: '#E2A731', bg: 'rgba(226,167,49,0.15)', icon: 'time-outline' },
     { key: 'paid', label: 'Paid', color: '#2ECC9A', bg: 'rgba(46,204,154,0.15)', icon: 'checkmark-circle-outline' },
 ];
 const PAYMENT_METHODS = [
     { key: 'cash', label: 'Cash', icon: 'cash-outline' },
     { key: 'upi', label: 'UPI', icon: 'phone-portrait-outline' },
-    { key: 'card', label: 'Card', icon: 'card-outline' },
+    // { key: 'card', label: 'Card', icon: 'card-outline' },
     { key: 'razorpay', label: 'Razorpay', icon: 'globe-outline' },
-    { key: 'bank_transfer', label: 'Bank Transfer', icon: 'business-outline' },
+    // { key: 'bank_transfer', label: 'Bank Transfer', icon: 'business-outline' },
 ];
 
 const formatCurrency = (val) =>
@@ -536,44 +536,48 @@ const totStyles = StyleSheet.create({
 });
 
 // ─── Payment Section ──────────────────────────────────────────────────────────
-const PaymentSection = ({ paymentStatus, setPaymentStatus, paymentMethod, setPaymentMethod, amountPaid, setAmountPaid, grandTotal, theme }) => (
+const PaymentSection = ({ paymentStatus, setPaymentStatus, paymentMethod, setPaymentMethod, grandTotal, theme }) => (
     <View style={[payStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
         <Text style={[payStyles.heading, { color: theme.colors.textMuted }]}>PAYMENT DETAILS</Text>
         <Text style={[payStyles.subLabel, { color: theme.colors.textSecondary }]}>Payment Status</Text>
         <View style={payStyles.statusRow}>
             {PAYMENT_STATUSES.map((ps) => (
-                <TouchableOpacity key={ps.key} onPress={() => setPaymentStatus(ps.key)}
+                <TouchableOpacity key={ps.key} onPress={() => {
+                    setPaymentStatus(ps.key);
+                    // Reset payment method when switching away from paid
+                    if (ps.key !== 'paid') setPaymentMethod(null);
+                }}
                     style={[payStyles.statusBtn, { borderColor: paymentStatus === ps.key ? ps.color : theme.colors.border }, paymentStatus === ps.key && { backgroundColor: ps.bg }]} activeOpacity={0.8}>
                     <Ionicons name={ps.icon} size={14} color={paymentStatus === ps.key ? ps.color : theme.colors.textMuted} />
                     <Text style={[payStyles.statusTxt, { color: paymentStatus === ps.key ? ps.color : theme.colors.textMuted, fontWeight: paymentStatus === ps.key ? '800' : '500' }]}>{ps.label}</Text>
                 </TouchableOpacity>
             ))}
         </View>
-        <Text style={[payStyles.subLabel, { color: theme.colors.textSecondary, marginTop: 14 }]}>Payment Method</Text>
-        <View style={payStyles.methodRow}>
-            {PAYMENT_METHODS.map((pm) => (
-                <TouchableOpacity key={pm.key} onPress={() => setPaymentMethod(pm.key)}
-                    style={[payStyles.methodBtn, { borderColor: paymentMethod === pm.key ? theme.colors.primary : theme.colors.border, backgroundColor: paymentMethod === pm.key ? theme.colors.primary + '18' : theme.colors.surfaceLow }]} activeOpacity={0.8}>
-                    <Ionicons name={pm.icon} size={15} color={paymentMethod === pm.key ? theme.colors.primary : theme.colors.textMuted} />
-                    <Text style={[payStyles.methodTxt, { color: paymentMethod === pm.key ? theme.colors.primary : theme.colors.textSecondary, fontWeight: paymentMethod === pm.key ? '800' : '500' }]}>{pm.label}</Text>
-                </TouchableOpacity>
-            ))}
-        </View>
-        {paymentStatus === 'partial' && (
-            <View style={{ marginTop: 14 }}>
-                <Text style={[payStyles.subLabel, { color: theme.colors.textSecondary }]}>Amount Paid (Partial)</Text>
-                <View style={[payStyles.amtRow, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
-                    <Text style={[payStyles.rupee, { color: theme.colors.primary }]}>₹</Text>
-                    <TextInput value={String(amountPaid ?? '')} onChangeText={setAmountPaid} placeholder="0.00" placeholderTextColor={theme.colors.textMuted + '80'} keyboardType="decimal-pad" style={[payStyles.amtInput, { color: theme.colors.textPrimary }]} />
-                    {grandTotal > 0 && <Text style={[payStyles.balance, { color: '#FF6B6B' }]}>Balance: {formatCurrency(Math.max(0, grandTotal - (parseFloat(amountPaid) || 0)))}</Text>}
+        {paymentStatus === 'paid' && (
+            <>
+                <Text style={[payStyles.subLabel, { color: theme.colors.textSecondary, marginTop: 14 }]}>Payment Method</Text>
+                <View style={payStyles.methodRow}>
+                    {PAYMENT_METHODS.map((pm) => (
+                        <TouchableOpacity key={pm.key} onPress={() => setPaymentMethod(pm.key)}
+                            style={[payStyles.methodBtn, { borderColor: paymentMethod === pm.key ? theme.colors.primary : theme.colors.border, backgroundColor: paymentMethod === pm.key ? theme.colors.primary + '18' : theme.colors.surfaceLow }]} activeOpacity={0.8}>
+                            <Ionicons name={pm.icon} size={15} color={paymentMethod === pm.key ? theme.colors.primary : theme.colors.textMuted} />
+                            <Text style={[payStyles.methodTxt, { color: paymentMethod === pm.key ? theme.colors.primary : theme.colors.textSecondary, fontWeight: paymentMethod === pm.key ? '800' : '500' }]}>{pm.label}</Text>
+                        </TouchableOpacity>
+                    ))}
                 </View>
-            </View>
-        )}
-        {paymentMethod === 'razorpay' && (
-            <View style={[payStyles.razorHint, { backgroundColor: 'rgba(52,152,219,0.1)', borderColor: 'rgba(52,152,219,0.25)' }]}>
-                <Ionicons name="information-circle-outline" size={14} color="#3498DB" />
-                <Text style={[payStyles.razorText, { color: '#3498DB' }]}>Razorpay payment link will be generated after invoice is saved. Customer will receive a payment link via SMS/Email.</Text>
-            </View>
+                {paymentMethod === 'razorpay' && (
+                    <View style={[payStyles.razorHint, { backgroundColor: 'rgba(52,152,219,0.1)', borderColor: 'rgba(52,152,219,0.25)' }]}>
+                        <Ionicons name="information-circle-outline" size={14} color="#3498DB" />
+                        <Text style={[payStyles.razorText, { color: '#3498DB' }]}>Razorpay payment link will be generated after invoice is saved. Customer will receive a payment link via SMS/Email.</Text>
+                    </View>
+                )}
+                {grandTotal > 0 && (
+                    <View style={[payStyles.paidHint, { backgroundColor: 'rgba(46,204,154,0.1)', borderColor: 'rgba(46,204,154,0.25)' }]}>
+                        <Ionicons name="checkmark-circle-outline" size={14} color="#2ECC9A" />
+                        <Text style={[payStyles.paidHintText, { color: '#2ECC9A' }]}>Amount of {formatCurrency(grandTotal)} will be marked as fully paid.</Text>
+                    </View>
+                )}
+            </>
         )}
     </View>
 );
@@ -587,12 +591,10 @@ const payStyles = StyleSheet.create({
     methodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     methodBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: 1 },
     methodTxt: { fontSize: 12 },
-    amtRow: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
-    rupee: { fontSize: 18, fontWeight: '900' },
-    amtInput: { flex: 1, fontSize: 20, fontWeight: '800' },
-    balance: { fontSize: 12, fontWeight: '700' },
     razorHint: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 10, borderWidth: 1, padding: 10, marginTop: 12 },
     razorText: { flex: 1, fontSize: 11.5, fontWeight: '500', lineHeight: 16 },
+    paidHint: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 10, borderWidth: 1, padding: 10, marginTop: 12 },
+    paidHintText: { flex: 1, fontSize: 11.5, fontWeight: '600', lineHeight: 16 },
 });
 
 // ─── Pre-filled banner ────────────────────────────────────────────────────────
@@ -638,18 +640,174 @@ const emptyStyles = StyleSheet.create({
     addChipTxt: { fontSize: 13, fontWeight: '800', color: '#fff' },
 });
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+const DiscountTaxCard = ({
+    overallDiscountType, setOverallDiscountType,
+    overallDiscountValue, setOverallDiscountValue,
+    sgstRate, setSgstRate,
+    cgstRate, setCgstRate,
+    netSubtotal, overallDiscountAmount, sgstAmount, cgstAmount,
+    theme
+}) => {
+    const isDark = theme === DarkTheme;
+    const inputStyle = {
+        backgroundColor: isDark ? theme.colors.surfaceHigh : theme.colors.surfaceLow,
+        borderColor: theme.colors.border,
+        color: theme.colors.textPrimary,
+    };
+
+    return (
+        <View style={[dtStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <Text style={[dtStyles.heading, { color: theme.colors.textMuted }]}>DISCOUNT & TAXES</Text>
+
+            {/* Overall Discount */}
+            <View style={dtStyles.discountSection}>
+                <Text style={[dtStyles.subLabel, { color: theme.colors.textSecondary }]}>Overall Discount</Text>
+                <View style={dtStyles.discountTypeRow}>
+                    {['flat', 'percentage'].map((type) => (
+                        <TouchableOpacity
+                            key={type}
+                            onPress={() => setOverallDiscountType(type)}
+                            style={[
+                                dtStyles.discTypeBtn,
+                                {
+                                    borderColor: overallDiscountType === type ? theme.colors.primary : theme.colors.border,
+                                    backgroundColor: overallDiscountType === type ? theme.colors.primary + '18' : theme.colors.surfaceLow,
+                                }
+                            ]}
+                        >
+                            <Text style={[dtStyles.discTypeText, { color: overallDiscountType === type ? theme.colors.primary : theme.colors.textMuted }]}>
+                                {type === 'flat' ? '₹ Flat' : '% Percentage'}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+                <View style={[dtStyles.discountInputRow, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
+                    {overallDiscountType === 'flat' ? (
+                        <>
+                            <Text style={[dtStyles.currencySymbol, { color: theme.colors.primary }]}>₹</Text>
+                            <TextInput
+                                value={overallDiscountValue}
+                                onChangeText={setOverallDiscountValue}
+                                placeholder="0.00"
+                                keyboardType="decimal-pad"
+                                style={[dtStyles.discountInput, { color: theme.colors.textPrimary }]}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <TextInput
+                                value={overallDiscountValue}
+                                onChangeText={setOverallDiscountValue}
+                                placeholder="0"
+                                keyboardType="decimal-pad"
+                                style={[dtStyles.discountInput, { color: theme.colors.textPrimary, textAlign: 'right' }]}
+                            />
+                            <Text style={[dtStyles.percentSymbol, { color: theme.colors.textMuted }]}>%</Text>
+                        </>
+                    )}
+                </View>
+            </View>
+
+            {/* SGST + CGST */}
+            <View style={dtStyles.gstSection}>
+                <Text style={[dtStyles.subLabel, { color: theme.colors.textSecondary }]}>GST (SGST + CGST)</Text>
+                <View style={dtStyles.gstRow}>
+                    <View style={dtStyles.gstInputWrap}>
+                        <Text style={[dtStyles.gstLabel, { color: theme.colors.textMuted }]}>SGST %</Text>
+                        <TextInput
+                            value={sgstRate}
+                            onChangeText={setSgstRate}
+                            placeholder="0"
+                            keyboardType="decimal-pad"
+                            style={[dtStyles.gstInput, inputStyle]}
+                        />
+                    </View>
+                    <View style={dtStyles.gstInputWrap}>
+                        <Text style={[dtStyles.gstLabel, { color: theme.colors.textMuted }]}>CGST %</Text>
+                        <TextInput
+                            value={cgstRate}
+                            onChangeText={setCgstRate}
+                            placeholder="0"
+                            keyboardType="decimal-pad"
+                            style={[dtStyles.gstInput, inputStyle]}
+                        />
+                    </View>
+                </View>
+            </View>
+
+            {/* Breakdown Preview — GST Inclusive */}
+            {netSubtotal > 0 && (
+                <View style={[dtStyles.preview, { borderTopColor: theme.colors.border }]}>
+                    <View style={dtStyles.previewRow}>
+                        <Text style={[dtStyles.previewLabel, { color: theme.colors.textSecondary }]}>Total (Parts + Services)</Text>
+                        <Text style={[dtStyles.previewValue, { color: theme.colors.textSecondary }]}>{formatCurrency(netSubtotal)}</Text>
+                    </View>
+                    {overallDiscountAmount > 0 && (
+                        <View style={dtStyles.previewRow}>
+                            <Text style={[dtStyles.previewLabel, { color: '#E67E22' }]}>Overall Discount</Text>
+                            <Text style={[dtStyles.previewValue, { color: '#E67E22' }]}>-{formatCurrency(overallDiscountAmount)}</Text>
+                        </View>
+                    )}
+                    {(sgstAmount > 0 || cgstAmount > 0) && (
+                        <>
+                            <View style={[dtStyles.previewDivider, { backgroundColor: theme.colors.border }]} />
+                            <View style={dtStyles.previewRow}>
+                                <Text style={[dtStyles.previewLabel, { color: theme.colors.textPrimary, fontWeight: '700' }]}>Base Amount</Text>
+                                <Text style={[dtStyles.previewValue, { color: theme.colors.textPrimary }]}>{formatCurrency(netSubtotal - overallDiscountAmount - sgstAmount - cgstAmount)}</Text>
+                            </View>
+                            {sgstAmount > 0 && (
+                                <View style={dtStyles.previewRow}>
+                                    <Text style={[dtStyles.previewLabel, { color: '#9B59B6' }]}>SGST ({sgstRate}%)</Text>
+                                    <Text style={[dtStyles.previewValue, { color: '#9B59B6' }]}>{formatCurrency(sgstAmount)}</Text>
+                                </View>
+                            )}
+                            {cgstAmount > 0 && (
+                                <View style={dtStyles.previewRow}>
+                                    <Text style={[dtStyles.previewLabel, { color: '#9B59B6' }]}>CGST ({cgstRate}%)</Text>
+                                    <Text style={[dtStyles.previewValue, { color: '#9B59B6' }]}>{formatCurrency(cgstAmount)}</Text>
+                                </View>
+                            )}
+                            <View style={[dtStyles.previewDivider, { backgroundColor: theme.colors.border }]} />
+                            <View style={dtStyles.previewRow}>
+                                <Text style={[dtStyles.previewLabel, { color: theme.colors.textPrimary, fontWeight: '700' }]}>Total (Base + GST)</Text>
+                                <Text style={[dtStyles.previewValue, { color: theme.colors.textPrimary, fontWeight: '800' }]}>{formatCurrency(netSubtotal - overallDiscountAmount)}</Text>
+                            </View>
+                        </>
+                    )}
+                </View>
+            )}
+        </View>
+    );
+};
+
+const dtStyles = StyleSheet.create({
+    card: { borderRadius: 16, borderWidth: 1, padding: 18, marginBottom: 12, elevation: 3 },
+    heading: { fontSize: 10, fontWeight: '800', letterSpacing: 1.4, marginBottom: 16 },
+    subLabel: { fontSize: 12, fontWeight: '700', marginBottom: 10 },
+    discountSection: { marginBottom: 18 },
+    discountTypeRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+    discTypeBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, alignItems: 'center' },
+    discTypeText: { fontSize: 13, fontWeight: '700' },
+    discountInputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, gap: 8 },
+    currencySymbol: { fontSize: 18, fontWeight: '900' },
+    discountInput: { flex: 1, fontSize: 18, fontWeight: '800', padding: 0 },
+    percentSymbol: { fontSize: 16, fontWeight: '700' },
+    gstSection: { marginBottom: 12 },
+    gstRow: { flexDirection: 'row', gap: 12 },
+    gstInputWrap: { flex: 1 },
+    gstLabel: { fontSize: 10, fontWeight: '700', marginBottom: 5 },
+    gstInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontWeight: '600' },
+    preview: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 12, paddingTop: 12, gap: 6 },
+    previewRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    previewLabel: { fontSize: 12, fontWeight: '500' },
+    previewValue: { fontSize: 13, fontWeight: '700' },
+    previewDivider: { height: StyleSheet.hairlineWidth, marginVertical: 8 },
+});
+
 export default function AdminGenerateInvoice({ route, navigation }) {
     const { order } = route.params ?? {};
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
-
-    // useSafeAreaInsets gives the exact pixel height of:
-    //   - 3-button nav bar  (~48dp)
-    //   - 2-button nav bar  (~32dp)
-    //   - Gesture nav bar   (~8–16dp, just the pill area)
-    //   - No nav bar        (0)
-    // This covers every Android navigation mode without any hardcoded values.
     const insets = useSafeAreaInsets();
 
     const [items, setItems] = useState([]);
@@ -663,6 +821,13 @@ export default function AdminGenerateInvoice({ route, navigation }) {
     const [drawerType, setDrawerType] = useState('part');
     const [editingItem, setEditingItem] = useState(null);
 
+    // New state for overall discount & GST
+    const [overallDiscountType, setOverallDiscountType] = useState('flat');
+    const [overallDiscountValue, setOverallDiscountValue] = useState('');
+    const [sgstRate, setSgstRate] = useState('');
+    const [cgstRate, setCgstRate] = useState('');
+
+    // Prefill from existing order if available (invoice regeneration)
     useEffect(() => {
         if (!order) return;
         const prefilled = [];
@@ -670,6 +835,10 @@ export default function AdminGenerateInvoice({ route, navigation }) {
         (order.serviceProvided || []).forEach((s) => prefilled.push({ id: genId(), type: 'service', name: s.serviceName || '', quantity: String(s.quantity || 1), price: String(s.price || 0), discountType: 'None', discountValue: '0' }));
         if (prefilled.length > 0) { setItems(prefilled); setPrefilledCount(prefilled.length); }
         if (order.total?.referralDiscount) setReferralDiscount(String(order.total.referralDiscount));
+        if (order.total?.discount) setOverallDiscountValue(String(order.total.discount));
+        if (order.total?.discountType) setOverallDiscountType(order.total.discountType === 'Percentage' ? 'percentage' : 'flat');
+        if (order.total?.sgstRate) setSgstRate(String(order.total.sgstRate));
+        if (order.total?.cgstRate) setCgstRate(String(order.total.cgstRate));
         if (order.paymentStatus) setPaymentStatus(order.paymentStatus);
         if (order.paymentMethod) setPaymentMethod(order.paymentMethod);
         if (order.amountPaid) setAmountPaid(String(order.amountPaid));
@@ -691,33 +860,103 @@ export default function AdminGenerateInvoice({ route, navigation }) {
     }, []);
 
     const computedTotals = () => {
-        const subtotalBeforeDisc = items.reduce((acc, item) => acc + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0), 0);
-        const totalDiscount = items.reduce((acc, item) => {
+        // Net subtotal after per-item discounts (this is the GST-inclusive total)
+        const netSubtotal = items.reduce((acc, item) => {
             const s = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0);
             const d = item.discountType === 'Percentage' ? s * (parseFloat(item.discountValue) || 0) / 100 : item.discountType === 'Flat' ? parseFloat(item.discountValue) || 0 : 0;
-            return acc + d;
+            return acc + Math.max(0, s - d);
         }, 0);
-        const subtotal = subtotalBeforeDisc - totalDiscount;
+
+        // Overall discount (applied before GST breakdown)
+        let overallDiscountAmount = 0;
+        const discountVal = parseFloat(overallDiscountValue) || 0;
+        if (overallDiscountType === 'flat') {
+            overallDiscountAmount = Math.min(discountVal, netSubtotal);
+        } else if (overallDiscountType === 'percentage') {
+            overallDiscountAmount = netSubtotal * (discountVal / 100);
+        }
+
+        // GST-inclusive total after overall discount
+        const gstInclusiveTotal = Math.max(0, netSubtotal - overallDiscountAmount);
+
+        // GST is INCLUSIVE — back-calculate base from the inclusive total
+        // e.g. if total = 100 and GST = 18%, base = 100 * (100 / (100 + 18)) = 84.75
+        // But user wants: base = total - (total * gstRate / 100)
+        // e.g. base = 100 - (100 * 18 / 100) = 82, GST = 18
+        const sgstRateNum = parseFloat(sgstRate) || 0;
+        const cgstRateNum = parseFloat(cgstRate) || 0;
+        const totalGstRate = sgstRateNum + cgstRateNum;
+
+        const totalGstAmount = gstInclusiveTotal * (totalGstRate / 100);
+        const sgstAmount = gstInclusiveTotal * (sgstRateNum / 100);
+        const cgstAmount = gstInclusiveTotal * (cgstRateNum / 100);
+        const baseAmount = Math.max(0, gstInclusiveTotal - totalGstAmount);
+
         const refDisc = parseFloat(referralDiscount) || 0;
-        return { subtotal, discount: totalDiscount, referralDiscount: refDisc, total: Math.max(0, subtotal - refDisc) };
+        // Grand total = base + GST (which equals gstInclusiveTotal)
+        // Subtotal (final payable) = grandTotal - referralDiscount
+        const grandTotal = gstInclusiveTotal;
+        const finalPayable = Math.max(0, grandTotal - refDisc);
+
+        return {
+            netSubtotal,
+            overallDiscountAmount,
+            gstInclusiveTotal,
+            baseAmount,
+            sgstAmount,
+            cgstAmount,
+            sgstRate: sgstRateNum,
+            cgstRate: cgstRateNum,
+            totalGstAmount,
+            referralDiscount: refDisc,
+            grandTotal,
+            finalPayable,
+        };
     };
+
+    const totals = computedTotals();
 
     const handleGenerateInvoice = async () => {
         if (items.length === 0) { Alert.alert('No Items', 'Please add at least one part or service before generating the invoice.'); return; }
         setSubmitting(true);
         try {
-            const totals = computedTotals();
             const partsAndServices = items.map((item) => {
                 const s = (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0);
                 const d = item.discountType === 'Percentage' ? s * (parseFloat(item.discountValue) || 0) / 100 : item.discountType === 'Flat' ? parseFloat(item.discountValue) || 0 : 0;
-                return { type: item.type, name: item.name.trim(), quantity: parseFloat(item.quantity) || 1, price: parseFloat(item.price) || 0, discountPrice: d, discountType: item.discountType !== 'None' ? item.discountType : undefined };
+                return {
+                    type: item.type,
+                    name: item.name.trim(),
+                    quantity: parseFloat(item.quantity) || 1,
+                    price: parseFloat(item.price) || 0,
+                    discountPrice: d,
+                    discountType: item.discountType !== 'None' ? item.discountType : undefined,
+                };
             });
-            await axiosClient.put(`/api/admin/order/${order._id}/update-order/generate-invoice`, {
+
+            const payload = {
                 partsAndServices,
                 invoiceDetails: { invoiceDate: new Date().toISOString() },
-                total: { subtotal: totals.subtotal + totals.discount, discount: totals.discount, discountType: 'Mixed', referralDiscount: totals.referralDiscount, total: totals.total },
-                payment: { paymentStatus, paymentMethod, amountPaid: paymentStatus === 'partial' ? parseFloat(amountPaid) || 0 : paymentStatus === 'paid' ? totals.total : 0 },
-            });
+                total: {
+                    subTotal: items.reduce((acc, item) => acc + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0), 0),
+                    discount: totals.overallDiscountAmount,
+                    discountType: overallDiscountType === 'flat' ? 'Flat' : 'Percentage',
+                    referralDiscount: totals.referralDiscount,
+                    sgst: totals.sgstAmount,
+                    cgst: totals.cgstAmount,
+                    sgstRate: totals.sgstRate,
+                    cgstRate: totals.cgstRate,
+                    baseAmount: totals.baseAmount,
+                    total: totals.grandTotal,
+                    finalPayable: totals.finalPayable,
+                },
+                payment: {
+                    paymentStatus,
+                    paymentMethod: paymentStatus === 'paid' ? paymentMethod : null,
+                    amountPaid: paymentStatus === 'paid' ? totals.finalPayable : 0,
+                },
+            };
+
+            await axiosClient.put(`/api/admin/order/${order._id}/update-order/generate-invoice`, payload);
             Alert.alert('✅ Invoice Generated', `Invoice has been successfully generated for Order #${order.orderId}.`, [{ text: 'Done', onPress: () => navigation.goBack() }]);
         } catch (err) {
             Alert.alert('Error', err?.response?.data?.message || 'Failed to generate invoice. Please try again.');
@@ -726,25 +965,15 @@ export default function AdminGenerateInvoice({ route, navigation }) {
         }
     };
 
-    const grandTotal = computedTotals().total;
     const parts = items.filter((i) => i.type === 'part');
     const services = items.filter((i) => i.type === 'service');
 
     return (
         <View style={[gs.screen, { backgroundColor: theme.colors.background }]}>
             <ScreenWrapper title="Generate Invoice">
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    style={{ flex: 1 }}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-                >
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
                     <ScrollView
-                        contentContainerStyle={[
-                            gs.scroll,
-                            // insets.bottom ensures the Generate button is never hidden behind
-                            // the system nav bar regardless of navigation mode (3-btn / 2-btn / gesture)
-                            { paddingBottom: 20 + insets.bottom },
-                        ]}
+                        contentContainerStyle={[gs.scroll, { paddingBottom: 20 + insets.bottom }]}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
@@ -795,9 +1024,69 @@ export default function AdminGenerateInvoice({ route, navigation }) {
                             )}
                         </View>
 
-                        {items.length > 0 && <TotalsCard items={items} referralDiscount={referralDiscount} setReferralDiscount={setReferralDiscount} theme={theme} />}
+                        {/* Discount & Tax Card */}
+                        {items.length > 0 && (
+                            <DiscountTaxCard
+                                overallDiscountType={overallDiscountType}
+                                setOverallDiscountType={setOverallDiscountType}
+                                overallDiscountValue={overallDiscountValue}
+                                setOverallDiscountValue={setOverallDiscountValue}
+                                sgstRate={sgstRate}
+                                setSgstRate={setSgstRate}
+                                cgstRate={cgstRate}
+                                setCgstRate={setCgstRate}
+                                netSubtotal={totals.netSubtotal}
+                                overallDiscountAmount={totals.overallDiscountAmount}
+                                sgstAmount={totals.sgstAmount}
+                                cgstAmount={totals.cgstAmount}
+                                theme={theme}
+                            />
+                        )}
 
-                        <PaymentSection paymentStatus={paymentStatus} setPaymentStatus={setPaymentStatus} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} amountPaid={amountPaid} setAmountPaid={setAmountPaid} grandTotal={grandTotal} theme={theme} />
+                        {/* Referral Discount & Final Payable */}
+                        {items.length > 0 && (
+                            <View style={[totStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                                <Text style={[totStyles.heading, { color: theme.colors.textMuted }]}>INVOICE SUMMARY</Text>
+                                <View style={totStyles.row}>
+                                    <Text style={[totStyles.label, { color: theme.colors.textSecondary }]}>Total (incl. GST)</Text>
+                                    <Text style={[totStyles.val, { color: theme.colors.textSecondary }]}>{formatCurrency(totals.grandTotal)}</Text>
+                                </View>
+                                {totals.overallDiscountAmount > 0 && (
+                                    <View style={totStyles.row}>
+                                        <Text style={[totStyles.label, { color: '#E67E22' }]}>Overall Discount</Text>
+                                        <Text style={[totStyles.val, { color: '#E67E22' }]}>-{formatCurrency(totals.overallDiscountAmount)}</Text>
+                                    </View>
+                                )}
+                                <View style={totStyles.row}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                                        <Ionicons name="gift-outline" size={13} color="#9B59B6" />
+                                        <Text style={[totStyles.label, { color: '#9B59B6' }]}>Referral Discount (₹)</Text>
+                                    </View>
+                                    <TextInput
+                                        value={String(referralDiscount)}
+                                        onChangeText={setReferralDiscount}
+                                        placeholder="0"
+                                        keyboardType="decimal-pad"
+                                        style={[totStyles.refInput, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border, color: theme.colors.textPrimary }]}
+                                    />
+                                </View>
+                                <View style={[totStyles.divider, { backgroundColor: theme.colors.border }]} />
+                                <View style={[totStyles.row, { marginBottom: 5 }]}>
+                                    <Text style={[totStyles.grandLabel, { color: theme.colors.textPrimary }]}>SUBTOTAL (PAYABLE)</Text>
+                                    <Text style={[totStyles.grandVal, { color: theme.colors.primary }]}>{formatCurrency(totals.finalPayable)}</Text>
+                                </View>
+                                <Text style={[totStyles.taxNote, { color: theme.colors.textMuted }]}>* Prices are inclusive of GST</Text>
+                            </View>
+                        )}
+
+                        <PaymentSection
+                            paymentStatus={paymentStatus}
+                            setPaymentStatus={setPaymentStatus}
+                            paymentMethod={paymentMethod}
+                            setPaymentMethod={setPaymentMethod}
+                            grandTotal={totals.finalPayable}
+                            theme={theme}
+                        />
 
                         <TouchableOpacity
                             style={[gs.generateBtn, { backgroundColor: theme.colors.primary, shadowColor: theme.colors.primary, opacity: submitting ? 0.75 : 1 }]}
@@ -809,7 +1098,7 @@ export default function AdminGenerateInvoice({ route, navigation }) {
                                 <>
                                     <Ionicons name="receipt-outline" size={18} color="#1a1a1a" />
                                     <Text style={gs.generateText}>Generate Invoice</Text>
-                                    {grandTotal > 0 && <View style={gs.amtBadge}><Text style={gs.amtBadgeText}>{formatCurrency(grandTotal)}</Text></View>}
+                                    {totals.finalPayable > 0 && <View style={gs.amtBadge}><Text style={gs.amtBadgeText}>{formatCurrency(totals.finalPayable)}</Text></View>}
                                 </>
                             )}
                         </TouchableOpacity>
@@ -828,6 +1117,7 @@ export default function AdminGenerateInvoice({ route, navigation }) {
         </View>
     );
 }
+
 
 const gs = StyleSheet.create({
     screen: { flex: 1 },

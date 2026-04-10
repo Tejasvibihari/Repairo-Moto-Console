@@ -25,9 +25,9 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const STATUS_OPTIONS = [
     { key: 'Pending', label: 'Pending', dot: '#9E8E78', bg: 'rgba(158,142,120,0.18)', text: '#9E8E78', icon: 'time-outline' },
     { key: 'In Progress', label: 'In Progress', dot: '#E2A731', bg: 'rgba(226,167,49,0.18)', text: '#E2A731', icon: 'refresh-outline' },
-    { key: 'Mechanic Assigned', label: 'Mechanic Assigned', dot: '#3498DB', bg: 'rgba(52,152,219,0.18)', text: '#3498DB', icon: 'person-add-outline' },
+    // { key: 'Mechanic Assigned', label: 'Mechanic Assigned', dot: '#3498DB', bg: 'rgba(52,152,219,0.18)', text: '#3498DB', icon: 'person-add-outline' },
     { key: 'Completed', label: 'Completed', dot: '#2ECC9A', bg: 'rgba(46,204,154,0.18)', text: '#2ECC9A', icon: 'checkmark-circle-outline' },
-    { key: 'Invoice Generated', label: 'Invoice Generated', dot: '#9B59B6', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', icon: 'receipt-outline' },
+    // { key: 'Invoice Generated', label: 'Invoice Generated', dot: '#9B59B6', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', icon: 'receipt-outline' },
     { key: 'Cancelled', label: 'Cancelled', dot: '#FF6B6B', bg: 'rgba(255,107,107,0.18)', text: '#FF6B6B', icon: 'close-circle-outline' },
 ];
 

@@ -1,4 +1,4 @@
-// hooks/useOrder.js (updated)
+// hooks/useOrder.js (updated with generate invoice mutation)
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axiosClient from '../services/axiosClient';
 
@@ -21,7 +21,7 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
     const [mutationLoading, setMutationLoading] = useState(false);
     const [mutationError, setMutationError] = useState(null);
 
-    // --- NEW: dedicated create manual order states ---
+    // --- Dedicated create manual order states ---
     const [createLoading, setCreateLoading] = useState(false);
     const [createError, setCreateError] = useState(null);
 
@@ -239,6 +239,26 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
         }
     }, [refetch]);
 
+    // --- NEW: Update Order and Generate Invoice ---
+    const updateOrderAndGenerateInvoice = useCallback(async (orderId, invoiceData) => {
+        setMutationLoading(true);
+        setMutationError(null);
+        try {
+            const response = await axiosClient.put(
+                `/api/admin/order/${orderId}/update-order/generate-invoice`,
+                invoiceData
+            );
+            await refetch();
+            return response.data;
+        } catch (err) {
+            const errorMsg = err.response?.data?.message || 'Failed to generate invoice';
+            setMutationError(errorMsg);
+            throw new Error(errorMsg);
+        } finally {
+            setMutationLoading(false);
+        }
+    }, [refetch]);
+
     // --- NEW: Create Manual Order ---
     const createManualOrder = useCallback(async (orderData) => {
         setCreateLoading(true);
@@ -297,6 +317,8 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
         createLoading,
         createError,
         clearCreateError,
+        // NEW: generate invoice mutation
+        updateOrderAndGenerateInvoice,
     };
 };
 

@@ -31,6 +31,7 @@ import VendorNavigator from './vendor/VendorNavigator';
 import AdminSupportScreen from '../screens/admin/support/AdminSupportScreen';
 import AdminSettingsScreen from '../screens/admin/settings/AdminSettingsScreen';
 import NotificationsScreen from '../screens/shared/NotificationScreen';
+import AdminDashboardScreen from '../screens/admin/dashboard/AdminDashboardScreen';
 const Drawer = createDrawerNavigator();
 
 // ─── Role conditional data ──────────────────────────────────────────────────────────
@@ -42,13 +43,13 @@ const getDrawerConfig = (role) => {
     if (role === 'admin' || role === 'Admin') {
         HomeNav = AdminNavigator;
         group1 = [
-            { name: 'AdminDashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
-            { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
+            { name: 'AdminHome', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
+            // { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
         ];
-        group2 = [
-            { name: 'AdminSupport', label: 'Support', icon: 'help-circle-outline', iconActive: 'help-circle', lib: 'ion' },
-            // { name: 'TermsConditions', label: 'Terms & Conditions', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
-        ];
+        // group2 = [
+        //     { name: 'AdminSupport', label: 'Support', icon: 'help-circle-outline', iconActive: 'help-circle', lib: 'ion' },
+        //     { name: 'TermsConditions', label: 'Terms & Conditions', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
+        // ];
     }
     // else if (role === 'vendor' || role === 'Vendor') {
     //     HomeNav = VendorNavigator;

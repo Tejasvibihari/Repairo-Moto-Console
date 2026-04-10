@@ -1,5 +1,5 @@
 // src/screens/admin/order/AdminOrderDetail.js
-// ─── CHANGES: Added Generate Bill FAB, PaymentStatusCard, updated AssignmentSummaryCard
+// ─── UPDATED to handle new data structure (discounts, taxes, payment link, payment date) ───
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
     View, Text, ScrollView, StyleSheet, TouchableOpacity,
@@ -90,7 +90,8 @@ const tileStyles = StyleSheet.create({
     value: { fontSize: 13.5, fontWeight: '600' },
 });
 
-const FinancialRow = ({ icon, name, qty, price, theme }) => (
+// ─── FinancialRow with discount support ───────────────────────────────────────
+const FinancialRow = ({ icon, name, qty, effectivePrice, originalPrice, discount, theme }) => (
     <View style={finStyles.row}>
         <View style={[finStyles.iconWrap, { backgroundColor: theme.colors.surfaceHigh }]}>
             <Ionicons name={icon} size={13} color={theme.colors.textMuted} />
@@ -98,8 +99,18 @@ const FinancialRow = ({ icon, name, qty, price, theme }) => (
         <View style={{ flex: 1 }}>
             <Text style={[finStyles.name, { color: theme.colors.textPrimary }]}>{name}</Text>
             <Text style={[finStyles.qty, { color: theme.colors.textMuted }]}>{qty}</Text>
+            {discount > 0 && (
+                <View style={finStyles.discountBadge}>
+                    <Text style={finStyles.discountText}>−{formatCurrency(discount)}</Text>
+                </View>
+            )}
         </View>
-        <Text style={[finStyles.price, { color: theme.colors.textSecondary }]}>{price}</Text>
+        <View style={{ alignItems: 'flex-end' }}>
+            {originalPrice && discount > 0 && (
+                <Text style={[finStyles.originalPrice, { color: theme.colors.textMuted }]}>{formatCurrency(originalPrice)}</Text>
+            )}
+            <Text style={[finStyles.price, { color: theme.colors.textSecondary }]}>{formatCurrency(effectivePrice)}</Text>
+        </View>
     </View>
 );
 const finStyles = StyleSheet.create({
@@ -108,6 +119,9 @@ const finStyles = StyleSheet.create({
     name: { fontSize: 13, fontWeight: '600' },
     qty: { fontSize: 11, marginTop: 1 },
     price: { fontSize: 13, fontWeight: '600', minWidth: 70, textAlign: 'right' },
+    originalPrice: { fontSize: 10, textDecorationLine: 'line-through', marginBottom: 2 },
+    discountBadge: { backgroundColor: '#FF6B6B22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 12, alignSelf: 'flex-start', marginTop: 2 },
+    discountText: { fontSize: 9, fontWeight: '700', color: '#FF6B6B' },
 });
 
 const Card = ({ children, theme, style }) => (
@@ -128,7 +142,7 @@ const getServiceChipStyle = (type) => {
     return { label: type || '—', icon: 'help-circle-outline', bg: 'rgba(128,128,128,0.15)', text: '#888', border: 'rgba(128,128,128,0.3)' };
 };
 
-// ─── Payment Status Card (NEW) ────────────────────────────────────────────────
+// ─── Payment Status Card (updated with payment date & razorpay link) ───────────
 const PaymentStatusCard = ({ order, theme }) => {
     const ps = PAYMENT_STATUS_CONFIG[order.paymentStatus] ?? PAYMENT_STATUS_CONFIG.unpaid;
     const methodIcon = PAYMENT_METHOD_ICONS[order.paymentMethod] ?? 'cash-outline';
@@ -137,20 +151,28 @@ const PaymentStatusCard = ({ order, theme }) => {
         : 'Not set';
 
     const amountPaid = order.amountPaid ?? 0;
-    const grandTotal = order.total?.total ?? 0;
+    const grandTotal = order.total?.finalPayable ?? order.total?.total ?? 0;
     const balance = Math.max(0, grandTotal - amountPaid);
+    const paymentDate = order.paymentDate ? formatDate(order.paymentDate) : null;
+    const razorpayLink = order.razorpay?.paymentLinkUrl;
+
+    const handlePayNow = () => {
+        if (razorpayLink) {
+            Linking.openURL(razorpayLink).catch(() => Alert.alert('Error', 'Could not open payment link'));
+        } else {
+            Alert.alert('Not Available', 'No payment link found for this order.');
+        }
+    };
 
     return (
         <Card theme={theme}>
             <SectionLabel label="Payment Status" theme={theme} />
             <View style={psStyles.row}>
-                {/* Status pill */}
                 <View style={[psStyles.pill, { backgroundColor: ps.bg, borderColor: ps.border }]}>
                     <Ionicons name={ps.icon} size={15} color={ps.text} />
                     <Text style={[psStyles.pillText, { color: ps.text }]}>{ps.label}</Text>
                 </View>
 
-                {/* Method */}
                 {order.paymentMethod && (
                     <View style={[psStyles.method, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
                         <Ionicons name={methodIcon} size={13} color={theme.colors.textSecondary} />
@@ -159,8 +181,14 @@ const PaymentStatusCard = ({ order, theme }) => {
                 )}
             </View>
 
-            {/* Amount breakdown for partial */}
-            {order.paymentStatus === 'partial' && grandTotal > 0 && (
+            {paymentDate && (
+                <View style={[psStyles.paymentDate, { backgroundColor: theme.colors.surfaceLow }]}>
+                    <Ionicons name="calendar-outline" size={12} color={theme.colors.textMuted} />
+                    <Text style={[psStyles.dateText, { color: theme.colors.textMuted }]}>Paid on {paymentDate}</Text>
+                </View>
+            )}
+
+            {(order.paymentStatus === 'partial' || order.paymentStatus === 'unpaid') && grandTotal > 0 && (
                 <View style={[psStyles.breakdown, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
                     <View style={psStyles.bRow}>
                         <Text style={[psStyles.bLabel, { color: theme.colors.textMuted }]}>Amount Paid</Text>
@@ -173,6 +201,13 @@ const PaymentStatusCard = ({ order, theme }) => {
                     </View>
                 </View>
             )}
+
+            {order.paymentStatus === 'unpaid' && razorpayLink && (
+                <TouchableOpacity style={[psStyles.payNowBtn, { backgroundColor: theme.colors.primary }]} onPress={handlePayNow}>
+                    <Ionicons name="card-outline" size={14} color="#1a1a1a" />
+                    <Text style={psStyles.payNowText}>Pay Now</Text>
+                </TouchableOpacity>
+            )}
         </Card>
     );
 };
@@ -182,14 +217,18 @@ const psStyles = StyleSheet.create({
     pillText: { fontSize: 13, fontWeight: '800' },
     method: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
     methodText: { fontSize: 12, fontWeight: '600' },
+    paymentDate: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, alignSelf: 'flex-start' },
+    dateText: { fontSize: 11, fontWeight: '500' },
     breakdown: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, borderWidth: 1, padding: 12, marginTop: 12, gap: 0 },
     bRow: { flex: 1, alignItems: 'center', gap: 3 },
     bLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
     bVal: { fontSize: 14, fontWeight: '800' },
     bDivider: { width: StyleSheet.hairlineWidth, height: 30, marginHorizontal: 8 },
+    payNowBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingVertical: 12, borderRadius: 12 },
+    payNowText: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
 });
 
-// ─── Map Component ────────────────────────────────────────────────────────────
+// ─── Map Component (unchanged) ────────────────────────────────────────────────
 const LocationMap = ({ coordinates, city, theme }) => {
     const [placeName, setPlaceName] = useState('');
     const [mapReady, setMapReady] = useState(false);
@@ -252,7 +291,7 @@ const mapStyles = StyleSheet.create({
     viewMapText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 });
 
-// ─── FAB Row (Manage + Generate Bill) ─────────────────────────────────────────
+// ─── FAB Row (unchanged) ──────────────────────────────────────────────────────
 const ActionButtons = ({ onManage, onGenerateBill, theme, isInvoiced }) => (
     <View style={fabStyles.row}>
         <TouchableOpacity
@@ -289,7 +328,7 @@ const fabStyles = StyleSheet.create({
     primaryLabel: { fontSize: 13, fontWeight: '900', color: '#1a1a1a' },
 });
 
-// ─── Assignment Summary Card ──────────────────────────────────────────────────
+// ─── Assignment Summary Card (unchanged) ───────────────────────────────────────
 const AssignmentSummaryCard = ({ order, theme, onManage }) => {
     const sc = getStatusConfig(order.status);
     return (
@@ -454,6 +493,32 @@ export default function AdminOrderDetail({ route, navigation }) {
         ? `${userLocation.coordinates[1].toFixed(4)}, ${userLocation.coordinates[0].toFixed(4)}`
         : null;
     const isInvoiced = status?.toLowerCase().replace(/\s+/g, '_') === 'invoice_generated';
+    const grandTotal = total?.finalPayable ?? total?.total ?? 0;
+
+    // Helper to compute effective price per item
+    const getEffectiveItem = (item, isPart = true) => {
+        const price = item.price || 0;
+        const discount = item.discountPrice || 0;
+        const effective = price - discount;
+        const quantity = item.quantity || 1;
+        return {
+            name: isPart ? item.partName : item.serviceName,
+            quantity,
+            originalTotal: price * quantity,
+            effectiveTotal: effective * quantity,
+            discountTotal: discount * quantity,
+            discountApplied: discount > 0,
+            unitPrice: price,
+            unitEffective: effective,
+        };
+    };
+
+    // Build items for display
+    const partsWithDiscount = partsUsed.map(p => getEffectiveItem(p, true));
+    const servicesWithDiscount = serviceProvided.map(s => getEffectiveItem(s, false));
+
+    // Tax breakdown
+    const showTaxes = (total.cgst > 0 || total.sgst > 0) && (total.cgstRate || total.sgstRate);
 
     return (
         <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -475,8 +540,7 @@ export default function AdminOrderDetail({ route, navigation }) {
                                     <Text style={[styles.invoiceBadgeText, { color: '#9B59B6' }]}>INVOICED</Text>
                                 </View>
                             )}
-                            {/* Payment Status mini badge in header */}
-                            {paymentStatus && (() => {
+                            {/* {paymentStatus && (() => {
                                 const ps = PAYMENT_STATUS_CONFIG[paymentStatus] ?? PAYMENT_STATUS_CONFIG.unpaid;
                                 return (
                                     <View style={[styles.invoiceBadge, { backgroundColor: ps.bg, borderColor: ps.border }]}>
@@ -484,7 +548,7 @@ export default function AdminOrderDetail({ route, navigation }) {
                                         <Text style={[styles.invoiceBadgeText, { color: ps.text }]}>{ps.label.toUpperCase()}</Text>
                                     </View>
                                 );
-                            })()}
+                            })()} */}
                         </View>
                     </View>
 
@@ -492,7 +556,6 @@ export default function AdminOrderDetail({ route, navigation }) {
 
                     <AssignmentSummaryCard order={order} theme={theme} onManage={() => setPanelVisible(true)} />
 
-                    {/* Payment Status Card (shown when payment info exists) */}
                     {(paymentStatus || isInvoiced) && (
                         <PaymentStatusCard order={order} theme={theme} />
                     )}
@@ -566,50 +629,70 @@ export default function AdminOrderDetail({ route, navigation }) {
                         </View>
                     </Card>
 
-                    {/* Financial Breakdown */}
+                    {/* Financial Breakdown with discount & tax support */}
                     <Card theme={theme}>
                         <SectionLabel label="Financial Breakdown" theme={theme} />
-                        {partsUsed.length > 0 && (
+
+                        {partsWithDiscount.length > 0 && (
                             <>
-                                <Text style={[styles.finSubLabel, { color: theme.colors.textMuted }]}>PARTS &amp; CONSUMABLES</Text>
-                                {partsUsed.map((p, i) => (
-                                    <FinancialRow key={i} icon="construct-outline" name={p.partName}
-                                        qty={`${p.quantity} × ${formatCurrency(p.price)}`}
-                                        price={formatCurrency(p.quantity * p.price)} theme={theme} />
+                                <Text style={[styles.finSubLabel, { color: theme.colors.textMuted }]}>PARTS & CONSUMABLES</Text>
+                                {partsWithDiscount.map((item, idx) => (
+                                    <FinancialRow
+                                        key={idx}
+                                        icon="construct-outline"
+                                        name={item.name}
+                                        qty={`${item.quantity} × ${formatCurrency(item.unitPrice)}`}
+                                        effectivePrice={item.effectiveTotal}
+                                        originalPrice={item.discountApplied ? item.originalTotal : null}
+                                        discount={item.discountTotal}
+                                        theme={theme}
+                                    />
                                 ))}
                                 <Divider theme={theme} style={{ marginBottom: 12 }} />
                             </>
                         )}
-                        {serviceProvided.length > 0 && (
+
+                        {servicesWithDiscount.length > 0 && (
                             <>
                                 <Text style={[styles.finSubLabel, { color: theme.colors.textMuted }]}>SERVICES PROVIDED</Text>
-                                {serviceProvided.map((s, i) => (
-                                    <FinancialRow key={i} icon="checkmark-circle-outline" name={s.serviceName}
-                                        qty={`${s.quantity} × ${formatCurrency(s.price)}`}
-                                        price={formatCurrency(s.quantity * s.price)} theme={theme} />
+                                {servicesWithDiscount.map((item, idx) => (
+                                    <FinancialRow
+                                        key={idx}
+                                        icon="checkmark-circle-outline"
+                                        name={item.name}
+                                        qty={`${item.quantity} × ${formatCurrency(item.unitPrice)}`}
+                                        effectivePrice={item.effectiveTotal}
+                                        originalPrice={item.discountApplied ? item.originalTotal : null}
+                                        discount={item.discountTotal}
+                                        theme={theme}
+                                    />
                                 ))}
                                 <Divider theme={theme} style={{ marginBottom: 12 }} />
                             </>
                         )}
-                        {(partsUsed.length === 0 && serviceProvided.length === 0) && (
+
+                        {(partsWithDiscount.length === 0 && servicesWithDiscount.length === 0) && (
                             <View style={[styles.emptyBill, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
                                 <Ionicons name="receipt-outline" size={22} color={theme.colors.textMuted} />
                                 <Text style={[styles.emptyBillText, { color: theme.colors.textMuted }]}>No items billed yet</Text>
                                 <Text style={[styles.emptyBillHint, { color: theme.colors.textMuted }]}>Tap "Generate Bill" below to add parts & services</Text>
                             </View>
                         )}
-                        {(total?.total > 0) && (
+
+                        {(grandTotal > 0) && (
                             <View style={styles.totalsBlock}>
                                 <View style={styles.totalRow}>
                                     <Text style={[styles.totalLabel, { color: theme.colors.textSecondary }]}>Subtotal</Text>
-                                    <Text style={[styles.totalValue, { color: theme.colors.textSecondary }]}>{formatCurrency(total.subTotal)}</Text>
+                                    <Text style={[styles.totalValue, { color: theme.colors.textSecondary }]}>{formatCurrency(total.subTotal ?? 0)}</Text>
                                 </View>
+
                                 {total.discount > 0 && (
                                     <View style={styles.totalRow}>
                                         <Text style={[styles.totalLabel, { color: theme.colors.textSecondary }]}>Discount</Text>
                                         <Text style={[styles.totalValue, { color: theme.colors.success }]}>-{formatCurrency(total.discount)}</Text>
                                     </View>
                                 )}
+
                                 {total.referralDiscount > 0 && (
                                     <View style={styles.totalRow}>
                                         <View style={styles.referralLabelRow}>
@@ -619,10 +702,24 @@ export default function AdminOrderDetail({ route, navigation }) {
                                         <Text style={[styles.totalValue, { color: theme.colors.success }]}>-{formatCurrency(total.referralDiscount)}</Text>
                                     </View>
                                 )}
+
+                                {showTaxes && (
+                                    <>
+                                        <View style={styles.totalRow}>
+                                            <Text style={[styles.totalLabel, { color: theme.colors.textSecondary }]}>CGST ({total.cgstRate}%)</Text>
+                                            <Text style={[styles.totalValue, { color: theme.colors.textSecondary }]}>{formatCurrency(total.cgst)}</Text>
+                                        </View>
+                                        <View style={styles.totalRow}>
+                                            <Text style={[styles.totalLabel, { color: theme.colors.textSecondary }]}>SGST ({total.sgstRate}%)</Text>
+                                            <Text style={[styles.totalValue, { color: theme.colors.textSecondary }]}>{formatCurrency(total.sgst)}</Text>
+                                        </View>
+                                    </>
+                                )}
+
                                 <Divider theme={theme} style={{ marginVertical: 10 }} />
                                 <View style={styles.totalRow}>
                                     <Text style={[styles.grandTotalLabel, { color: theme.colors.textPrimary }]}>TOTAL AMOUNT</Text>
-                                    <Text style={[styles.grandTotalValue, { color: theme.colors.primary }]}>{formatCurrency(total.total)}</Text>
+                                    <Text style={[styles.grandTotalValue, { color: theme.colors.primary }]}>{formatCurrency(grandTotal)}</Text>
                                 </View>
                                 <Text style={[styles.taxNote, { color: theme.colors.textMuted }]}>Tax inclusive</Text>
                             </View>

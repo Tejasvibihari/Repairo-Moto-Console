@@ -180,14 +180,14 @@ const TopBar = ({
                         />
                         <Badge count={notificationCount} theme={theme} />
                     </TouchableOpacity>
-
+                    {/* 
                     <TouchableOpacity
                         onPress={onAvatarPress}
                         style={[styles.avatarRing, { borderColor: theme.colors.primary }]}
                         activeOpacity={0.8}
                     >
                         <Avatar avatarSource={avatarSource} theme={theme} />
-                    </TouchableOpacity>
+                    </TouchableOpacity> */}
                 </View>
             </View>
         </Animated.View>
