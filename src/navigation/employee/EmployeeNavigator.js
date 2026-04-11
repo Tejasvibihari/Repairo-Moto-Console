@@ -7,6 +7,7 @@ import CustomTabBar from '../../components/common/CustomTabBar';
 import EmployeeDashboard from '../../screens/employee/dashboard/EmployeeDashboard';
 import EmployeeOrdersScreen from '../../screens/employee/booking/EmployeeOrdersScreen';
 import EmployeeOrderDetail from '../../screens/employee/booking/EmployeeOrderDetailScreen';
+import EmployeeTermsScreen from '../../screens/employee/terms/EmployeeTermsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -40,6 +41,7 @@ export default function EmployeeNavigator() {
             initialRouteName="EmployeeTabs"
         >
             <Stack.Screen name="EmployeeTabs" component={EmployeeTabs} />
+            <Stack.Screen name="EmployeeTerms" component={EmployeeTermsScreen} />
             <Stack.Screen name="EmployeeOrderDetail" component={EmployeeOrderDetail} />
         </Stack.Navigator>
     );

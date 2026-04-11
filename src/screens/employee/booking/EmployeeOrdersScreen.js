@@ -18,6 +18,7 @@ import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import axiosClient from '../../../services/axiosClient';
 import ScreenWrapper from '../../../components/common/ScreenWrapper';
 import EmployeeOrderCard from '../../../components/employee/booking/EmployeeOrderCard';
+import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
 
 // ── Filter tabs ────────────────────────────────────────────────────────────────
 const FILTER_TABS = [
@@ -155,7 +156,7 @@ export default function EmployeeOrdersScreen() {
     };
 
     return (
-        <ScreenWrapper title="My Orders" noPadding>
+        <TabScreenWrapper greeting="All Orders" showBookingIcon={false} showMenuIcon={true}>
             <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
 
                 {/* ── Search bar — always visible, outside the list ── */}
@@ -271,7 +272,7 @@ export default function EmployeeOrdersScreen() {
                     />
                 )}
             </View>
-        </ScreenWrapper>
+        </TabScreenWrapper>
     );
 }
 

@@ -431,7 +431,7 @@ const drawerStyles = StyleSheet.create({
 });
 
 // ─── Editable Item Card for Parts/Services ────────────────────────────────────
-const ItemCard = ({ item, onEdit, onRemove, theme, index }) => {
+const ItemCard = ({ item, onEdit, onRemove, theme, index, readOnly = false }) => {
     const isPartType = item.type === 'part';
     const accentColor = isPartType ? '#3498DB' : '#2ECC9A';
     const accentBg = isPartType ? 'rgba(52,152,219,0.08)' : 'rgba(46,204,154,0.08)';
@@ -455,14 +455,16 @@ const ItemCard = ({ item, onEdit, onRemove, theme, index }) => {
                             <Text style={[cardItemStyles.typeText, { color: accentColor }]}>{isPartType ? 'PART' : 'SERVICE'}</Text>
                         </View>
                         <Text style={[cardItemStyles.name, { color: theme.colors.textPrimary }]} numberOfLines={1}>{item.name || 'Unnamed'}</Text>
-                        <View style={cardItemStyles.actions}>
-                            <TouchableOpacity onPress={() => onEdit(item)} style={[cardItemStyles.actionBtn, { backgroundColor: 'rgba(52,152,219,0.1)' }]} activeOpacity={0.75}>
-                                <Ionicons name="pencil-outline" size={13} color="#3498DB" />
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => onRemove(item.id)} style={[cardItemStyles.actionBtn, { backgroundColor: 'rgba(255,107,107,0.1)' }]} activeOpacity={0.75}>
-                                <Ionicons name="trash-outline" size={13} color="#FF6B6B" />
-                            </TouchableOpacity>
-                        </View>
+                        {!readOnly && (
+                            <View style={cardItemStyles.actions}>
+                                <TouchableOpacity onPress={() => onEdit(item)} style={[cardItemStyles.actionBtn, { backgroundColor: 'rgba(52,152,219,0.1)' }]} activeOpacity={0.75}>
+                                    <Ionicons name="pencil-outline" size={13} color="#3498DB" />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => onRemove(item.id)} style={[cardItemStyles.actionBtn, { backgroundColor: 'rgba(255,107,107,0.1)' }]} activeOpacity={0.75}>
+                                    <Ionicons name="trash-outline" size={13} color="#FF6B6B" />
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
                     <View style={cardItemStyles.metaRow}>
                         <View style={[cardItemStyles.metaChip, { backgroundColor: theme.colors.surfaceLow }]}>
@@ -516,7 +518,7 @@ const cardItemStyles = StyleSheet.create({
 });
 
 // ─── Editable Section for Parts or Services ───────────────────────────────────
-const EditableItemsSection = ({ title, type, items, onAdd, onEdit, onRemove, theme }) => {
+const EditableItemsSection = ({ title, type, items, onAdd, onEdit, onRemove, theme, readOnly = false }) => {
     const isPartType = type === 'part';
     const accentColor = isPartType ? '#3498DB' : '#2ECC9A';
     const accentBg = isPartType ? 'rgba(52,152,219,0.12)' : 'rgba(46,204,154,0.12)';
@@ -531,32 +533,53 @@ const EditableItemsSection = ({ title, type, items, onAdd, onEdit, onRemove, the
                     <Text style={[sectionHeaderStyles.title, { color: theme.colors.textPrimary }]}>{title}</Text>
                     {items.length > 0 && <View style={[sectionHeaderStyles.badge, { backgroundColor: accentBg }]}><Text style={[sectionHeaderStyles.badgeText, { color: accentColor }]}>{items.length}</Text></View>}
                 </View>
-                {/* <TouchableOpacity onPress={onAdd} style={[sectionHeaderStyles.addBtn, { backgroundColor: accentColor, shadowColor: accentColor }]} activeOpacity={0.82}>
-                    <Ionicons name="add" size={16} color="#fff" />
-                    <Text style={sectionHeaderStyles.addText}>Add {isPartType ? 'Part' : 'Service'}</Text>
-                </TouchableOpacity> */}
+                {!readOnly && (
+                    <TouchableOpacity onPress={onAdd} style={[sectionHeaderStyles.addBtn, { backgroundColor: accentColor, shadowColor: accentColor }]} activeOpacity={0.82}>
+                        <Ionicons name="add" size={16} color="#fff" />
+                        <Text style={sectionHeaderStyles.addText}>Add {isPartType ? 'Part' : 'Service'}</Text>
+                    </TouchableOpacity>
+                )}
             </View>
             {items.length === 0 ? (
-                <TouchableOpacity onPress={onAdd} style={[emptyStyles.wrap, { backgroundColor: accentBg, borderColor: accentColor + '30' }]} activeOpacity={0.75}>
-                    <View style={[emptyStyles.iconWrap, { backgroundColor: accentColor + '18' }]}>
-                        <Ionicons name={isPartType ? 'construct-outline' : 'checkmark-circle-outline'} size={26} color={accentColor} />
+                readOnly ? (
+                    <View style={[emptyStyles.wrap, { backgroundColor: accentBg, borderColor: accentColor + '30' }]}>
+                        <View style={[emptyStyles.iconWrap, { backgroundColor: accentColor + '18' }]}>
+                            <Ionicons name={isPartType ? 'construct-outline' : 'checkmark-circle-outline'} size={26} color={accentColor} />
+                        </View>
+                        <Text style={[emptyStyles.title, { color: theme.colors.textPrimary }]}>No {isPartType ? 'parts' : 'services'} added</Text>
                     </View>
-                    <Text style={[emptyStyles.title, { color: theme.colors.textPrimary }]}>No {isPartType ? 'parts' : 'services'} added yet</Text>
-                    <Text style={[emptyStyles.hint, { color: theme.colors.textMuted }]}>Tap to add {isPartType ? 'a part or consumable' : 'a service performed'}</Text>
-                    <View style={[emptyStyles.addChip, { backgroundColor: accentColor }]}>
-                        <Ionicons name="add" size={14} color="#fff" />
-                        <Text style={emptyStyles.addChipTxt}>Add {isPartType ? 'Part' : 'Service'}</Text>
-                    </View>
-                </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity onPress={onAdd} style={[emptyStyles.wrap, { backgroundColor: accentBg, borderColor: accentColor + '30' }]} activeOpacity={0.75}>
+                        <View style={[emptyStyles.iconWrap, { backgroundColor: accentColor + '18' }]}>
+                            <Ionicons name={isPartType ? 'construct-outline' : 'checkmark-circle-outline'} size={26} color={accentColor} />
+                        </View>
+                        <Text style={[emptyStyles.title, { color: theme.colors.textPrimary }]}>No {isPartType ? 'parts' : 'services'} added yet</Text>
+                        <Text style={[emptyStyles.hint, { color: theme.colors.textMuted }]}>Tap to add {isPartType ? 'a part or consumable' : 'a service performed'}</Text>
+                        <View style={[emptyStyles.addChip, { backgroundColor: accentColor }]}>
+                            <Ionicons name="add" size={14} color="#fff" />
+                            <Text style={emptyStyles.addChipTxt}>Add {isPartType ? 'Part' : 'Service'}</Text>
+                        </View>
+                    </TouchableOpacity>
+                )
             ) : (
                 <>
                     {items.map((item, idx) => (
-                        <ItemCard key={item.id} item={item} onEdit={onEdit} onRemove={onRemove} theme={theme} index={idx} />
+                        <ItemCard
+                            key={item.id}
+                            item={item}
+                            onEdit={readOnly ? undefined : onEdit}
+                            onRemove={readOnly ? undefined : onRemove}
+                            theme={theme}
+                            index={idx}
+                            readOnly={readOnly}
+                        />
                     ))}
-                    <TouchableOpacity onPress={onAdd} style={[addMoreStyles.btn, { borderColor: accentColor + '40', backgroundColor: accentColor + '10' }]} activeOpacity={0.75}>
-                        <Ionicons name="add-circle-outline" size={16} color={accentColor} />
-                        <Text style={[addMoreStyles.txt, { color: accentColor }]}>Add Another {isPartType ? 'Part' : 'Service'}</Text>
-                    </TouchableOpacity>
+                    {!readOnly && (
+                        <TouchableOpacity onPress={onAdd} style={[addMoreStyles.btn, { borderColor: accentColor + '40', backgroundColor: accentColor + '10' }]} activeOpacity={0.75}>
+                            <Ionicons name="add-circle-outline" size={16} color={accentColor} />
+                            <Text style={[addMoreStyles.txt, { color: accentColor }]}>Add Another {isPartType ? 'Part' : 'Service'}</Text>
+                        </TouchableOpacity>
+                    )}
                 </>
             )}
         </Card>
@@ -672,6 +695,8 @@ export default function EmployeeOrderDetail({ route, navigation }) {
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const insets = useSafeAreaInsets();
+    const position = useSelector((state) => state.auth?.user?.position);
+    const isDelivery = position?.toLowerCase() === 'delivery';
 
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -866,6 +891,11 @@ export default function EmployeeOrderDetail({ route, navigation }) {
 
                     <Divider theme={theme} style={{ marginBottom: 16 }} />
 
+                    {/* Location map - moved to top priority */}
+                    {userLocation?.coordinates?.length === 2 && (
+                        <LocationMap coordinates={userLocation.coordinates} city={city} theme={theme} />
+                    )}
+
                     {/* Vehicle Details */}
                     <Card theme={theme}>
                         <SectionLabel label="Vehicle Details" theme={theme} />
@@ -914,7 +944,7 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                         <InfoTile icon="time-outline" label="Preferred Time" value={preferredTime || '—'} theme={theme} />
                     </Card>
 
-                    {/* Editable Parts Section */}
+                    {/* Editable Parts Section - readOnly if delivery */}
                     <EditableItemsSection
                         title="Parts Used"
                         type="part"
@@ -923,9 +953,10 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                         onEdit={openEditDrawer}
                         onRemove={removeItem}
                         theme={theme}
+                        readOnly={isDelivery}
                     />
 
-                    {/* Editable Services Section */}
+                    {/* Editable Services Section - readOnly if delivery */}
                     <EditableItemsSection
                         title="Services Provided"
                         type="service"
@@ -934,32 +965,13 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                         onEdit={openEditDrawer}
                         onRemove={removeItem}
                         theme={theme}
+                        readOnly={isDelivery}
                     />
 
-                    {/* Financial Breakdown (Read‑only) */}
-                    <FinancialBreakdownCard order={order} theme={theme} />
+                    {/* Financial Breakdown - hidden for delivery */}
+                    {!isDelivery && <FinancialBreakdownCard order={order} theme={theme} />}
 
-                    {/* Save Button */}
-                    <TouchableOpacity
-                        style={[styles.saveBtn, { backgroundColor: theme.colors.primary, shadowColor: theme.colors.primary, opacity: saving ? 0.7 : 1 }]}
-                        onPress={handleSaveItems}
-                        disabled={saving}
-                        activeOpacity={0.85}
-                    >
-                        {saving ? (
-                            <ActivityIndicator size="small" color="#1a1a1a" />
-                        ) : (
-                            <>
-                                <Ionicons name="save-outline" size={18} color="#1a1a1a" />
-                                <Text style={styles.saveBtnText}>Save Changes</Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
-
-                    {/* Location map */}
-                    {userLocation?.coordinates?.length === 2 && (
-                        <LocationMap coordinates={userLocation.coordinates} city={city} theme={theme} />
-                    )}
+                    {/* Save button removed entirely */}
 
                     <Text style={[styles.metaNote, { color: theme.colors.textMuted }]}>
                         Created {formatDate(createdAt)}
@@ -969,14 +981,18 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                 </Animated.ScrollView>
             </ScreenWrapper>
 
-            <AddItemDrawer
-                visible={drawerVisible}
-                type={drawerType}
-                onClose={() => { setDrawerVisible(false); setEditingItem(null); }}
-                onSave={handleSaveItem}
-                theme={theme}
-                editItem={editingItem}
-            />
+            {/* AddItemDrawer only shown when not delivery */}
+            {!isDelivery && (
+                <AddItemDrawer
+                    visible={drawerVisible}
+                    type={drawerType}
+                    onClose={() => { setDrawerVisible(false); setEditingItem(null); }}
+                    onSave={handleSaveItem}
+                    theme={theme}
+                    editItem={editingItem}
+                />
+            )}
+
             <PopUp
                 visible={popupVisible}
                 title={popupConfig.title}
@@ -1008,7 +1024,5 @@ const styles = StyleSheet.create({
     serviceTagText: { fontSize: 12, fontWeight: '600' },
     serviceTypeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, marginTop: 8 },
     serviceTypeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
-    saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: 16, marginBottom: 12, marginHorizontal: 1, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14, elevation: 8 },
-    saveBtnText: { fontSize: 16, fontWeight: '900', color: '#1a1a1a', letterSpacing: 0.3 },
     metaNote: { fontSize: 11, textAlign: 'center', marginTop: 8, letterSpacing: 0.2 },
 });

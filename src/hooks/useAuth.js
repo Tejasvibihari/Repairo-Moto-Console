@@ -21,17 +21,17 @@ export function useAuth() {
         console.log(email, password, role);
 
         let url = '';
-        let userKey = ''; // to know which key holds the user data in response
+        let userKey = '';
 
         if (role === 'admin') {
             url = '/api/admin/adminsignin';
-            userKey = 'user'; // adjust based on your admin controller response
+            userKey = 'user';
         } else if (role === 'employee') {
             url = '/api/employee/auth/employee-sign-in';
-            userKey = 'employee'; // backend sends "employee"
+            userKey = 'employee';
         } else if (role === 'vendor') {
             url = '/api/vendor/auth/vendor-sign-in';
-            userKey = 'vendor'; // adjust based on your vendor controller
+            userKey = 'vendor';
         } else {
             const errorMsg = 'Invalid login role provided.';
             dispatch(loginFailure(errorMsg));
@@ -44,8 +44,6 @@ export function useAuth() {
             const response = await axiosClient.post(url, { email, password });
             const { token } = response.data;
             let userData = response.data[userKey]; // extract user from correct key
-
-            console.log(response.data);
 
             // If userData is undefined, throw an error
             if (!userData) {
