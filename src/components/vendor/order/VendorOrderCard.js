@@ -20,18 +20,12 @@ const STATUS_CONFIG = {
     'Cancelled': { color: '#FF6B6B', bg: 'rgba(255,107,107,0.12)', icon: 'close-circle-outline' },
 };
 
-const PAYMENT_CONFIG = {
-    'paid': { color: '#2ECC9A', label: 'Paid' },
-    'partial': { color: '#F59E0B', label: 'Partial' },
-    'unpaid': { color: '#FF6B6B', label: 'Unpaid' },
-};
-
 // ─── VendorOrderCard ──────────────────────────────────────────────────────────
 export default function VendorOrderCard({ order, onPress, index = 0 }) {
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const isDark = mode === 'dark';
-    console.log(order, "from vendor order card");
+
     const translateY = useRef(new Animated.Value(16)).current;
     const opacity = useRef(new Animated.Value(0)).current;
 
@@ -54,7 +48,6 @@ export default function VendorOrderCard({ order, onPress, index = 0 }) {
     }, []);
 
     const statusCfg = STATUS_CONFIG[order.status] || STATUS_CONFIG['Pending'];
-    const paymentCfg = PAYMENT_CONFIG[order.paymentStatus] || PAYMENT_CONFIG['unpaid'];
 
     const formattedDate = order.preferredDate
         ? new Date(order.preferredDate).toLocaleDateString('en-IN', {
@@ -67,9 +60,6 @@ export default function VendorOrderCard({ order, onPress, index = 0 }) {
     const vehicleLabel = [order.selectedBrand, order.selectedModel, order.cc ? `${order.cc}cc` : '']
         .filter(Boolean)
         .join(' · ');
-
-    const serviceList = Array.isArray(order.services) ? order.services.slice(0, 2) : [];
-    const extraServices = Array.isArray(order.services) ? order.services.length - 2 : 0;
 
     return (
         <Animated.View style={{ opacity, transform: [{ translateY }] }}>
@@ -108,7 +98,7 @@ export default function VendorOrderCard({ order, onPress, index = 0 }) {
                 {/* ── Divider ── */}
                 <View style={[styles.divider, { backgroundColor: theme.colors.border }]} />
 
-                {/* ── Customer Info ── */}
+                {/* ── Customer Info (only name and city, no phone) ── */}
                 <View style={styles.section}>
                     <View style={styles.infoRow}>
                         <Ionicons name="person-outline" size={14} color={theme.colors.textMuted} />
@@ -117,12 +107,6 @@ export default function VendorOrderCard({ order, onPress, index = 0 }) {
                         </Text>
                         <Text style={[styles.infoCity, { color: theme.colors.textMuted }]}>
                             · {order.city}
-                        </Text>
-                    </View>
-                    <View style={styles.infoRow}>
-                        <Ionicons name="call-outline" size={14} color={theme.colors.textMuted} />
-                        <Text style={[styles.infoText, { color: theme.colors.textSecondary }]}>
-                            {order.contactNo}
                         </Text>
                     </View>
                 </View>
@@ -146,55 +130,44 @@ export default function VendorOrderCard({ order, onPress, index = 0 }) {
                     )}
                 </View>
 
-                {/* ── Services ── */}
-                {serviceList.length > 0 && (
-                    <View style={styles.servicesRow}>
-                        {serviceList.map((s, i) => (
-                            <View
-                                key={i}
-                                style={[
-                                    styles.serviceTag,
-                                    { backgroundColor: 'rgba(226,167,49,0.10)', borderColor: 'rgba(226,167,49,0.2)' },
-                                ]}
-                            >
-                                <Text style={[styles.serviceTagText, { color: theme.colors.primary }]} numberOfLines={1}>
-                                    {s}
-                                </Text>
-                            </View>
-                        ))}
-                        {extraServices > 0 && (
-                            <View style={[styles.serviceTag, { backgroundColor: theme.colors.surfaceHigh, borderColor: theme.colors.border }]}>
-                                <Text style={[styles.serviceTagText, { color: theme.colors.textMuted }]}>
-                                    +{extraServices}
-                                </Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                {/* ── Footer ── */}
-                <View style={[styles.footer, { borderTopColor: theme.colors.border }]}>
+                {/* ── Service Team (Mechanic + Delivery) ── */}
+                <View style={styles.serviceTeamContainer}>
                     {/* Mechanic */}
-                    <View style={styles.footerItem}>
-                        <Ionicons name="construct-outline" size={12} color={theme.colors.textMuted} />
-                        <Text style={[styles.footerLabel, { color: theme.colors.textMuted }]}>
-                            {order.assignedMechanic || 'Unassigned'}
-                        </Text>
-                    </View>
-
-                    {/* Payment */}
-                    <View style={[styles.paymentChip, { backgroundColor: `${paymentCfg.color}18` }]}>
-                        <View style={[styles.paymentDot, { backgroundColor: paymentCfg.color }]} />
-                        <Text style={[styles.paymentLabel, { color: paymentCfg.color }]}>
-                            {paymentCfg.label}
-                        </Text>
-                        {order.total?.finalPayable != null && (
-                            <Text style={[styles.paymentAmount, { color: paymentCfg.color }]}>
-                                · ₹{order.total.finalPayable.toLocaleString('en-IN')}
+                    <View style={styles.teamRow}>
+                        <Ionicons name="construct-outline" size={14} color={theme.colors.primary} />
+                        <View style={styles.teamDetails}>
+                            <Text style={[styles.teamLabel, { color: theme.colors.textMuted }]}>Mechanic</Text>
+                            <Text style={[styles.teamName, { color: theme.colors.textPrimary }]}>
+                                {order.assignedMechanic || 'Not assigned'}
                             </Text>
-                        )}
+                            {order.mechanicPhone && (
+                                <Text style={[styles.teamPhone, { color: theme.colors.textSecondary }]}>
+                                    {order.mechanicPhone}
+                                </Text>
+                            )}
+                        </View>
                     </View>
 
+                    {/* Delivery Person */}
+                    <View style={styles.teamRow}>
+                        <Ionicons name="bicycle-outline" size={14} color={theme.colors.primary} />
+                        <View style={styles.teamDetails}>
+                            <Text style={[styles.teamLabel, { color: theme.colors.textMuted }]}>Delivery</Text>
+                            <Text style={[styles.teamName, { color: theme.colors.textPrimary }]}>
+                                {order.assignedDelivery || 'Not assigned'}
+                            </Text>
+                            {order.deliveryPhone && (
+                                <Text style={[styles.teamPhone, { color: theme.colors.textSecondary }]}>
+                                    {order.deliveryPhone}
+                                </Text>
+                            )}
+                        </View>
+                    </View>
+                </View>
+
+                {/* ── Footer (only chevron, no payment) ── */}
+                <View style={[styles.footer, { borderTopColor: theme.colors.border }]}>
+                    <View style={styles.footerSpacer} />
                     <Ionicons name="chevron-forward" size={15} color={theme.colors.textMuted} />
                 </View>
             </TouchableOpacity>
@@ -297,65 +270,44 @@ const styles = StyleSheet.create({
         color: '#FF6B6B',
         letterSpacing: 0.2,
     },
-    servicesRow: {
+    serviceTeamContainer: {
+        marginHorizontal: 14,
+        marginTop: 12,
+        gap: 12,
+    },
+    teamRow: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 6,
-        paddingHorizontal: 14,
-        marginTop: 8,
+        alignItems: 'flex-start',
+        gap: 10,
     },
-    serviceTag: {
-        paddingHorizontal: 9,
-        paddingVertical: 4,
-        borderRadius: 8,
-        borderWidth: 1,
+    teamDetails: {
+        flex: 1,
+        gap: 2,
     },
-    serviceTagText: {
+    teamLabel: {
         fontSize: 10,
-        fontWeight: '600',
+        fontWeight: '500',
         letterSpacing: 0.2,
+        textTransform: 'uppercase',
+    },
+    teamName: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    teamPhone: {
+        fontSize: 12,
+        fontWeight: '400',
     },
     footer: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-end',
         paddingHorizontal: 14,
         paddingVertical: 10,
-        marginTop: 10,
+        marginTop: 12,
         borderTopWidth: StyleSheet.hairlineWidth,
     },
-    footerItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
+    footerSpacer: {
         flex: 1,
-    },
-    footerLabel: {
-        fontSize: 11,
-        fontWeight: '500',
-        letterSpacing: 0.1,
-    },
-    paymentChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 5,
-        paddingHorizontal: 9,
-        paddingVertical: 4,
-        borderRadius: 20,
-        marginRight: 8,
-    },
-    paymentDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-    },
-    paymentLabel: {
-        fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 0.2,
-    },
-    paymentAmount: {
-        fontSize: 10,
-        fontWeight: '600',
     },
 });

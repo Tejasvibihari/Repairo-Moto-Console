@@ -21,7 +21,7 @@ const fetchVendorOrders = async ({ vendorId, page = 1, limit = 10, status }) => 
     const params = { page, limit, sort: 'createdAt:desc' };
     if (status && status !== 'All') params.status = status;
 
-    const response = await axiosClient.get(`/api/admin/order/getorder/${vendorId}`, { params });
+    const response = await axiosClient.get(`/api/admin/order/vendor/${vendorId}`, { params });
     return response.data;
 };
 
@@ -144,7 +144,7 @@ const emptyStyles = StyleSheet.create({
 });
 
 // ─── VendorOrdersScreen (dynamic theming) ────────────────────────────────────
-const VendorOrdersScreen = () => {
+const VendorOrdersScreen = ({ navigation }) => {
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const vendor = useSelector((s) => s.auth.user);
@@ -203,8 +203,7 @@ const VendorOrdersScreen = () => {
                 order={item}
                 index={index}
                 onPress={(order) => {
-                    // Navigate to order detail screen
-                    console.log('Order pressed:', order.orderId);
+                    navigation.navigate('VendorOrderDetail', { order: item });
                 }}
             />
         ),
