@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "736259594301",
+    "project_id": "repairo-moto-2530e",
+    "storage_bucket": "repairo-moto-2530e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:736259594301:android:45d58e1044c3eb50e4f254",
+        "android_client_info": {
+          "package_name": "com.roottechnology.repairomotoconsole"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDnLfJ5gARdfFpjFG7DldpNEXUfSItehXo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

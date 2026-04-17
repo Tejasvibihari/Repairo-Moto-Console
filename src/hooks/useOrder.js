@@ -175,22 +175,25 @@ const useOrder = (initialFilters = {}, initialPage = 1, initialLimit = 10) => {
     }, []);
 
     // --- Existing update mutations ---
-    const updateMechanic = useCallback(async (orderId, mechanicId) => {
+    // hooks/useOrder.js (inside the hook)
+    const updateMechanic = useCallback(async (orderId, mechanicIds) => {
         setMutationLoading(true);
         setMutationError(null);
         try {
-            const response = await axiosClient.put(`/api/admin/order/update/updateMechanic/${orderId}`, { mechanicId });
+            const response = await axiosClient.put(
+                `/api/admin/order/update/updateMechanic/${orderId}`,
+                { mechanicIds }  // <-- important: send array
+            );
             await refetch();
             return response.data;
         } catch (err) {
-            const errorMsg = err.response?.data?.message || 'Failed to update mechanic';
+            const errorMsg = err.response?.data?.message || 'Failed to update mechanics';
             setMutationError(errorMsg);
             throw new Error(errorMsg);
         } finally {
             setMutationLoading(false);
         }
     }, [refetch]);
-
     const updateDelivery = useCallback(async (orderId, deliveryId) => {
         setMutationLoading(true);
         setMutationError(null);

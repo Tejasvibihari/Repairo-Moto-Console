@@ -1,9 +1,8 @@
-// src/screens/admin/order/AdminOrderDetail.js
-// ─── UPDATED to handle new data structure (discounts, taxes, payment link, payment date) ───
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
     View, Text, ScrollView, StyleSheet, TouchableOpacity,
     Animated, Platform, Alert, ActivityIndicator, Linking,
+    Image, Modal, Dimensions, Pressable, TextInput,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
@@ -11,19 +10,27 @@ import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import ScreenWrapper from '../../../components/common/ScreenWrapper';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import axiosClient from '../../../services/axiosClient';
-
+import InvoiceModal from '../../../components/admin/order/InvoiceModal';
 import AssignmentPanel from '../../../components/admin/order/AssignmentPanel';
 import useEmployee from '../../../hooks/useEmployee';
 import useVendor from '../../../hooks/useVendor';
 import useOrder from '../../../hooks/useOrder';
+// Import image URL helper (adjust path as needed)
+import { getImageUrl } from '../../../utils/imageUtils';
+import PopUp from '../../../components/common/PopUp';
 
-// ─── Status config ────────────────────────────────────────────────────────────
+const { width } = Dimensions.get('window');
+
+
+// ─── Status config (extended) ─────────────────────────────────────────────────
 const STATUS_CONFIG = {
     pending: { label: 'Pending', bg: 'rgba(158,142,120,0.18)', text: '#9E8E78', dot: '#9E8E78' },
-    in_progress: { label: 'In Progress', bg: 'rgba(226,167,49,0.18)', text: '#E2A731', dot: '#E2A731' },
     mechanic_assigned: { label: 'Mechanic Assigned', bg: 'rgba(52,152,219,0.18)', text: '#3498DB', dot: '#3498DB' },
-    completed: { label: 'Completed', bg: 'rgba(46,204,154,0.18)', text: '#2ECC9A', dot: '#2ECC9A' },
+    arrived: { label: 'Mechanic Arrived', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', dot: '#9B59B6' },
+    in_progress: { label: 'In Progress', bg: 'rgba(226,167,49,0.18)', text: '#E2A731', dot: '#E2A731' },
+    work_done: { label: 'Work Done', bg: 'rgba(46,204,154,0.18)', text: '#2ECC9A', dot: '#2ECC9A' },
     invoice_generated: { label: 'Invoice Generated', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', dot: '#9B59B6' },
+    completed: { label: 'Completed', bg: 'rgba(46,204,154,0.18)', text: '#2ECC9A', dot: '#2ECC9A' },
     cancelled: { label: 'Cancelled', bg: 'rgba(255,107,107,0.18)', text: '#FF6B6B', dot: '#FF6B6B' },
 };
 
@@ -42,6 +49,8 @@ const PAYMENT_METHOD_ICONS = {
     bank_transfer: 'business-outline',
 };
 
+
+
 const getStatusConfig = (status = '') => {
     const key = status.toLowerCase().trim().replace(/\s+/g, '_');
     return STATUS_CONFIG[key] ?? STATUS_CONFIG.pending;
@@ -50,6 +59,12 @@ const getStatusConfig = (status = '') => {
 const formatDate = (iso) => {
     if (!iso) return '—';
     return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const formatDateTime = (iso) => {
+    if (!iso) return '—';
+    const date = new Date(iso);
+    return date.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 };
 
 const formatCurrency = (val) =>
@@ -66,6 +81,104 @@ const sectionStyles = StyleSheet.create({
 const Divider = ({ theme, style }) => (
     <View style={[{ height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.border }, style]} />
 );
+// ─── Force Status Update Modal ───────────────────────────────────────────────
+const ForceStatusModal = ({ visible, onClose, onConfirm, theme, currentStatus }) => {
+    const statusOptions = [
+        'Pending', 'Mechanic Assigned', 'Mechanic Arrived', 'In Progress',
+        'Work Completed', 'Invoice Generated', 'Completed', 'Cancelled',
+    ];
+    const [selected, setSelected] = useState(currentStatus);
+
+    useEffect(() => { if (visible) setSelected(currentStatus); }, [visible, currentStatus]);
+
+    return (
+        <Modal transparent visible={visible} animationType="fade">
+            <View style={modalStyles.overlay}>
+                <View style={[modalStyles.container, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                    <Text style={[modalStyles.title, { color: theme.colors.textPrimary }]}>⚠️ Force Update Status</Text>
+                    <Text style={[modalStyles.warning, { color: theme.colors.textMuted }]}>
+                        You are bypassing the normal workflow. This may disrupt the order process. Only proceed if you are certain.
+                    </Text>
+
+                    <Text style={[modalStyles.label, { color: theme.colors.textSecondary }]}>Select New Status</Text>
+                    <ScrollView style={modalStyles.pickerContainer} nestedScrollEnabled>
+                        {statusOptions.map((s) => (
+                            <TouchableOpacity
+                                key={s}
+                                style={[
+                                    modalStyles.option,
+                                    { borderBottomColor: theme.colors.border },
+                                    selected === s && { backgroundColor: theme.colors.primary + '22' },
+                                ]}
+                                onPress={() => setSelected(s)}
+                            >
+                                <Text style={[modalStyles.optionText, { color: theme.colors.textPrimary }]}>{s}</Text>
+                                {selected === s && <Ionicons name="checkmark" size={18} color={theme.colors.primary} />}
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+
+                    <View style={modalStyles.buttonRow}>
+                        <TouchableOpacity style={[modalStyles.cancelBtn, { borderColor: theme.colors.border }]} onPress={onClose}>
+                            <Text style={{ color: theme.colors.textSecondary }}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[modalStyles.confirmBtn, { backgroundColor: theme.colors.error }]}
+                            onPress={() => onConfirm(selected)}
+                        >
+                            <Text style={{ color: '#fff', fontWeight: '700' }}>Force Update</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+};
+
+// ─── COD Payment Modal ───────────────────────────────────────────────────────
+const CodPaymentModal = ({ visible, onClose, onConfirm, theme, defaultAmount }) => {
+    const [amount, setAmount] = useState(String(defaultAmount || ''));
+
+    useEffect(() => { if (visible) setAmount(String(defaultAmount || '')); }, [visible, defaultAmount]);
+
+    const handleConfirm = () => {
+        const parsed = parseFloat(amount);
+        if (isNaN(parsed) || parsed < 0) {
+            showAlert('Invalid Amount', 'Please enter a valid amount.');
+            return;
+        }
+        onConfirm(parsed);
+    };
+
+    return (
+        <Modal transparent visible={visible} animationType="fade">
+            <View style={modalStyles.overlay}>
+                <View style={[modalStyles.container, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                    <Text style={[modalStyles.title, { color: theme.colors.textPrimary }]}>💵 Mark Paid (COD)</Text>
+                    <Text style={[modalStyles.warning, { color: theme.colors.textMuted }]}>
+                        Enter the amount collected from the customer.
+                    </Text>
+                    <TextInput
+                        style={[modalStyles.input, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border, color: theme.colors.textPrimary }]}
+                        keyboardType="numeric"
+                        value={amount}
+                        onChangeText={setAmount}
+                        placeholder="Amount"
+                        placeholderTextColor={theme.colors.textMuted}
+                    />
+                    <View style={modalStyles.buttonRow}>
+                        <TouchableOpacity style={[modalStyles.cancelBtn, { borderColor: theme.colors.border }]} onPress={onClose}>
+                            <Text style={{ color: theme.colors.textSecondary }}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[modalStyles.confirmBtn, { backgroundColor: theme.colors.primary }]} onPress={handleConfirm}>
+                            <Text style={{ color: '#1a1a1a', fontWeight: '700' }}>Confirm Payment</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+};
 
 const InfoTile = ({ icon, label, value, theme, accent = false, iconLib = 'ion' }) => {
     const IconComp = iconLib === 'mci' ? MaterialCommunityIcons : Ionicons;
@@ -142,7 +255,7 @@ const getServiceChipStyle = (type) => {
     return { label: type || '—', icon: 'help-circle-outline', bg: 'rgba(128,128,128,0.15)', text: '#888', border: 'rgba(128,128,128,0.3)' };
 };
 
-// ─── Payment Status Card (updated with payment date & razorpay link) ───────────
+// ─── Payment Status Card (unchanged) ───────────────────────────────────────────
 const PaymentStatusCard = ({ order, theme }) => {
     const ps = PAYMENT_STATUS_CONFIG[order.paymentStatus] ?? PAYMENT_STATUS_CONFIG.unpaid;
     const methodIcon = PAYMENT_METHOD_ICONS[order.paymentMethod] ?? 'cash-outline';
@@ -158,9 +271,9 @@ const PaymentStatusCard = ({ order, theme }) => {
 
     const handlePayNow = () => {
         if (razorpayLink) {
-            Linking.openURL(razorpayLink).catch(() => Alert.alert('Error', 'Could not open payment link'));
+            Linking.openURL(razorpayLink).catch(() => showAlert('Error', 'Could not open payment link'));
         } else {
-            Alert.alert('Not Available', 'No payment link found for this order.');
+            showAlert('Not Available', 'No payment link found for this order.');
         }
     };
 
@@ -228,6 +341,174 @@ const psStyles = StyleSheet.create({
     payNowText: { fontSize: 14, fontWeight: '800', color: '#1a1a1a' },
 });
 
+// ─── Timeline Component (unchanged) ───────────────────────────────────────────
+const OrderTimeline = ({ order, theme }) => {
+    const steps = [
+        { key: 'pending', label: 'Pending', icon: 'time-outline', timestamp: order.createdAt },
+        { key: 'mechanic_assigned', label: 'Mechanic Assigned', icon: 'person-add-outline', timestamp: order.assignedAt },
+        { key: 'arrived', label: 'Mechanic Arrived', icon: 'location-outline', timestamp: order.arrivedAt },
+        { key: 'in_progress', label: 'Work Started', icon: 'construct-outline', timestamp: order.workStartedAt },
+        { key: 'work_done', label: 'Work Done', icon: 'checkmark-done-outline', timestamp: order.workCompletedAt },
+        { key: 'invoice_generated', label: 'Invoice Generated', icon: 'receipt-outline', timestamp: order.invoiceDate },
+        { key: 'completed', label: 'Completed', icon: 'checkmark-circle-outline', timestamp: order.completedAt },
+    ];
+
+    const currentStatusKey = order.status?.toLowerCase().replace(/\s+/g, '_');
+    let currentIndex = steps.findIndex(s => s.key === currentStatusKey);
+    if (currentIndex === -1) currentIndex = 0;
+
+    if (currentStatusKey === 'cancelled') {
+        return (
+            <Card theme={theme}>
+                <SectionLabel label="Order Cancelled" theme={theme} />
+                <View style={timelineStyles.cancelledContainer}>
+                    <Ionicons name="close-circle" size={20} color="#FF6B6B" />
+                    <Text style={[timelineStyles.cancelledText, { color: theme.colors.textSecondary }]}>
+                        This order was cancelled on {formatDateTime(order.cancelledAt)}
+                    </Text>
+                </View>
+            </Card>
+        );
+    }
+
+    return (
+        <Card theme={theme}>
+            <SectionLabel label="Order Progress" theme={theme} />
+            <View style={timelineStyles.container}>
+                {steps.map((step, idx) => {
+                    const isCompleted = idx <= currentIndex;
+                    const isActive = idx === currentIndex;
+                    const config = getStatusConfig(step.key);
+                    const timestamp = step.timestamp;
+                    return (
+                        <View key={step.key} style={timelineStyles.stepRow}>
+                            <View style={timelineStyles.leftCol}>
+                                <View style={[
+                                    timelineStyles.dot,
+                                    {
+                                        backgroundColor: isCompleted ? config.dot : theme.colors.surfaceHigh,
+                                        borderColor: isCompleted ? config.dot : theme.colors.border,
+                                    }
+                                ]}>
+                                    {isCompleted && <Ionicons name="checkmark" size={10} color="#fff" />}
+                                </View>
+                                {idx < steps.length - 1 && (
+                                    <View style={[
+                                        timelineStyles.line,
+                                        { backgroundColor: idx < currentIndex ? config.dot : theme.colors.border }
+                                    ]} />
+                                )}
+                            </View>
+                            <View style={timelineStyles.content}>
+                                <Text style={[
+                                    timelineStyles.stepLabel,
+                                    { color: isActive ? config.text : theme.colors.textSecondary }
+                                ]}>
+                                    {step.label}
+                                </Text>
+                                {timestamp && (
+                                    <Text style={[timelineStyles.timestamp, { color: theme.colors.textMuted }]}>
+                                        {formatDateTime(timestamp)}
+                                    </Text>
+                                )}
+                            </View>
+                        </View>
+                    );
+                })}
+            </View>
+        </Card>
+    );
+};
+
+const timelineStyles = StyleSheet.create({
+    container: { paddingVertical: 4 },
+    stepRow: { flexDirection: 'row', marginBottom: 12 },
+    leftCol: { width: 24, alignItems: 'center', marginRight: 14 },
+    dot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
+    line: { width: 2, flex: 1, marginTop: 2 },
+    content: { flex: 1, paddingBottom: 8 },
+    stepLabel: { fontSize: 14, fontWeight: '700', marginBottom: 3 },
+    timestamp: { fontSize: 11, fontWeight: '500' },
+    cancelledContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
+    cancelledText: { fontSize: 13, fontWeight: '500' },
+});
+
+// ─── Photo Gallery Components ─────────────────────────────────────────────────
+const PhotoGrid = ({ photos, theme, onPhotoPress }) => {
+    if (!photos || photos.length === 0) return null;
+    const imageSize = (width - 80) / 3; // 3 images per row with spacing
+    return (
+        <View style={photoStyles.grid}>
+            {photos.slice(0, 6).map((uri, index) => (
+                <TouchableOpacity
+                    key={index}
+                    onPress={() => onPhotoPress(index)}
+                    activeOpacity={0.8}
+                    style={[photoStyles.thumbnail, { width: imageSize, height: imageSize, borderColor: theme.colors.border }]}
+                >
+                    <Image source={{ uri }} style={photoStyles.image} resizeMode="cover" />
+                    {photos.length > 6 && index === 5 && (
+                        <View style={[photoStyles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+                            <Text style={photoStyles.overlayText}>+{photos.length - 6}</Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
+            ))}
+        </View>
+    );
+};
+
+const FullScreenImage = ({ visible, images, initialIndex, onClose, theme }) => {
+    const [currentIndex, setCurrentIndex] = useState(initialIndex || 0);
+    useEffect(() => {
+        if (visible) setCurrentIndex(initialIndex || 0);
+    }, [visible, initialIndex]);
+
+    if (!visible) return null;
+    return (
+        <Modal transparent visible={visible} animationType="fade">
+            <View style={[fullStyles.container, { backgroundColor: theme.colors.background }]}>
+                <TouchableOpacity style={fullStyles.closeBtn} onPress={onClose}>
+                    <Ionicons name="close" size={28} color={theme.colors.textPrimary} />
+                </TouchableOpacity>
+                <ScrollView
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={(e) => {
+                        const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+                        setCurrentIndex(idx);
+                    }}
+                >
+                    {images.map((uri, idx) => (
+                        <View key={idx} style={{ width }}>
+                            <Image source={{ uri }} style={fullStyles.image} resizeMode="contain" />
+                        </View>
+                    ))}
+                </ScrollView>
+                <Text style={[fullStyles.counter, { color: theme.colors.textMuted }]}>
+                    {currentIndex + 1} / {images.length}
+                </Text>
+            </View>
+        </Modal>
+    );
+};
+
+const photoStyles = StyleSheet.create({
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+    thumbnail: { borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
+    image: { width: '100%', height: '100%' },
+    overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
+    overlayText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+});
+
+const fullStyles = StyleSheet.create({
+    container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    closeBtn: { position: 'absolute', top: 48, right: 20, zIndex: 10, padding: 8 },
+    image: { width, height: '100%' },
+    counter: { position: 'absolute', bottom: 32, alignSelf: 'center', fontSize: 14, fontWeight: '600' },
+});
+
 // ─── Map Component (unchanged) ────────────────────────────────────────────────
 const LocationMap = ({ coordinates, city, theme }) => {
     const [placeName, setPlaceName] = useState('');
@@ -290,47 +571,90 @@ const mapStyles = StyleSheet.create({
     viewMapBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16 },
     viewMapText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 });
+// ─── Action Buttons (updated to include COD and Force Status) ────────────────
+const ActionButtons = ({
+    onManage, onGenerateBill, onViewInvoice, onMarkCod, onForceStatus,
+    theme, isCompletedAndPaid, isInvoiceGenerated, paymentStatus,
+}) => (
+    <View style={fabStyles.container}>
+        {/* Force Status Button (Admin only) - always visible */}
+        {/* <TouchableOpacity
+            style={[fabStyles.warningBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.warning }]}
+            onPress={onForceStatus}
+        >
+            <Ionicons name="warning-outline" size={16} color={theme.colors.warning} />
+            <Text style={[fabStyles.warningLabel, { color: theme.colors.warning }]}>Force Status</Text>
+        </TouchableOpacity> */}
 
-// ─── FAB Row (unchanged) ──────────────────────────────────────────────────────
-const ActionButtons = ({ onManage, onGenerateBill, theme, isInvoiced }) => (
-    <View style={fabStyles.row}>
-        <TouchableOpacity
-            style={[fabStyles.secondaryBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, shadowColor: theme.colors.primary }]}
-            onPress={onManage}
-            activeOpacity={0.85}
-        >
-            <Ionicons name="settings-outline" size={16} color={theme.colors.textPrimary} />
-            <Text style={[fabStyles.secondaryLabel, { color: theme.colors.textPrimary }]}>Manage Order</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-            style={[fabStyles.primaryBtn, { backgroundColor: theme.colors.primary, shadowColor: theme.colors.primary }]}
-            onPress={onGenerateBill}
-            activeOpacity={0.85}
-        >
-            <Ionicons name={isInvoiced ? 'receipt' : 'receipt-outline'} size={16} color="#1a1a1a" />
-            <Text style={fabStyles.primaryLabel}>{isInvoiced ? 'View / Edit Bill' : 'Generate Bill'}</Text>
-        </TouchableOpacity>
+        <View style={fabStyles.row}>
+            <TouchableOpacity
+                style={[fabStyles.secondaryBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+                onPress={onManage}
+            >
+                <Ionicons name="settings-outline" size={16} color={theme.colors.textPrimary} />
+                <Text style={[fabStyles.secondaryLabel, { color: theme.colors.textPrimary }]}>Manage</Text>
+            </TouchableOpacity>
+
+            {isCompletedAndPaid ? (
+                <TouchableOpacity
+                    style={[fabStyles.primaryBtn, { backgroundColor: theme.colors.primary }]}
+                    onPress={onViewInvoice}
+                >
+                    <Ionicons name="eye-outline" size={16} color="#1a1a1a" />
+                    <Text style={fabStyles.primaryLabel}>View Invoice</Text>
+                </TouchableOpacity>
+            ) : isInvoiceGenerated && paymentStatus !== 'paid' ? (
+                <TouchableOpacity
+                    style={[fabStyles.codBtn, { backgroundColor: theme.colors.success }]}
+                    onPress={onMarkCod}
+                >
+                    <Ionicons name="cash-outline" size={16} color="#fff" />
+                    <Text style={fabStyles.codLabel}>Mark Paid (COD)</Text>
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity
+                    style={[fabStyles.primaryBtn, { backgroundColor: theme.colors.primary }]}
+                    onPress={onGenerateBill}
+                >
+                    <Ionicons name="receipt-outline" size={16} color="#1a1a1a" />
+                    <Text style={fabStyles.primaryLabel}>Generate Bill</Text>
+                </TouchableOpacity>
+            )}
+        </View>
     </View>
 );
 const fabStyles = StyleSheet.create({
-    row: { flexDirection: 'row', gap: 10, marginHorizontal: 1, marginBottom: 12 },
+    container: { marginBottom: 12 },
+    row: { flexDirection: 'row', gap: 10, marginHorizontal: 1 },
+    warningBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+        paddingVertical: 10, marginBottom: 10, borderRadius: 12, borderWidth: 1,
+    },
+    warningLabel: { fontSize: 13, fontWeight: '700' },
     secondaryBtn: {
         flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
         paddingVertical: 14, borderRadius: 16, borderWidth: 1,
-        shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3,
     },
     secondaryLabel: { fontSize: 13, fontWeight: '700' },
     primaryBtn: {
         flex: 1.4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
         paddingVertical: 14, borderRadius: 16,
-        shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14, elevation: 8,
     },
     primaryLabel: { fontSize: 13, fontWeight: '900', color: '#1a1a1a' },
+    codBtn: {
+        flex: 1.4, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+        paddingVertical: 14, borderRadius: 16,
+    },
+    codLabel: { fontSize: 13, fontWeight: '900', color: '#fff' },
 });
 
-// ─── Assignment Summary Card (unchanged) ───────────────────────────────────────
+// ─── Updated AssignmentSummaryCard (shows all mechanics) ─────────────────────
 const AssignmentSummaryCard = ({ order, theme, onManage }) => {
     const sc = getStatusConfig(order.status);
+    const mechanicNames = order.assignedMechanics?.length ? order.assignedMechanics.join(', ') : 'Unassigned';
+    const vendorName = order.assignedVendor || 'Unassigned';
+    const deliveryName = order.assignedDelivery || 'Unassigned';
+
     return (
         <Card theme={theme}>
             <View style={assignStyles.row}>
@@ -349,21 +673,21 @@ const AssignmentSummaryCard = ({ order, theme, onManage }) => {
             </View>
             <View style={assignStyles.grid}>
                 {[
-                    { label: 'MECHANIC', value: order.assignedMechanic, icon: 'construct-outline', color: '#3498DB', assignedColor: '#2ECC9A' },
-                    { label: 'VENDOR', value: order.assignedVendor, icon: 'business-outline', color: '#9B59B6', assignedColor: '#9B59B6' },
-                    { label: 'DELIVERY', value: order.assignedDelivery, icon: 'bicycle-outline', color: '#E2A731', assignedColor: '#E2A731' },
+                    { label: 'MECHANIC(S)', value: mechanicNames, icon: 'construct-outline', color: '#3498DB', assignedColor: '#2ECC9A' },
+                    { label: 'VENDOR', value: vendorName, icon: 'business-outline', color: '#9B59B6', assignedColor: '#9B59B6' },
+                    { label: 'DELIVERY', value: deliveryName, icon: 'bicycle-outline', color: '#E2A731', assignedColor: '#E2A731' },
                 ].map((cell) => (
                     <View key={cell.label} style={[assignStyles.cell, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
-                        <View style={[assignStyles.cellIcon, { backgroundColor: cell.value ? cell.color + '22' : theme.colors.surfaceHigh }]}>
-                            <Ionicons name={cell.icon} size={14} color={cell.value ? cell.color : theme.colors.textMuted} />
+                        <View style={[assignStyles.cellIcon, { backgroundColor: cell.value !== 'Unassigned' ? cell.color + '22' : theme.colors.surfaceHigh }]}>
+                            <Ionicons name={cell.icon} size={14} color={cell.value !== 'Unassigned' ? cell.color : theme.colors.textMuted} />
                         </View>
                         <Text style={[assignStyles.cellLabel, { color: theme.colors.textMuted }]}>{cell.label}</Text>
-                        <Text style={[assignStyles.cellValue, { color: cell.value ? theme.colors.textPrimary : theme.colors.textMuted }]} numberOfLines={2}>
-                            {cell.value || 'Unassigned'}
+                        <Text style={[assignStyles.cellValue, { color: cell.value !== 'Unassigned' ? theme.colors.textPrimary : theme.colors.textMuted }]} numberOfLines={2}>
+                            {cell.value}
                         </Text>
-                        <View style={[assignStyles.assignedPill, { backgroundColor: cell.value ? cell.assignedColor + '22' : 'rgba(158,142,120,0.15)' }]}>
-                            <Text style={[assignStyles.pillText, { color: cell.value ? cell.assignedColor : '#9E8E78' }]}>
-                                {cell.value ? 'Assigned' : 'Pending'}
+                        <View style={[assignStyles.assignedPill, { backgroundColor: cell.value !== 'Unassigned' ? cell.assignedColor + '22' : 'rgba(158,142,120,0.15)' }]}>
+                            <Text style={[assignStyles.pillText, { color: cell.value !== 'Unassigned' ? cell.assignedColor : '#9E8E78' }]}>
+                                {cell.value !== 'Unassigned' ? 'Assigned' : 'Pending'}
                             </Text>
                         </View>
                     </View>
@@ -393,10 +717,25 @@ export default function AdminOrderDetail({ route, navigation }) {
     const orderIdParam = route?.params?.order?._id || route?.params?.orderId;
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
-
+    const [popup, setPopup] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        primaryLabel: 'OK',
+        secondaryLabel: 'Cancel',
+        onPrimary: () => { },
+        onSecondary: () => { },
+    });
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
     const [panelVisible, setPanelVisible] = useState(false);
+    const [invoiceModalVisible, setInvoiceModalVisible] = useState(false);
+    const [invoiceData, setInvoiceData] = useState(null);
+    const [invoiceLoading, setInvoiceLoading] = useState(false);
+    const [fullScreenImage, setFullScreenImage] = useState({ visible: false, images: [], index: 0 });
+
+    const [forceModalVisible, setForceModalVisible] = useState(false);
+    const [codModalVisible, setCodModalVisible] = useState(false);
 
     const { data: mechanics, loading: mechanicsLoading } = useEmployee({ position: 'mechanic' });
     const { data: deliveryBoys, loading: deliveryBoysLoading } = useEmployee({ position: 'delivery' });
@@ -406,6 +745,39 @@ export default function AdminOrderDetail({ route, navigation }) {
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(24)).current;
+    const showAlert = (title, message, onOk) => {
+        setPopup({
+            visible: true,
+            title,
+            message,
+            primaryLabel: 'OK',
+            secondaryLabel: null,
+            onPrimary: () => {
+                setPopup(prev => ({ ...prev, visible: false }));
+                if (onOk) onOk();
+            },
+            onSecondary: () => setPopup(prev => ({ ...prev, visible: false })),
+        });
+    };
+
+    // Helper for confirmation popup
+    const showConfirm = (title, message, onConfirm, onCancel) => {
+        setPopup({
+            visible: true,
+            title,
+            message,
+            primaryLabel: 'Yes',
+            secondaryLabel: 'No',
+            onPrimary: () => {
+                setPopup(prev => ({ ...prev, visible: false }));
+                if (onConfirm) onConfirm();
+            },
+            onSecondary: () => {
+                setPopup(prev => ({ ...prev, visible: false }));
+                if (onCancel) onCancel();
+            },
+        });
+    };
 
     const fetchOrder = useCallback(async () => {
         if (!orderIdParam) { setLoading(false); return; }
@@ -415,7 +787,7 @@ export default function AdminOrderDetail({ route, navigation }) {
             setOrder(response.data);
         } catch (err) {
             console.error('Failed to fetch order:', err);
-            Alert.alert('Error', 'Failed to load order details');
+            showAlert('Error', 'Failed to load order details');
         } finally {
             setLoading(false);
         }
@@ -430,12 +802,49 @@ export default function AdminOrderDetail({ route, navigation }) {
         ]).start();
     }, []);
 
-    const handlePanelClose = useCallback(() => { setPanelVisible(false); fetchOrder(); }, [fetchOrder]);
+    const handleForceStatus = useCallback(async (newStatus) => {
+        try {
+            const res = await axiosClient.put(`/api/admin/order/force-update-status/${order._id}`, { status: newStatus });
+            setOrder(res.data.data);
+            showAlert('Success', `Status forcefully updated to ${newStatus}`);
+        } catch (err) {
+            showAlert('Error', err.response?.data?.message || 'Failed to update status');
+        } finally {
+            setForceModalVisible(false);
+        }
+    }, [order]);
 
-    const handleAssignMechanic = useCallback(async (orderId, mechanicId) => {
-        const result = await updateMechanic(orderId, mechanicId);
-        if (result?.data) setOrder(result.data); else await fetchOrder();
-        return result;
+    const handleMarkCod = useCallback(async (amount) => {
+        try {
+            const res = await axiosClient.post(`/api/admin/order/${order._id}/mark-paid-cod`, { amountCollected: amount });
+            setOrder(res.data.order);
+            showAlert('Success', 'Payment recorded and invoice generated.');
+        } catch (err) {
+            showAlert('Error', err.response?.data?.message || 'Failed to record payment');
+        } finally {
+            setCodModalVisible(false);
+        }
+    }, [order]);
+
+
+    const handlePanelClose = useCallback(() => { setPanelVisible(false); fetchOrder(); }, [fetchOrder]);
+    const handleAssignMechanic = useCallback(async (orderId, mechanicIds) => {
+        if (!Array.isArray(mechanicIds) || mechanicIds.length === 0) {
+            showAlert('Error', 'Please select at least one mechanic.');
+            return;
+        }
+        try {
+            const result = await updateMechanic(orderId, mechanicIds);
+            if (result?.data) {
+                setOrder(result.data);
+            } else {
+                await fetchOrder();
+            }
+            // Close the panel after successful assignment
+            setPanelVisible(false);
+        } catch (err) {
+            showAlert('Error', err.message || 'Failed to assign mechanics');
+        }
     }, [updateMechanic, fetchOrder]);
 
     const handleAssignVendor = useCallback(async (orderId, vendorId) => {
@@ -460,6 +869,28 @@ export default function AdminOrderDetail({ route, navigation }) {
         navigation.navigate('AdminGenerateInvoice', { order });
     }, [navigation, order]);
 
+    const handleViewInvoice = useCallback(async () => {
+        console.log(order._id)
+        try {
+            setInvoiceLoading(true);
+            setInvoiceModalVisible(true);
+            const res = await axiosClient.get(`/api/admin/order/${order._id}/invoice`);
+            console.log(res.data);
+            setInvoiceData(res.data?.invoice || null);
+        } catch (err) {
+            setInvoiceModalVisible(false);
+            console.log(err);
+            const msg = err.response?.data?.message || 'Failed to fetch invoice';
+            showAlert('Error', msg);
+        } finally {
+            setInvoiceLoading(false);
+        }
+    }, [order]);
+
+    const openFullScreenImage = (images, index) => {
+        setFullScreenImage({ visible: true, images, index });
+    };
+
     if (loading) {
         return (
             <View style={[styles.screen, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
@@ -479,10 +910,10 @@ export default function AdminOrderDetail({ route, navigation }) {
     const {
         orderId = '#--', name = 'Unknown', email = '', contactNo = '--', city = '',
         selectedBrand = '', selectedModel = '', cc = '', bs = '', services = [],
-        serviceType = '', preferredDate = null, preferredTime = '', assignedMechanic = null,
+        serviceType = '', preferredDate = null, preferredTime = '', assignedMechanics = [],
         assignedDelivery = null, status = 'pending', partsUsed = [], serviceProvided = [],
         total = {}, createdAt = null, invoiceDate = null, userLocation = null,
-        paymentStatus, paymentMethod, amountPaid,
+        paymentStatus, paymentMethod, amountPaid, beforePhotos = [], afterPhotos = [],
     } = order;
 
     const sc = getStatusConfig(status);
@@ -493,9 +924,13 @@ export default function AdminOrderDetail({ route, navigation }) {
         ? `${userLocation.coordinates[1].toFixed(4)}, ${userLocation.coordinates[0].toFixed(4)}`
         : null;
     const isInvoiced = status?.toLowerCase().replace(/\s+/g, '_') === 'invoice_generated';
+    const isCompleted = status?.toLowerCase() === 'completed';
+    const isInvoiceGenerated = order?.status === 'Invoice Generated';
+    const isPaid = order?.paymentStatus === 'paid';
+    const isCompletedAndPaid = order?.status === 'Completed' && isPaid;
     const grandTotal = total?.finalPayable ?? total?.total ?? 0;
+    const mechanicName = assignedMechanics?.length ? assignedMechanics[0] : 'Unassigned';
 
-    // Helper to compute effective price per item
     const getEffectiveItem = (item, isPart = true) => {
         const price = item.price || 0;
         const discount = item.discountPrice || 0;
@@ -513,12 +948,17 @@ export default function AdminOrderDetail({ route, navigation }) {
         };
     };
 
-    // Build items for display
     const partsWithDiscount = partsUsed.map(p => getEffectiveItem(p, true));
     const servicesWithDiscount = serviceProvided.map(s => getEffectiveItem(s, false));
-
-    // Tax breakdown
     const showTaxes = (total.cgst > 0 || total.sgst > 0) && (total.cgstRate || total.sgstRate);
+
+    // Build base URL for images (adjust if your backend serves static files differently)
+    const baseUrl = axiosClient.defaults.baseURL?.replace('/api', '') || '';
+    const beforePhotoUrls = order?.beforePhoto ? [getImageUrl(order.beforePhoto)] : [];
+    const afterPhotoUrls = order?.afterPhoto ? [getImageUrl(order.afterPhoto)] : [];
+
+
+
 
     return (
         <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -540,25 +980,16 @@ export default function AdminOrderDetail({ route, navigation }) {
                                     <Text style={[styles.invoiceBadgeText, { color: '#9B59B6' }]}>INVOICED</Text>
                                 </View>
                             )}
-                            {/* {paymentStatus && (() => {
-                                const ps = PAYMENT_STATUS_CONFIG[paymentStatus] ?? PAYMENT_STATUS_CONFIG.unpaid;
-                                return (
-                                    <View style={[styles.invoiceBadge, { backgroundColor: ps.bg, borderColor: ps.border }]}>
-                                        <Ionicons name={ps.icon} size={11} color={ps.text} />
-                                        <Text style={[styles.invoiceBadgeText, { color: ps.text }]}>{ps.label.toUpperCase()}</Text>
-                                    </View>
-                                );
-                            })()} */}
                         </View>
                     </View>
 
                     <Divider theme={theme} style={{ marginBottom: 16 }} />
 
+                    <OrderTimeline order={order} theme={theme} />
                     <AssignmentSummaryCard order={order} theme={theme} onManage={() => setPanelVisible(true)} />
 
-                    {(paymentStatus || isInvoiced) && (
-                        <PaymentStatusCard order={order} theme={theme} />
-                    )}
+                    {(paymentStatus || isInvoiceGenerated) && <PaymentStatusCard order={order} theme={theme} />}
+
 
                     {/* Vehicle Details */}
                     <Card theme={theme}>
@@ -601,13 +1032,31 @@ export default function AdminOrderDetail({ route, navigation }) {
                         {coordStr && <InfoTile icon="navigate-outline" label="Coordinates" value={coordStr} theme={theme} />}
                     </Card>
 
+                    {/* Before & After Photos */}
+                    {(beforePhotoUrls.length > 0 || afterPhotoUrls.length > 0) && (
+                        <Card theme={theme}>
+                            {beforePhotoUrls.length > 0 && (
+                                <>
+                                    <SectionLabel label="Before Repair" theme={theme} />
+                                    <PhotoGrid photos={beforePhotoUrls} theme={theme} onPhotoPress={(index) => openFullScreenImage(beforePhotoUrls, index)} />
+                                </>
+                            )}
+                            {afterPhotoUrls.length > 0 && (
+                                <>
+                                    <SectionLabel label="After Repair" theme={theme} style={{ marginTop: beforePhotoUrls.length ? 16 : 0 }} />
+                                    <PhotoGrid photos={afterPhotoUrls} theme={theme} onPhotoPress={(index) => openFullScreenImage(afterPhotoUrls, index)} />
+                                </>
+                            )}
+                        </Card>
+                    )}
+
                     {/* Logistics & Appointment */}
                     <Card theme={theme}>
                         <SectionLabel label="Logistics & Appointment" theme={theme} />
                         <View style={styles.logisticsGrid}>
                             {[
                                 { icon: 'calendar-outline', label: 'SCHEDULE', value: formatDate(preferredDate), sub: preferredTime, subColor: theme.colors.primary },
-                                { icon: 'person-circle-outline', label: 'MECHANIC', value: assignedMechanic || 'Unassigned', assigned: !!assignedMechanic, assignedColor: '#2ECC9A' },
+                                { icon: 'person-circle-outline', label: 'MECHANIC', value: mechanicName, assigned: !!mechanicName && mechanicName !== 'Unassigned', assignedColor: '#2ECC9A' },
                                 { icon: 'bicycle-outline', label: 'DELIVERY BOY', value: assignedDelivery || 'Unassigned', assigned: !!assignedDelivery, assignedColor: '#E2A731' },
                             ].map((cell) => (
                                 <View key={cell.label} style={styles.logisticsCell}>
@@ -629,7 +1078,7 @@ export default function AdminOrderDetail({ route, navigation }) {
                         </View>
                     </Card>
 
-                    {/* Financial Breakdown with discount & tax support */}
+                    {/* Financial Breakdown */}
                     <Card theme={theme}>
                         <SectionLabel label="Financial Breakdown" theme={theme} />
 
@@ -735,14 +1184,18 @@ export default function AdminOrderDetail({ route, navigation }) {
                     <ActionButtons
                         onManage={() => setPanelVisible(true)}
                         onGenerateBill={handleGenerateBill}
+                        onViewInvoice={handleViewInvoice}
+                        onMarkCod={() => setCodModalVisible(true)}
+                        onForceStatus={() => setForceModalVisible(true)}
                         theme={theme}
-                        isInvoiced={isInvoiced}
+                        isCompletedAndPaid={isCompletedAndPaid}
+                        isInvoiceGenerated={isInvoiceGenerated}
+                        paymentStatus={paymentStatus}
                     />
 
                     <Text style={[styles.metaNote, { color: theme.colors.textMuted }]}>
                         Created {formatDate(createdAt)} · Invoice {invoiceDate ? formatDate(invoiceDate) : '—'}
                     </Text>
-
                     <View style={{ height: 32 }} />
                 </Animated.ScrollView>
             </ScreenWrapper>
@@ -764,9 +1217,64 @@ export default function AdminOrderDetail({ route, navigation }) {
                 onUpdateStatus={handleUpdateStatus}
                 mutationLoading={mutationLoading}
             />
+
+            <InvoiceModal
+                visible={invoiceModalVisible}
+                invoice={invoiceData}
+                onClose={() => setInvoiceModalVisible(false)}
+                theme={theme}
+                loading={invoiceLoading}
+            />
+
+            <FullScreenImage
+                visible={fullScreenImage.visible}
+                images={fullScreenImage.images}
+                initialIndex={fullScreenImage.index}
+                onClose={() => setFullScreenImage({ visible: false, images: [], index: 0 })}
+                theme={theme}
+            />
+            <ForceStatusModal
+                visible={forceModalVisible}
+                onClose={() => setForceModalVisible(false)}
+                onConfirm={handleForceStatus}
+                theme={theme}
+                currentStatus={order?.status}
+            />
+            <CodPaymentModal
+                visible={codModalVisible}
+                onClose={() => setCodModalVisible(false)}
+                onConfirm={handleMarkCod}
+                theme={theme}
+                defaultAmount={order?.total?.total || 0}
+            />
+            <PopUp
+                visible={popup.visible}
+                title={popup.title}
+                message={popup.message}
+                primaryLabel={popup.primaryLabel}
+                secondaryLabel={popup.secondaryLabel}
+                onPrimary={popup.onPrimary}
+                onSecondary={popup.onSecondary}
+                onClose={() => setPopup(prev => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 }
+
+const modalStyles = StyleSheet.create({
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    container: { width: '100%', maxWidth: 400, borderRadius: 20, borderWidth: 1, padding: 20 },
+    title: { fontSize: 18, fontWeight: '800', marginBottom: 8 },
+    warning: { fontSize: 13, marginBottom: 16, lineHeight: 18 },
+    label: { fontSize: 14, fontWeight: '600', marginBottom: 8 },
+    pickerContainer: { maxHeight: 250, marginBottom: 20 },
+    option: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+    optionText: { fontSize: 15 },
+    buttonRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
+    cancelBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1 },
+    confirmBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
+    input: { height: 50, borderRadius: 12, borderWidth: 1, paddingHorizontal: 16, fontSize: 16, marginBottom: 20 },
+});
 
 const styles = StyleSheet.create({
     screen: { flex: 1 },

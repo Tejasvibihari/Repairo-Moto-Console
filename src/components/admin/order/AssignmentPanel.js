@@ -1,4 +1,4 @@
-// components/admin/AssignmentPanel.js (fixed)
+// components/admin/AssignmentPanel.js (multi-select mechanics, no status tab)
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View,
@@ -21,17 +21,7 @@ import { getImageUrl } from '../../../utils/imageUtils';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// Status options (same as before)
-const STATUS_OPTIONS = [
-    { key: 'Pending', label: 'Pending', dot: '#9E8E78', bg: 'rgba(158,142,120,0.18)', text: '#9E8E78', icon: 'time-outline' },
-    { key: 'In Progress', label: 'In Progress', dot: '#E2A731', bg: 'rgba(226,167,49,0.18)', text: '#E2A731', icon: 'refresh-outline' },
-    // { key: 'Mechanic Assigned', label: 'Mechanic Assigned', dot: '#3498DB', bg: 'rgba(52,152,219,0.18)', text: '#3498DB', icon: 'person-add-outline' },
-    { key: 'Completed', label: 'Completed', dot: '#2ECC9A', bg: 'rgba(46,204,154,0.18)', text: '#2ECC9A', icon: 'checkmark-circle-outline' },
-    // { key: 'Invoice Generated', label: 'Invoice Generated', dot: '#9B59B6', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', icon: 'receipt-outline' },
-    { key: 'Cancelled', label: 'Cancelled', dot: '#FF6B6B', bg: 'rgba(255,107,107,0.18)', text: '#FF6B6B', icon: 'close-circle-outline' },
-];
-
-// SearchBar component (unchanged)
+// ─── SearchBar (unchanged) ────────────────────────────────────────────────────
 const SearchBar = ({ value, onChange, placeholder, theme }) => (
     <View style={[searchStyles.wrap, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
         <Ionicons name="search-outline" size={15} color={theme.colors.textMuted} />
@@ -55,7 +45,7 @@ const searchStyles = StyleSheet.create({
     input: { flex: 1, fontSize: 13, fontWeight: '500' },
 });
 
-// TabBar (unchanged)
+// ─── TabBar (updated – removed status) ───────────────────────────────────────
 const TabBar = ({ tabs, active, onSelect, theme }) => (
     <View style={[tabStyles.bar, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
         {tabs.map(t => (
@@ -77,7 +67,47 @@ const tabStyles = StyleSheet.create({
     label: { fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
 });
 
-// SelectableRow (unchanged)
+// ─── MechanicRow (multi‑select with checkbox) ─────────────────────────────────
+const MechanicRow = ({ item, isSelected, onToggle, theme, subtitle }) => {
+    const imageUrl = item.profileImage ? getImageUrl(item.profileImage) : null;
+    const hasImage = !!imageUrl;
+    return (
+        <TouchableOpacity
+            style={[
+                rowStyles.row,
+                {
+                    borderColor: isSelected ? theme.colors.primary : theme.colors.border,
+                    backgroundColor: isSelected ? theme.colors.primary + '11' : theme.colors.surfaceLow,
+                },
+            ]}
+            onPress={() => onToggle(item._id)}
+            activeOpacity={0.7}
+        >
+            <View style={[rowStyles.avatar, { backgroundColor: hasImage ? 'transparent' : isSelected ? theme.colors.primary + '22' : theme.colors.surfaceHigh }]}>
+                {hasImage ? (
+                    <Image source={{ uri: imageUrl }} style={rowStyles.avatarImage} resizeMode="cover" />
+                ) : (
+                    <Text style={[rowStyles.avatarText, { color: isSelected ? theme.colors.primary : theme.colors.textMuted }]}>
+                        {(item.firstName || '?')[0].toUpperCase()}
+                    </Text>
+                )}
+            </View>
+            <View style={{ flex: 1 }}>
+                <Text style={[rowStyles.name, { color: theme.colors.textPrimary }]}>
+                    {item.firstName} {item.lastName || ''}
+                </Text>
+                {subtitle && <Text style={[rowStyles.sub, { color: theme.colors.textMuted }]}>{subtitle}</Text>}
+            </View>
+            <Ionicons
+                name={isSelected ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={isSelected ? theme.colors.primary : theme.colors.textMuted}
+            />
+        </TouchableOpacity>
+    );
+};
+
+// ─── SelectableRow (for vendor / delivery – single select) ────────────────────
 const SelectableRow = ({ item, selected, onSelect, theme, subtitle }) => {
     const imageUrl = item.profileImage ? getImageUrl(item.profileImage) : null;
     const hasImage = !!imageUrl;
@@ -122,32 +152,7 @@ const rowStyles = StyleSheet.create({
     sub: { fontSize: 11, marginTop: 2, fontWeight: '500' },
 });
 
-// StatusChip (unchanged)
-const StatusChip = ({ option, selected, onSelect }) => (
-    <TouchableOpacity
-        style={[chipStyles.chip, { backgroundColor: option.bg, borderColor: selected ? option.dot : 'transparent', borderWidth: selected ? 1.5 : 0 }]}
-        onPress={() => onSelect(option.key)}
-        activeOpacity={0.7}
-    >
-        <Ionicons name={option.icon} size={13} color={option.text} />
-        <Text style={[chipStyles.label, { color: option.text }]}>{option.label}</Text>
-        {selected && <Ionicons name="checkmark-circle" size={14} color={option.dot} />}
-    </TouchableOpacity>
-);
-
-const chipStyles = StyleSheet.create({
-    chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, marginBottom: 8, marginRight: 8 },
-    label: { fontSize: 12, fontWeight: '700' },
-});
-
-const SectionHeader = ({ label, theme }) => (
-    <Text style={[shStyles.label, { color: theme.colors.textMuted }]}>{label}</Text>
-);
-const shStyles = StyleSheet.create({
-    label: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 },
-});
-
-// ─── Main Component (FIXED) ───────────────────────────────────────────────────
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function AssignmentPanel({
     visible,
     onClose,
@@ -159,10 +164,9 @@ export default function AssignmentPanel({
     vendorsLoading = false,
     deliveryBoys = [],
     deliveryBoysLoading = false,
-    onAssignMechanic,
+    onAssignMechanic,      // now expects (orderId, mechanicIdsArray)
     onAssignVendor,
     onAssignDeliveryBoy,
-    onUpdateStatus,
     mutationLoading = false,
 }) {
     const insets = useSafeAreaInsets();
@@ -173,19 +177,27 @@ export default function AssignmentPanel({
     const [mechanicSearch, setMechanicSearch] = useState('');
     const [vendorSearch, setVendorSearch] = useState('');
     const [deliverySearch, setDeliverySearch] = useState('');
-    const [selectedDeliveryBoy, setSelectedDeliveryBoy] = useState(null);
-    const [selectedMechanic, setSelectedMechanic] = useState(null);
+
+    // Multi‑select for mechanics
+    const [selectedMechanicIds, setSelectedMechanicIds] = useState([]);
+    // Single select for vendor and delivery
     const [selectedVendor, setSelectedVendor] = useState(null);
-    const [selectedStatus, setSelectedStatus] = useState(null);
+    const [selectedDeliveryBoy, setSelectedDeliveryBoy] = useState(null);
+
     const [successMsg, setSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
 
+
+    // Reset selections when panel opens/closes
     useEffect(() => {
         if (visible) {
-            setSelectedStatus(order.status || null);
-            setSelectedMechanic(null);
-            setSelectedVendor(null);
-            setSelectedDeliveryBoy(null);
+            // Extract IDs whether they are strings or populated objects
+            const existingIds = (order.mechanicIds || []).map(item =>
+                typeof item === 'string' ? item : item?._id?.toString()
+            ).filter(Boolean);
+            setSelectedMechanicIds(existingIds);
+            setSelectedVendor(order.vendorId ? { _id: order.vendorId } : null);
+            setSelectedDeliveryBoy(order.deliveryId ? { _id: order.deliveryId } : null);
             setSuccessMsg('');
             setErrorMsg('');
             setMechanicSearch('');
@@ -194,6 +206,7 @@ export default function AssignmentPanel({
         }
     }, [visible, order]);
 
+    // Animations
     useEffect(() => {
         if (visible) {
             Animated.parallel([
@@ -208,8 +221,9 @@ export default function AssignmentPanel({
         }
     }, [visible]);
 
+    // Filtering
     const filteredMechanics = mechanics.filter(m =>
-        (m.name || '').toLowerCase().includes(mechanicSearch.toLowerCase()) ||
+        `${m.firstName || ''} ${m.lastName || ''}`.toLowerCase().includes(mechanicSearch.toLowerCase()) ||
         (m.position || '').toLowerCase().includes(mechanicSearch.toLowerCase())
     );
 
@@ -219,73 +233,76 @@ export default function AssignmentPanel({
     );
 
     const filteredDeliveryBoys = deliveryBoys.filter(d =>
-        (d.name || '').toLowerCase().includes(deliverySearch.toLowerCase()) ||
+        `${d.firstName || ''} ${d.lastName || ''}`.toLowerCase().includes(deliverySearch.toLowerCase()) ||
         (d.position || '').toLowerCase().includes(deliverySearch.toLowerCase())
     );
+
+    const toggleMechanic = (id) => {
+        setSelectedMechanicIds(prev =>
+            prev.includes(id) ? prev.filter(mid => mid !== id) : [...prev, id]
+        );
+    };
 
     const showFeedback = (msg, isError = false) => {
         if (isError) setErrorMsg(msg);
         else setSuccessMsg(msg);
         setTimeout(() => { setSuccessMsg(''); setErrorMsg(''); }, 2500);
     };
+
     const handleAssignMechanic = useCallback(async () => {
-        if (!selectedMechanic) return;
-        try {
-            await onAssignMechanic(order._id || order.orderId, selectedMechanic._id);
-            showFeedback(`Mechanic "${selectedMechanic.name}" assigned`);
-        } catch (e) {
-            showFeedback(e.message || 'Failed to assign mechanic', true);
+        if (selectedMechanicIds.length === 0) {
+            showFeedback('Please select at least one mechanic', true);
+            return;
         }
-    }, [selectedMechanic, order, onAssignMechanic]);
+        try {
+            await onAssignMechanic(order._id || order.orderId, selectedMechanicIds);
+            showFeedback(`${selectedMechanicIds.length} mechanic(s) assigned`);
+        } catch (e) {
+            showFeedback(e.message || 'Failed to assign mechanics', true);
+        }
+    }, [selectedMechanicIds, order, onAssignMechanic]);
 
     const handleAssignVendor = useCallback(async () => {
-        if (!selectedVendor) return;
+        if (!selectedVendor) {
+            showFeedback('Please select a vendor', true);
+            return;
+        }
         try {
             await onAssignVendor(order._id || order.orderId, selectedVendor._id);
-            showFeedback(`Vendor "${selectedVendor.vendorName || selectedVendor.name}" assigned`);
+            showFeedback(`Vendor assigned`);
         } catch (e) {
             showFeedback(e.message || 'Failed to assign vendor', true);
         }
     }, [selectedVendor, order, onAssignVendor]);
 
     const handleAssignDeliveryBoy = useCallback(async () => {
-        if (!selectedDeliveryBoy) return;
+        if (!selectedDeliveryBoy) {
+            showFeedback('Please select a delivery person', true);
+            return;
+        }
         try {
             await onAssignDeliveryBoy(order._id || order.orderId, selectedDeliveryBoy._id);
-            showFeedback(`Delivery Boy "${selectedDeliveryBoy.name}" assigned`);
+            showFeedback(`Delivery person assigned`);
         } catch (e) {
-            showFeedback(e.message || 'Failed to assign delivery boy', true);
+            showFeedback(e.message || 'Failed to assign delivery', true);
         }
     }, [selectedDeliveryBoy, order, onAssignDeliveryBoy]);
-
-    const handleUpdateStatus = useCallback(async () => {
-        if (!selectedStatus) return;
-        try {
-            await onUpdateStatus(order._id || order.orderId, selectedStatus);
-            showFeedback(`Status updated to "${selectedStatus}"`);
-        } catch (e) {
-            showFeedback(e.message || 'Failed to update status', true);
-        }
-    }, [selectedStatus, order, onUpdateStatus]);
 
     const TABS = [
         { key: 'mechanic', label: 'Mechanic', icon: 'construct-outline' },
         { key: 'vendor', label: 'Vendor', icon: 'business-outline' },
-        { key: 'delivery', label: 'Delivery', icon: 'bicycle-outline' }, // NEW
-        { key: 'status', label: 'Status', icon: 'flag-outline' },
+        { key: 'delivery', label: 'Delivery', icon: 'bicycle-outline' },
     ];
 
     const canSave =
-        (activeTab === 'mechanic' && selectedMechanic) ||
+        (activeTab === 'mechanic' && selectedMechanicIds.length > 0) ||
         (activeTab === 'vendor' && selectedVendor) ||
-        (activeTab === 'delivery' && selectedDeliveryBoy) ||
-        (activeTab === 'status' && selectedStatus && selectedStatus !== order.status);
+        (activeTab === 'delivery' && selectedDeliveryBoy);
 
     const handleSave = () => {
         if (activeTab === 'mechanic') handleAssignMechanic();
         else if (activeTab === 'vendor') handleAssignVendor();
         else if (activeTab === 'delivery') handleAssignDeliveryBoy();
-        else if (activeTab === 'status') handleUpdateStatus();
     };
 
     return (
@@ -320,27 +337,29 @@ export default function AssignmentPanel({
                         keyboardShouldPersistTaps="handled"
                         contentContainerStyle={{ paddingBottom: 16 }}
                     >
-                        {/* Mechanic Tab */}
+                        {/* Mechanic Tab (multi‑select) */}
                         {activeTab === 'mechanic' && (
                             <View>
-                                {order.assignedMechanic && (
+                                {order.assignedMechanics?.length > 0 && (
                                     <View style={[panelStyles.currentBadge, { backgroundColor: theme.colors.primary + '15', borderColor: theme.colors.primary + '30' }]}>
-                                        <Ionicons name="person-circle-outline" size={14} color={theme.colors.primary} />
-                                        <Text style={[panelStyles.currentText, { color: theme.colors.primary }]}>Current: {order.assignedMechanic}</Text>
+                                        <Ionicons name="people-outline" size={14} color={theme.colors.primary} />
+                                        <Text style={[panelStyles.currentText, { color: theme.colors.primary }]}>
+                                            Currently: {order.assignedMechanics.join(', ')}
+                                        </Text>
                                     </View>
                                 )}
-                                <SearchBar value={mechanicSearch} onChange={setMechanicSearch} placeholder="Search by name or position…" theme={theme} />
+                                <SearchBar value={mechanicSearch} onChange={setMechanicSearch} placeholder="Search mechanics…" theme={theme} />
                                 {mechanicsLoading ? (
                                     <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} />
                                 ) : filteredMechanics.length === 0 ? (
                                     <Text style={[panelStyles.emptyText, { color: theme.colors.textMuted }]}>No mechanics found</Text>
                                 ) : (
                                     filteredMechanics.map(m => (
-                                        <SelectableRow
+                                        <MechanicRow
                                             key={m._id}
                                             item={m}
-                                            selected={selectedMechanic?._id === m._id}
-                                            onSelect={setSelectedMechanic}
+                                            isSelected={selectedMechanicIds.includes(m._id.toString())}
+                                            onToggle={toggleMechanic}
                                             theme={theme}
                                             subtitle={[m.position, m.contactNo].filter(Boolean).join(' · ')}
                                         />
@@ -349,7 +368,7 @@ export default function AssignmentPanel({
                             </View>
                         )}
 
-                        {/* Vendor Tab */}
+                        {/* Vendor Tab (single select) */}
                         {activeTab === 'vendor' && (
                             <View>
                                 {order.assignedVendor && (
@@ -358,7 +377,7 @@ export default function AssignmentPanel({
                                         <Text style={[panelStyles.currentText, { color: theme.colors.primary }]}>Current: {order.assignedVendor}</Text>
                                     </View>
                                 )}
-                                <SearchBar value={vendorSearch} onChange={setVendorSearch} placeholder="Search by name or city…" theme={theme} />
+                                <SearchBar value={vendorSearch} onChange={setVendorSearch} placeholder="Search vendors…" theme={theme} />
                                 {vendorsLoading ? (
                                     <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} />
                                 ) : filteredVendors.length === 0 ? (
@@ -378,7 +397,7 @@ export default function AssignmentPanel({
                             </View>
                         )}
 
-                        {/* Delivery Boy Tab (NEW) */}
+                        {/* Delivery Tab (single select) */}
                         {activeTab === 'delivery' && (
                             <View>
                                 {order.assignedDelivery && (
@@ -387,7 +406,7 @@ export default function AssignmentPanel({
                                         <Text style={[panelStyles.currentText, { color: theme.colors.primary }]}>Current: {order.assignedDelivery}</Text>
                                     </View>
                                 )}
-                                <SearchBar value={deliverySearch} onChange={setDeliverySearch} placeholder="Search by name or position…" theme={theme} />
+                                <SearchBar value={deliverySearch} onChange={setDeliverySearch} placeholder="Search delivery boys…" theme={theme} />
                                 {deliveryBoysLoading ? (
                                     <ActivityIndicator color={theme.colors.primary} style={{ marginTop: 24 }} />
                                 ) : filteredDeliveryBoys.length === 0 ? (
@@ -403,29 +422,6 @@ export default function AssignmentPanel({
                                             subtitle={[d.position, d.contactNo].filter(Boolean).join(' · ')}
                                         />
                                     ))
-                                )}
-                            </View>
-                        )}
-
-                        {/* Status Tab */}
-                        {activeTab === 'status' && (
-                            <View>
-                                <SectionHeader label="Select New Status" theme={theme} />
-                                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                                    {STATUS_OPTIONS.map(opt => (
-                                        <StatusChip
-                                            key={opt.key}
-                                            option={opt}
-                                            selected={selectedStatus === opt.key}
-                                            onSelect={setSelectedStatus}
-                                        />
-                                    ))}
-                                </View>
-                                {order.status && (
-                                    <View style={[panelStyles.currentBadge, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border, marginTop: 8 }]}>
-                                        <Ionicons name="flag-outline" size={14} color={theme.colors.textMuted} />
-                                        <Text style={[panelStyles.currentText, { color: theme.colors.textMuted }]}>Current status: {order.status}</Text>
-                                    </View>
                                 )}
                             </View>
                         )}
@@ -461,10 +457,11 @@ export default function AssignmentPanel({
                                 <>
                                     <Ionicons name="save-outline" size={16} color={canSave ? '#fff' : theme.colors.textMuted} />
                                     <Text style={[panelStyles.saveBtnText, { color: canSave ? '#fff' : theme.colors.textMuted }]}>
-                                        {activeTab === 'mechanic' ? 'Assign Mechanic' :
-                                            activeTab === 'vendor' ? 'Assign Vendor' :
-                                                activeTab === 'delivery' ? 'Assign Delivery Boy' :
-                                                    'Update Status'}
+                                        {activeTab === 'mechanic'
+                                            ? `Assign ${selectedMechanicIds.length} Mechanic${selectedMechanicIds.length !== 1 ? 's' : ''}`
+                                            : activeTab === 'vendor'
+                                                ? 'Assign Vendor'
+                                                : 'Assign Delivery Boy'}
                                     </Text>
                                 </>
                             )}
@@ -487,7 +484,7 @@ const panelStyles = StyleSheet.create({
         borderTopRightRadius: 24,
         paddingHorizontal: 18,
         paddingTop: 12,
-        maxHeight: SCREEN_HEIGHT * 0.9, // increased to give more room
+        maxHeight: SCREEN_HEIGHT * 0.9,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -8 },
         shadowOpacity: 0.18,

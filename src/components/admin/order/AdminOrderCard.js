@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 
-// ─── Status config ───────────────────────────────────────────────────────────
+// Status config unchanged...
 const STATUS_CONFIG = {
     pending: {
         label: 'Pending',
@@ -65,20 +65,18 @@ const getStatusConfig = (status = '') => {
     };
 };
 
-// ─── Helper to format date ───────────────────────────────────────────────────
 const formatDate = (isoString) => {
     if (!isoString) return '—';
     const date = new Date(isoString);
     return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-// ─── Helper for service type chip styling ─────────────────────────────────────
 const getServiceChipStyle = (type) => {
     if (type === 'Schedule Repair') {
         return {
             label: 'Scheduled',
             icon: 'calendar-outline',
-            bg: 'rgba(46,204,154,0.15)',    // muted green
+            bg: 'rgba(46,204,154,0.15)',
             text: '#2ECC9A',
             border: 'rgba(46,204,154,0.3)'
         };
@@ -87,7 +85,7 @@ const getServiceChipStyle = (type) => {
         return {
             label: 'Emergency',
             icon: 'alert-circle-outline',
-            bg: 'rgba(255,107,107,0.15)',   // muted red
+            bg: 'rgba(255,107,107,0.15)',
             text: '#FF6B6B',
             border: 'rgba(255,107,107,0.3)'
         };
@@ -101,7 +99,7 @@ const getServiceChipStyle = (type) => {
     };
 };
 
-// ─── InfoRow (unchanged) ──────────────────────────────────────────────────────
+// InfoRow unchanged
 const InfoRow = ({ icon, value, theme, accent = false }) => (
     <View style={rowStyles.row}>
         <Ionicons
@@ -130,7 +128,7 @@ const rowStyles = StyleSheet.create({
     value: { fontSize: 12.5, flex: 1, letterSpacing: 0.1 },
 });
 
-// ─── Services chips (unchanged) ───────────────────────────────────────────────
+// ServiceChips unchanged
 const ServiceChips = ({ services = [], theme }) => (
     <View style={chipStyles.wrap}>
         {services.map((s, i) => (
@@ -155,10 +153,21 @@ const chipStyles = StyleSheet.create({
     text: { fontSize: 11, fontWeight: '500', letterSpacing: 0.2 },
 });
 
-// ─── Main Card (service type as chip) ─────────────────────────────────────────
+// Helper to format payment info
+const formatPaymentInfo = (paymentStatus, balanceDue, paymentMethod, totalFinal) => {
+    if (paymentStatus === 'paid') {
+        return `Paid ₹${totalFinal || balanceDue || 0}`;
+    }
+    if (paymentStatus === 'unpaid') {
+        return `Unpaid ₹${balanceDue || totalFinal || 0} due`;
+    }
+    return '—';
+};
+
 export default function AdminOrderCard({ order = {}, onPress, index = 0 }) {
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
+
     const {
         orderId = '#--',
         name = 'Unknown',
@@ -172,19 +181,26 @@ export default function AdminOrderCard({ order = {}, onPress, index = 0 }) {
         serviceType = '',
         preferredDate = null,
         preferredTime = '',
-        assignedMechanic = null,
+        assignedMechanics = [],
         status = 'pending',
+        paymentStatus,
+        paymentMethod,
+        balanceDue,
+        total,
     } = order;
 
     const sc = getStatusConfig(status);
-    const mechanicDisplay = assignedMechanic || 'Unassigned';
+    const mechanicDisplay = assignedMechanics?.length ? assignedMechanics[0] : 'Unassigned';
     const formattedDate = formatDate(preferredDate);
     const bikeInfo = [selectedBrand, selectedModel].filter(Boolean).join(' ');
     const bikeSpecs = [cc ? `${cc}cc` : null, bs ? bs.toUpperCase() : null].filter(Boolean).join(' · ');
 
     const serviceChip = getServiceChipStyle(serviceType);
+    const finalPayable = total?.finalPayable || balanceDue || 0;
+    const paymentInfoText = formatPaymentInfo(paymentStatus, balanceDue, paymentMethod, finalPayable);
+    const isPaid = paymentStatus === 'paid';
 
-    // Staggered entrance
+    // Staggered entrance animation
     const translateY = useRef(new Animated.Value(18)).current;
     const opacity = useRef(new Animated.Value(0)).current;
 
@@ -242,7 +258,7 @@ export default function AdminOrderCard({ order = {}, onPress, index = 0 }) {
                 {bikeInfo && <InfoRow icon="bicycle-outline" value={bikeInfo} theme={theme} accent />}
                 {bikeSpecs && <InfoRow icon="options-outline" value={bikeSpecs} theme={theme} />}
 
-                {/* ✨ Service Type as a highlighted chip ✨ */}
+                {/* Service Type chip */}
                 {serviceType && (
                     <View style={styles.serviceChipRow}>
                         <View style={[styles.serviceChip, { backgroundColor: serviceChip.bg, borderColor: serviceChip.border }]}>
@@ -254,6 +270,26 @@ export default function AdminOrderCard({ order = {}, onPress, index = 0 }) {
 
                 {/* Services chips */}
                 {services.length > 0 && <ServiceChips services={services} theme={theme} />}
+
+                {/* Payment Info Row (NEW) */}
+                <View style={[styles.paymentRow, { marginTop: services.length ? 8 : 12 }]}>
+                    <Ionicons
+                        name={isPaid ? 'checkmark-circle' : 'time-outline'}
+                        size={13}
+                        color={isPaid ? '#2ECC9A' : theme.colors.textMuted}
+                    />
+                    <Text style={[styles.paymentText, { color: isPaid ? '#2ECC9A' : theme.colors.textSecondary }]}>
+                        {paymentInfoText}
+                    </Text>
+                    {paymentMethod && (
+                        <>
+                            <Text style={[styles.paymentText, { color: theme.colors.textMuted }]}>·</Text>
+                            <Text style={[styles.paymentText, { color: theme.colors.textSecondary }]}>
+                                {paymentMethod}
+                            </Text>
+                        </>
+                    )}
+                </View>
 
                 {/* Meta row: date, time, mechanic */}
                 <View style={[styles.divider, { backgroundColor: theme.colors.border, marginTop: 12 }]} />
@@ -351,6 +387,16 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: '700',
         letterSpacing: 0.3,
+    },
+    paymentRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 4,
+    },
+    paymentText: {
+        fontSize: 12,
+        fontWeight: '500',
     },
     metaRow: {
         flexDirection: 'row',

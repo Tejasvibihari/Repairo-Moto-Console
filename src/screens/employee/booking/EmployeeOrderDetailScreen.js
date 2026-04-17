@@ -1134,14 +1134,20 @@ const AddItemDrawer = ({ visible, type, onClose, onSave, theme, editItem }) => {
 
     const handleSave = () => {
         Keyboard.dismiss();
-        if (!name.trim()) { Alert.alert('Missing Name', `Please enter a ${type} name.`); return; }
-        if (!price || parseFloat(price) <= 0) { Alert.alert('Invalid Price', 'Price must be greater than 0.'); return; }
+        if (!name.trim()) {
+            Alert.alert('Missing Name', `Please enter a ${type} name.`);
+            return;
+        }
+        const parsedPrice = parseFloat(price);
+        const finalPrice = isNaN(parsedPrice) ? 0 : parsedPrice;
+        const finalQty = parseFloat(quantity) || 1;
+
         onSave({
             id: editItem?.id || genId(),
             type,
             name: name.trim(),
-            quantity: parseFloat(quantity) || 1,
-            price: parseFloat(price) || 0,
+            quantity: finalQty,
+            price: finalPrice,
             discountType,
             discountValue: parseFloat(discountValue) || 0,
         });
@@ -1195,24 +1201,39 @@ const AddItemDrawer = ({ visible, type, onClose, onSave, theme, editItem }) => {
                             <Text style={[addItemStyles.fieldLabel, { color: theme.colors.textMuted }]}>
                                 {isPartType ? 'PART NAME *' : 'SERVICE NAME *'}
                             </Text>
-                            <TextInput value={name} onChangeText={setName}
+                            <TextInput
+                                value={name}
+                                onChangeText={setName}
                                 placeholder={isPartType ? 'e.g. Brake Pad, Engine Oil...' : 'e.g. Oil Change, Wheel Alignment...'}
                                 placeholderTextColor={theme.colors.textMuted + '60'}
-                                style={[addItemStyles.input, inputStyle]} returnKeyType="next" />
+                                style={[addItemStyles.input, inputStyle]}
+                                returnKeyType="next"
+                            />
                         </View>
                         <View style={addItemStyles.twoCol}>
                             <View style={[addItemStyles.fieldGroup, { flex: 1 }]}>
                                 <Text style={[addItemStyles.fieldLabel, { color: theme.colors.textMuted }]}>QUANTITY *</Text>
-                                <TextInput value={quantity} onChangeText={setQuantity} placeholder="1"
-                                    placeholderTextColor={theme.colors.textMuted + '60'} keyboardType="decimal-pad"
-                                    style={[addItemStyles.input, inputStyle]} returnKeyType="next" />
+                                <TextInput
+                                    value={quantity}
+                                    onChangeText={setQuantity}
+                                    placeholder="1"
+                                    placeholderTextColor={theme.colors.textMuted + '60'}
+                                    keyboardType="decimal-pad"
+                                    style={[addItemStyles.input, inputStyle]}
+                                />
                             </View>
                             <View style={[addItemStyles.fieldGroup, { flex: 1.6 }]}>
-                                <Text style={[addItemStyles.fieldLabel, { color: theme.colors.textMuted }]}>UNIT PRICE (₹) *</Text>
-                                <TextInput value={price} onChangeText={setPrice} placeholder="0.00"
-                                    placeholderTextColor={theme.colors.textMuted + '60'} keyboardType="decimal-pad"
-                                    style={[addItemStyles.input, inputStyle]} returnKeyType="done"
-                                    onSubmitEditing={Keyboard.dismiss} />
+                                <Text style={[addItemStyles.fieldLabel, { color: theme.colors.textMuted }]}>
+                                    UNIT PRICE (₹) <Text style={{ fontWeight: 'normal' }}>(optional)</Text>
+                                </Text>
+                                <TextInput
+                                    value={price}
+                                    onChangeText={setPrice}
+                                    placeholder="0.00"
+                                    placeholderTextColor={theme.colors.textMuted + '60'}
+                                    keyboardType="decimal-pad"
+                                    style={[addItemStyles.input, inputStyle]}
+                                />
                             </View>
                         </View>
                         <View style={addItemStyles.fieldGroup}>
@@ -1245,7 +1266,7 @@ const AddItemDrawer = ({ visible, type, onClose, onSave, theme, editItem }) => {
                                     onSubmitEditing={Keyboard.dismiss} />
                             </View>
                         )}
-                        {price && parseFloat(price) > 0 && (
+                        {price !== '' && (
                             <View style={[addItemStyles.previewCard, { backgroundColor: accentBg, borderColor: accentColor + '30' }]}>
                                 <Text style={[addItemStyles.previewTitle, { color: accentColor }]}>PRICE PREVIEW</Text>
                                 <View style={addItemStyles.previewRow}>
