@@ -218,21 +218,213 @@ const otpStyles = StyleSheet.create({
     },
 });
 
-// ─── Photo + OTP Modal ─────────────────────────────────────────────────────────
-/**
- * Two-step modal:
- *   Step 1 (photo):   Mechanic takes the photo → taps "Continue & Send OTP"
- *                     → calls onRequestOtp(photo) which uploads photo + triggers OTP.
- *   Step 2 (otp):     Mechanic enters the customer's OTP → taps confirm button
- *                     → calls onSubmit(otp).
- *                     "Resend OTP" calls onResendOtp() — no new photo needed,
- *                     server reuses the temp photo already stored.
- *
- * If the mechanic closed the app mid-flow and re-opens:
- *   - hasPendingPhoto=true  → skip directly to OTP step (photo already uploaded)
- *   - hasPendingPhoto=false → start from photo step
- */
-// ─── Photo + OTP Modal (with Keyboard Avoiding) ─────────────────────────────────
+// ─── COD Collect Cash Modal ───────────────────────────────────────────────────
+const CodModal = ({
+    visible,
+    onClose,
+    onConfirm,
+    theme,
+    amount,
+    submitting,
+}) => {
+    const insets = useSafeAreaInsets();
+    const [confirmed, setConfirmed] = useState(false);
+
+    useEffect(() => {
+        if (visible) setConfirmed(false);
+    }, [visible]);
+
+    return (
+        <Modal
+            visible={visible}
+            transparent
+            animationType="slide"
+            onRequestClose={onClose}
+            statusBarTranslucent
+        >
+            <View style={codModalStyles.overlay}>
+                <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
+                <View style={[
+                    codModalStyles.sheet,
+                    {
+                        backgroundColor: theme.colors.surface,
+                        borderColor: theme.colors.border,
+                        paddingBottom: insets.bottom > 0 ? insets.bottom + 8 : 24,
+                    },
+                ]}>
+                    {/* Handle */}
+                    <View style={[codModalStyles.handle, { backgroundColor: theme.colors.border }]} />
+
+                    {/* Header */}
+                    <View style={[codModalStyles.header, { borderBottomColor: theme.colors.border }]}>
+                        <View style={[codModalStyles.headerIcon, { backgroundColor: 'rgba(46,204,154,0.15)' }]}>
+                            <Ionicons name="cash-outline" size={22} color="#2ECC9A" />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[codModalStyles.title, { color: theme.colors.textPrimary }]}>
+                                Collect Cash Payment
+                            </Text>
+                            <Text style={[codModalStyles.subtitle, { color: theme.colors.textMuted }]}>
+                                Confirm cash received from customer
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            onPress={onClose}
+                            style={[codModalStyles.closeBtn, { backgroundColor: theme.colors.surfaceLow }]}
+                        >
+                            <Ionicons name="close" size={18} color={theme.colors.textMuted} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Amount Display */}
+                    <View style={codModalStyles.body}>
+                        <View style={[codModalStyles.amountCard, { backgroundColor: 'rgba(46,204,154,0.08)', borderColor: 'rgba(46,204,154,0.25)' }]}>
+                            <Text style={[codModalStyles.amountLabel, { color: theme.colors.textMuted }]}>
+                                AMOUNT TO COLLECT
+                            </Text>
+                            <Text style={codModalStyles.amountValue}>
+                                {formatCurrency(amount)}
+                            </Text>
+                            <View style={codModalStyles.amountMethodRow}>
+                                <Ionicons name="cash" size={14} color="#2ECC9A" />
+                                <Text style={[codModalStyles.amountMethod, { color: theme.colors.textSecondary }]}>
+                                    Cash on Delivery
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Checklist */}
+                        <View style={[codModalStyles.checklistCard, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
+                            <Text style={[codModalStyles.checklistTitle, { color: theme.colors.textSecondary }]}>
+                                Before confirming, ensure:
+                            </Text>
+                            {[
+                                'You have received the exact cash amount',
+                                'Customer is satisfied with the service',
+                                'Hand over any replaced parts if requested',
+                            ].map((item, i) => (
+                                <View key={i} style={codModalStyles.checkRow}>
+                                    <View style={[codModalStyles.checkDot, { backgroundColor: '#2ECC9A20' }]}>
+                                        <Ionicons name="checkmark" size={11} color="#2ECC9A" />
+                                    </View>
+                                    <Text style={[codModalStyles.checkText, { color: theme.colors.textSecondary }]}>
+                                        {item}
+                                    </Text>
+                                </View>
+                            ))}
+                        </View>
+
+                        {/* Confirm Toggle */}
+                        <TouchableOpacity
+                            onPress={() => setConfirmed(prev => !prev)}
+                            style={[
+                                codModalStyles.confirmToggle,
+                                {
+                                    borderColor: confirmed ? '#2ECC9A' : theme.colors.border,
+                                    backgroundColor: confirmed ? 'rgba(46,204,154,0.08)' : theme.colors.surfaceLow,
+                                },
+                            ]}
+                            activeOpacity={0.75}
+                        >
+                            <View style={[
+                                codModalStyles.checkbox,
+                                {
+                                    backgroundColor: confirmed ? '#2ECC9A' : 'transparent',
+                                    borderColor: confirmed ? '#2ECC9A' : theme.colors.border,
+                                },
+                            ]}>
+                                {confirmed && <Ionicons name="checkmark" size={14} color="#fff" />}
+                            </View>
+                            <Text style={[codModalStyles.confirmToggleText, { color: theme.colors.textPrimary }]}>
+                                I confirm I have collected {formatCurrency(amount)} in cash
+                            </Text>
+                        </TouchableOpacity>
+
+                        {/* Submit Button */}
+                        <TouchableOpacity
+                            onPress={() => onConfirm(amount)}
+                            disabled={!confirmed || submitting}
+                            style={[
+                                codModalStyles.submitBtn,
+                                {
+                                    backgroundColor: '#2ECC9A',
+                                    opacity: confirmed && !submitting ? 1 : 0.45,
+                                },
+                            ]}
+                            activeOpacity={0.85}
+                        >
+                            {submitting ? (
+                                <ActivityIndicator color="#fff" size="small" />
+                            ) : (
+                                <>
+                                    <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                                    <Text style={codModalStyles.submitBtnTxt}>
+                                        Mark as Paid — {formatCurrency(amount)}
+                                    </Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+};
+
+const codModalStyles = StyleSheet.create({
+    overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+    sheet: {
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        borderTopWidth: 1,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
+        elevation: 24,
+    },
+    handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
+    header: {
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        paddingHorizontal: 20, paddingVertical: 14,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+    headerIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    title: { fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
+    subtitle: { fontSize: 12, fontWeight: '500', marginTop: 1 },
+    closeBtn: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    body: { paddingHorizontal: 20, paddingTop: 20, gap: 14 },
+    amountCard: {
+        borderRadius: 18, borderWidth: 1.5,
+        alignItems: 'center', paddingVertical: 24, paddingHorizontal: 16,
+    },
+    amountLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginBottom: 8 },
+    amountValue: { fontSize: 36, fontWeight: '900', color: '#2ECC9A', letterSpacing: 0.5 },
+    amountMethodRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
+    amountMethod: { fontSize: 12, fontWeight: '600' },
+    checklistCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 10 },
+    checklistTitle: { fontSize: 12, fontWeight: '700', marginBottom: 2 },
+    checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    checkDot: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+    checkText: { flex: 1, fontSize: 12.5, fontWeight: '500', lineHeight: 18 },
+    confirmToggle: {
+        flexDirection: 'row', alignItems: 'center', gap: 12,
+        padding: 14, borderRadius: 14, borderWidth: 1.5,
+    },
+    checkbox: {
+        width: 22, height: 22, borderRadius: 6, borderWidth: 2,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    confirmToggleText: { flex: 1, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+    submitBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 8, paddingVertical: 16, borderRadius: 14,
+    },
+    submitBtnTxt: { fontSize: 15, fontWeight: '900', color: '#fff', letterSpacing: 0.3 },
+});
+
 // ─── Photo + OTP Modal (with Keyboard Avoiding) ─────────────────────────────────
 const PhotoOtpModal = ({
     visible,
@@ -256,7 +448,6 @@ const PhotoOtpModal = ({
     const [keyboardVisible, setKeyboardVisible] = useState(false);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-    // Keyboard listeners
     useEffect(() => {
         const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
         const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
@@ -271,7 +462,6 @@ const PhotoOtpModal = ({
         return () => { showSub.remove(); hideSub.remove(); };
     }, []);
 
-    // Reset state when modal opens/closes
     useEffect(() => {
         if (visible) {
             setStep(hasPendingPhoto ? 'otp' : 'photo');
@@ -329,7 +519,6 @@ const PhotoOtpModal = ({
         setStep('photo');
     };
 
-    // Dynamic bottom padding: when keyboard is open, add its height + a small margin
     const scrollBottomPad = keyboardVisible
         ? keyboardHeight + 16
         : insets.bottom + 20;
@@ -358,10 +547,8 @@ const PhotoOtpModal = ({
                             },
                         ]}
                     >
-                        {/* Handle */}
                         <View style={[photoOtpStyles.handle, { backgroundColor: theme.colors.border }]} />
 
-                        {/* Header */}
                         <View style={[photoOtpStyles.header, { borderBottomColor: theme.colors.border }]}>
                             <View style={[photoOtpStyles.headerIcon, { backgroundColor: `${theme.colors.primary}18` }]}>
                                 <Ionicons name={step === 'photo' ? 'camera-outline' : 'keypad-outline'} size={22} color={theme.colors.primary} />
@@ -376,7 +563,6 @@ const PhotoOtpModal = ({
                             </TouchableOpacity>
                         </View>
 
-                        {/* Step indicator */}
                         <View style={photoOtpStyles.stepRow}>
                             <View style={[photoOtpStyles.stepDot, { backgroundColor: theme.colors.primary }]}>
                                 <Ionicons name="camera" size={12} color="#fff" />
@@ -538,17 +724,10 @@ const photoOtpStyles = StyleSheet.create({
     keyboardAvoid: { flex: 1 },
     overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
     sheet: {
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        borderTopWidth: 1,
-        borderLeftWidth: 1,
-        borderRightWidth: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -8 },
-        shadowOpacity: 0.2,
-        shadowRadius: 24,
-        elevation: 24,
-        maxHeight: '90%',
+        borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1,
+        borderLeftWidth: 1, borderRightWidth: 1, shadowColor: '#000',
+        shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.2,
+        shadowRadius: 24, elevation: 24, maxHeight: '90%',
     },
     handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
     header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
@@ -595,8 +774,7 @@ const photoOtpStyles = StyleSheet.create({
     resendTxt: { fontSize: 13, fontWeight: '700' },
     retakeBtn: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: 7, paddingVertical: 11, borderRadius: 12, borderWidth: 1,
-        marginBottom: 12,
+        gap: 7, paddingVertical: 11, borderRadius: 12, borderWidth: 1, marginBottom: 12,
     },
     retakeBtnTxt: { fontSize: 13, fontWeight: '600' },
 });
@@ -619,16 +797,10 @@ const RepairPhotosCard = ({ beforePhotos = [], afterPhotos = [], theme }) => {
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={photoGalleryStyles.photoRow}>
                 {photos.map((p, i) => {
-                    // p is a server-side relative path like /uploads/orders/<id>/beforePhoto-xxx.jpg
-                    // getImageUrl converts it to the full URL
                     const uri = getImageUrl(p);
                     return (
                         <View key={i} style={[photoGalleryStyles.photoWrap, { borderColor: accentColor + '40' }]}>
-                            <Image
-                                source={{ uri }}
-                                style={photoGalleryStyles.photo}
-                                resizeMode="cover"
-                            />
+                            <Image source={{ uri }} style={photoGalleryStyles.photo} resizeMode="cover" />
                             <View style={[photoGalleryStyles.photoIndex, { backgroundColor: accentColor }]}>
                                 <Text style={photoGalleryStyles.photoIndexTxt}>{i + 1}</Text>
                             </View>
@@ -643,23 +815,13 @@ const RepairPhotosCard = ({ beforePhotos = [], afterPhotos = [], theme }) => {
         <Card theme={theme}>
             <SectionLabel label="Repair Photos" theme={theme} />
             {beforePhotos.length > 0 && (
-                <PhotoStrip
-                    photos={beforePhotos}
-                    label="BEFORE"
-                    accentColor="#3498DB"
-                    accentBg="rgba(52,152,219,0.12)"
-                />
+                <PhotoStrip photos={beforePhotos} label="BEFORE" accentColor="#3498DB" accentBg="rgba(52,152,219,0.12)" />
             )}
             {beforePhotos.length > 0 && afterPhotos.length > 0 && (
                 <Divider theme={theme} style={{ marginVertical: 12 }} />
             )}
             {afterPhotos.length > 0 && (
-                <PhotoStrip
-                    photos={afterPhotos}
-                    label="AFTER"
-                    accentColor="#2ECC9A"
-                    accentBg="rgba(46,204,154,0.12)"
-                />
+                <PhotoStrip photos={afterPhotos} label="AFTER" accentColor="#2ECC9A" accentBg="rgba(46,204,154,0.12)" />
             )}
         </Card>
     );
@@ -685,6 +847,7 @@ const MechanicActionStrip = ({
     onMarkArrived,
     onStartWork,
     onCompleteWork,
+    onCollectCash,
     arrivedLoading,
 }) => {
     const s = normalizeStatus(status);
@@ -767,8 +930,6 @@ const MechanicActionStrip = ({
         );
     }
 
-    // work_completed status — show a waiting indicator for customer OTP
-    // After in_progress case
     if (s === 'work_completed') {
         return (
             <View style={[actionStyles.strip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
@@ -777,15 +938,39 @@ const MechanicActionStrip = ({
                         <Ionicons name="checkmark-done-circle-outline" size={20} color="#2ECC9A" />
                     </View>
                     <View>
+                        <Text style={[actionStyles.stripTitle, { color: theme.colors.textPrimary }]}>Work Completed</Text>
+                        <Text style={[actionStyles.stripSub, { color: theme.colors.textMuted }]}>Awaiting invoice generation</Text>
+                    </View>
+                </View>
+            </View>
+        );
+    }
+
+    // ── NEW: Invoice Generated — COD collection ───────────────────────────────
+    if (s === 'invoice_generated') {
+        return (
+            <View style={[actionStyles.strip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                <View style={actionStyles.stripLeft}>
+                    <View style={[actionStyles.stripIcon, { backgroundColor: 'rgba(46,204,154,0.15)' }]}>
+                        <Ionicons name="cash-outline" size={20} color="#2ECC9A" />
+                    </View>
+                    <View>
                         <Text style={[actionStyles.stripTitle, { color: theme.colors.textPrimary }]}>
-                            Work Completed
+                            Collect Payment
                         </Text>
                         <Text style={[actionStyles.stripSub, { color: theme.colors.textMuted }]}>
-                            Awaiting invoice generation
+                            Invoice ready — collect cash from customer
                         </Text>
                     </View>
                 </View>
-                {/* No action button */}
+                <TouchableOpacity
+                    onPress={onCollectCash}
+                    style={[actionStyles.actionBtn, { backgroundColor: '#2ECC9A' }]}
+                    activeOpacity={0.85}
+                >
+                    <Ionicons name="cash" size={15} color="#fff" />
+                    <Text style={actionStyles.actionBtnTxt}>Collect Cash</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -1346,6 +1531,10 @@ export default function EmployeeOrderDetail({ route, navigation }) {
     const [photoModalSubmitting, setPhotoModalSubmitting] = useState(false);
     const [resendingOtp, setResendingOtp] = useState(false);
 
+    // ── COD modal state ───────────────────────────────────────────────────────
+    const [codModalVisible, setCodModalVisible] = useState(false);
+    const [codSubmitting, setCodSubmitting] = useState(false);
+
     // Popup state
     const [popupVisible, setPopupVisible] = useState(false);
     const [popupConfig, setPopupConfig] = useState({});
@@ -1361,11 +1550,13 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         });
         setPopupVisible(true);
     };
+
     const onRefresh = useCallback(async () => {
         setRefreshing(true);
         await fetchOrder();
         setRefreshing(false);
-    }, [fetchOrder]);
+    }, []);
+
     const fetchOrder = useCallback(async () => {
         if (!orderIdParam) { setLoading(false); return; }
         try {
@@ -1405,12 +1596,12 @@ export default function EmployeeOrderDetail({ route, navigation }) {
 
     const hasItemChanges = JSON.stringify(items.map(i => ({ ...i, id: '' }))) !== JSON.stringify(originalItems.map(i => ({ ...i, id: '' })));
 
-    // ── Derived flags ─────────────────────────────────────────────────────────
-    // Does the server already have a pending before-photo (uploaded but OTP not yet verified)?
-    // If so, opening the start-work modal should jump straight to the OTP step.
     const hasPendingBeforePhoto = Boolean(order?.workStartOtp?.pendingPhotoPath);
-    // Same for after-photo
     const hasPendingAfterPhoto = Boolean(order?.workCompleteOtp?.pendingPhotoPath);
+
+    // ── Derived: COD payable amount ───────────────────────────────────────────
+    // Use total.total (pre-referral, pre-wallet) for COD since no online payment
+    const codPayableAmount = order?.total?.total ?? order?.total?.finalPayable ?? 0;
 
     // ── API Actions ──────────────────────────────────────────────────────────
     const handleMarkArrived = async () => {
@@ -1425,12 +1616,6 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         }
     };
 
-    /**
-     * Step 1 of start-work flow:
-     * Upload before-photo to server as a temp file and trigger OTP.
-     * Server stores it in workStartOtp.pendingPhotoPath.
-     * If called again (mechanic retakes photo), server deletes old temp photo first.
-     */
     const handleRequestWorkStart = async (photo) => {
         setPhotoModalSubmitting(true);
         try {
@@ -1443,7 +1628,6 @@ export default function EmployeeOrderDetail({ route, navigation }) {
             await axiosClient.post(`/api/admin/order/${order._id}/request-work-start`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
-            // Refresh to get updated pendingPhotoPath flag
             await fetchOrder();
         } catch (err) {
             throw err;
@@ -1452,10 +1636,6 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         }
     };
 
-    /**
-     * Step 2: Verify OTP — no photo upload here.
-     * Server moves pendingPhotoPath → beforePhotos[] on success.
-     */
     const handleVerifyWorkStart = async (otp) => {
         setPhotoModalSubmitting(true);
         try {
@@ -1476,7 +1656,6 @@ export default function EmployeeOrderDetail({ route, navigation }) {
             await axiosClient.post(`/api/admin/order/${order._id}/resend-work-start-otp`);
             Alert.alert('OTP Resent', 'A new OTP has been sent to the customer.');
         } catch (err) {
-            // If server says no pending photo, tell mechanic to retake
             const msg = err?.response?.data?.message || 'Failed to resend OTP.';
             Alert.alert('Error', msg);
         } finally {
@@ -1484,10 +1663,6 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         }
     };
 
-    /**
-     * Complete-work step 1:
-     * Upload after-photo as temp, trigger completion OTP.
-     */
     const handleRequestCompleteWork = async (photo) => {
         setPhotoModalSubmitting(true);
         try {
@@ -1508,10 +1683,6 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         }
     };
 
-    /**
-     * Complete-work step 2: verify OTP.
-     * Server moves pendingPhotoPath → afterPhotos[] on success.
-     */
     const handleConfirmCompletion = async (otp) => {
         setPhotoModalSubmitting(true);
         try {
@@ -1536,6 +1707,36 @@ export default function EmployeeOrderDetail({ route, navigation }) {
             Alert.alert('Error', msg);
         } finally {
             setResendingOtp(false);
+        }
+    };
+
+    // ── COD payment handler ───────────────────────────────────────────────────
+    /**
+     * Calls POST /api/admin/order/:id/mark-paid-cod
+     * amountCollected is passed so the backend records the exact amount received.
+     */
+    const handleCollectCash = async (amountCollected) => {
+        setCodSubmitting(true);
+        try {
+            const response = await axiosClient.post(
+                `/api/admin/order/${order._id}/mark-paid-cod`,
+                { amountCollected: Number(amountCollected) }
+            );
+            setCodModalVisible(false);
+            await fetchOrder();
+            showPopup(
+                'Payment Collected ✅',
+                `Cash payment of ${formatCurrency(amountCollected)} recorded successfully. Invoice has been generated and the customer has been notified.`,
+                'OK',
+            );
+        } catch (err) {
+            setCodModalVisible(false);
+            showPopup(
+                'Error',
+                err?.response?.data?.message || 'Failed to record cash payment. Please try again.',
+            );
+        } finally {
+            setCodSubmitting(false);
         }
     };
 
@@ -1578,9 +1779,12 @@ export default function EmployeeOrderDetail({ route, navigation }) {
     // ── Derived state ────────────────────────────────────────────────────────
     const currentStatus = normalizeStatus(order?.status || '');
     const isInProgress = currentStatus === 'in_progress';
-    const isWorkCompleted = currentStatus === 'work_completed';
+    const isInvoiceGenerated = currentStatus === 'invoice_generated';
     const canEditItems = !isDelivery && isInProgress;
     const showFinancials = !isDelivery;
+    // Show COD button only for mechanics (not delivery) when invoice is generated
+    // and payment is not yet collected
+    const showCodAction = !isDelivery && isInvoiceGenerated && order?.paymentStatus !== 'paid';
 
     if (loading) {
         return (
@@ -1629,8 +1833,8 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={onRefresh}
-                            colors={[theme.colors.primary]} // Android
-                            tintColor={theme.colors.primary} // iOS
+                            colors={[theme.colors.primary]}
+                            tintColor={theme.colors.primary}
                             progressBackgroundColor={theme.colors.surface}
                         />
                     }
@@ -1657,9 +1861,8 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                             theme={theme}
                             onMarkArrived={handleMarkArrived}
                             onStartWork={() => setStartWorkModal(true)}
-                            // In work_completed, pressing "Resend" re-opens the complete-work modal
-                            // at the OTP step (hasPendingAfterPhoto will be true)
                             onCompleteWork={() => setCompleteWorkModal(true)}
+                            onCollectCash={() => setCodModalVisible(true)}
                             arrivedLoading={arrivedLoading}
                         />
                     )}
@@ -1794,6 +1997,16 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                 resending={resendingOtp}
                 stepLabel="Confirm Completion"
                 hasPendingPhoto={hasPendingAfterPhoto}
+            />
+
+            {/* ── COD Collect Cash Modal ── */}
+            <CodModal
+                visible={codModalVisible}
+                onClose={() => setCodModalVisible(false)}
+                onConfirm={handleCollectCash}
+                theme={theme}
+                amount={codPayableAmount}
+                submitting={codSubmitting}
             />
 
             {canEditItems && (
