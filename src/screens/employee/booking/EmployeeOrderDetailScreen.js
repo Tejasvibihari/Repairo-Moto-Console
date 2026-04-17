@@ -6,6 +6,8 @@ import {
     View, Text, ScrollView, StyleSheet, TouchableOpacity,
     Animated, Platform, Alert, ActivityIndicator, Linking,
     TextInput, Modal, Dimensions, Keyboard, Image,
+    KeyboardAvoidingView,
+    RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -230,6 +232,8 @@ const otpStyles = StyleSheet.create({
  *   - hasPendingPhoto=true  → skip directly to OTP step (photo already uploaded)
  *   - hasPendingPhoto=false → start from photo step
  */
+// ─── Photo + OTP Modal (with Keyboard Avoiding) ─────────────────────────────────
+// ─── Photo + OTP Modal (with Keyboard Avoiding) ─────────────────────────────────
 const PhotoOtpModal = ({
     visible,
     onClose,
@@ -243,23 +247,42 @@ const PhotoOtpModal = ({
     submitting,
     resending,
     stepLabel,
-    hasPendingPhoto = false,   // ← true when server already has a temp photo
+    hasPendingPhoto = false,
 }) => {
     const insets = useSafeAreaInsets();
     const [photo, setPhoto] = useState(null);
     const [otp, setOtp] = useState('');
-    // If there is already a pending photo on the server, jump straight to OTP step
     const [step, setStep] = useState(hasPendingPhoto ? 'otp' : 'photo');
+    const [keyboardVisible, setKeyboardVisible] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-    // Sync step when hasPendingPhoto changes (e.g. modal opens after app was killed)
+    // Keyboard listeners
+    useEffect(() => {
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+        const showSub = Keyboard.addListener(showEvent, (e) => {
+            setKeyboardVisible(true);
+            setKeyboardHeight(e.endCoordinates.height);
+        });
+        const hideSub = Keyboard.addListener(hideEvent, () => {
+            setKeyboardVisible(false);
+            setKeyboardHeight(0);
+        });
+        return () => { showSub.remove(); hideSub.remove(); };
+    }, []);
+
+    // Reset state when modal opens/closes
     useEffect(() => {
         if (visible) {
             setStep(hasPendingPhoto ? 'otp' : 'photo');
             setOtp('');
             if (!hasPendingPhoto) setPhoto(null);
         } else {
+            Keyboard.dismiss();
             setPhoto(null);
             setOtp('');
+            setKeyboardVisible(false);
+            setKeyboardHeight(0);
         }
     }, [visible, hasPendingPhoto]);
 
@@ -300,12 +323,16 @@ const PhotoOtpModal = ({
         await onSubmit(otp);
     };
 
-    // Mechanic wants to retake the photo — go back to step 1
     const handleRetakePhoto = () => {
         setPhoto(null);
         setOtp('');
         setStep('photo');
     };
+
+    // Dynamic bottom padding: when keyboard is open, add its height + a small margin
+    const scrollBottomPad = keyboardVisible
+        ? keyboardHeight + 16
+        : insets.bottom + 20;
 
     return (
         <Modal
@@ -315,199 +342,213 @@ const PhotoOtpModal = ({
             onRequestClose={() => { Keyboard.dismiss(); onClose(); }}
             statusBarTranslucent
         >
-            <View style={photoOtpStyles.overlay}>
-                <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => { Keyboard.dismiss(); onClose(); }} />
-                <View style={[photoOtpStyles.sheet, {
-                    backgroundColor: theme.colors.surface,
-                    borderColor: theme.colors.border,
-                    paddingBottom: insets.bottom + 16,
-                }]}>
-                    {/* Handle */}
-                    <View style={[photoOtpStyles.handle, { backgroundColor: theme.colors.border }]} />
-
-                    {/* Header */}
-                    <View style={[photoOtpStyles.header, { borderBottomColor: theme.colors.border }]}>
-                        <View style={[photoOtpStyles.headerIcon, { backgroundColor: `${theme.colors.primary}18` }]}>
-                            <Ionicons name={step === 'photo' ? 'camera-outline' : 'keypad-outline'} size={22} color={theme.colors.primary} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[photoOtpStyles.title, { color: theme.colors.textPrimary }]}>{title}</Text>
-                            <Text style={[photoOtpStyles.subtitle, { color: theme.colors.textMuted }]}>{subtitle}</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => { Keyboard.dismiss(); onClose(); }}
-                            style={[photoOtpStyles.closeBtn, { backgroundColor: theme.colors.surfaceLow }]}>
-                            <Ionicons name="close" size={18} color={theme.colors.textMuted} />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Step indicator */}
-                    <View style={photoOtpStyles.stepRow}>
-                        <View style={[photoOtpStyles.stepDot, { backgroundColor: theme.colors.primary }]}>
-                            <Ionicons name="camera" size={12} color="#fff" />
-                        </View>
-                        <View style={[photoOtpStyles.stepLine, { backgroundColor: step === 'otp' ? theme.colors.primary : theme.colors.border }]} />
-                        <View style={[photoOtpStyles.stepDot, { backgroundColor: step === 'otp' ? theme.colors.primary : theme.colors.border }]}>
-                            <Ionicons name="keypad" size={12} color="#fff" />
-                        </View>
-                    </View>
-
-                    <ScrollView
-                        contentContainerStyle={photoOtpStyles.body}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={false}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={photoOtpStyles.keyboardAvoid}
+                keyboardVerticalOffset={0}
+            >
+                <View style={photoOtpStyles.overlay}>
+                    <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => { Keyboard.dismiss(); onClose(); }} />
+                    <View
+                        style={[
+                            photoOtpStyles.sheet,
+                            {
+                                backgroundColor: theme.colors.surface,
+                                borderColor: theme.colors.border,
+                            },
+                        ]}
                     >
-                        {step === 'photo' ? (
-                            <>
-                                <Text style={[photoOtpStyles.stepTitle, { color: theme.colors.textPrimary }]}>
-                                    Step 1: Take {photoLabel}
-                                </Text>
-                                <Text style={[photoOtpStyles.stepHint, { color: theme.colors.textMuted }]}>
-                                    Take a clear photo of the bike {photoLabel === 'before photo' ? 'before starting repairs' : 'after completing repairs'}.
-                                </Text>
+                        {/* Handle */}
+                        <View style={[photoOtpStyles.handle, { backgroundColor: theme.colors.border }]} />
 
-                                <TouchableOpacity
-                                    onPress={pickPhoto}
-                                    activeOpacity={0.8}
-                                    style={[photoOtpStyles.photoBox, {
-                                        borderColor: photo ? theme.colors.primary : theme.colors.border,
-                                        backgroundColor: photo ? `${theme.colors.primary}08` : theme.colors.surfaceLow,
-                                    }]}
-                                >
-                                    {photo ? (
-                                        <View style={{ width: '100%', height: '100%' }}>
-                                            <Image source={{ uri: photo.uri }} style={photoOtpStyles.photoPreview} resizeMode="cover" />
-                                            <View style={photoOtpStyles.retakeOverlay}>
-                                                <Ionicons name="camera-reverse-outline" size={20} color="#fff" />
-                                                <Text style={photoOtpStyles.retakeText}>Retake</Text>
-                                            </View>
-                                        </View>
-                                    ) : (
-                                        <View style={photoOtpStyles.photoPlaceholder}>
-                                            <View style={[photoOtpStyles.cameraIconWrap, { backgroundColor: `${theme.colors.primary}20` }]}>
-                                                <Ionicons name="camera-outline" size={32} color={theme.colors.primary} />
-                                            </View>
-                                            <Text style={[photoOtpStyles.photoPlaceholderTitle, { color: theme.colors.textPrimary }]}>
-                                                Tap to Open Camera
-                                            </Text>
-                                            <Text style={[photoOtpStyles.photoPlaceholderHint, { color: theme.colors.textMuted }]}>
-                                                {photoLabel} is required
-                                            </Text>
-                                        </View>
-                                    )}
-                                </TouchableOpacity>
+                        {/* Header */}
+                        <View style={[photoOtpStyles.header, { borderBottomColor: theme.colors.border }]}>
+                            <View style={[photoOtpStyles.headerIcon, { backgroundColor: `${theme.colors.primary}18` }]}>
+                                <Ionicons name={step === 'photo' ? 'camera-outline' : 'keypad-outline'} size={22} color={theme.colors.primary} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[photoOtpStyles.title, { color: theme.colors.textPrimary }]}>{title}</Text>
+                                <Text style={[photoOtpStyles.subtitle, { color: theme.colors.textMuted }]}>{subtitle}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => { Keyboard.dismiss(); onClose(); }}
+                                style={[photoOtpStyles.closeBtn, { backgroundColor: theme.colors.surfaceLow }]}>
+                                <Ionicons name="close" size={18} color={theme.colors.textMuted} />
+                            </TouchableOpacity>
+                        </View>
 
-                                <TouchableOpacity
-                                    onPress={handlePhotoNext}
-                                    style={[photoOtpStyles.primaryBtn, { backgroundColor: theme.colors.primary, opacity: photo ? 1 : 0.55 }]}
-                                    activeOpacity={0.85}
-                                    disabled={!photo || submitting}
-                                >
-                                    {submitting ? (
-                                        <ActivityIndicator color="#fff" size="small" />
-                                    ) : (
-                                        <>
-                                            <Text style={photoOtpStyles.primaryBtnTxt}>Continue & Send OTP</Text>
-                                            <Ionicons name="arrow-forward" size={18} color="#fff" />
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-                            </>
-                        ) : (
-                            <>
-                                <Text style={[photoOtpStyles.stepTitle, { color: theme.colors.textPrimary }]}>
-                                    Step 2: Enter Customer OTP
-                                </Text>
-                                <Text style={[photoOtpStyles.stepHint, { color: theme.colors.textMuted }]}>
-                                    A 4-digit OTP has been sent to the customer. Ask the customer for the code.
-                                </Text>
+                        {/* Step indicator */}
+                        <View style={photoOtpStyles.stepRow}>
+                            <View style={[photoOtpStyles.stepDot, { backgroundColor: theme.colors.primary }]}>
+                                <Ionicons name="camera" size={12} color="#fff" />
+                            </View>
+                            <View style={[photoOtpStyles.stepLine, { backgroundColor: step === 'otp' ? theme.colors.primary : theme.colors.border }]} />
+                            <View style={[photoOtpStyles.stepDot, { backgroundColor: step === 'otp' ? theme.colors.primary : theme.colors.border }]}>
+                                <Ionicons name="keypad" size={12} color="#fff" />
+                            </View>
+                        </View>
 
-                                {/* Photo thumb — shown when we have a local photo reference */}
-                                {photo && (
-                                    <View style={photoOtpStyles.photoThumbRow}>
-                                        <Image source={{ uri: photo.uri }} style={photoOtpStyles.photoThumb} />
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[photoOtpStyles.photoThumbLabel, { color: theme.colors.textSecondary }]}>
-                                                Photo captured ✓
-                                            </Text>
-                                            <Text style={[photoOtpStyles.photoThumbSub, { color: theme.colors.textMuted }]}>
-                                                {photoLabel}
-                                            </Text>
-                                        </View>
-                                        <View style={[photoOtpStyles.checkBadge, { backgroundColor: '#2ECC9A20' }]}>
-                                            <Ionicons name="checkmark-circle" size={22} color="#2ECC9A" />
-                                        </View>
-                                    </View>
-                                )}
-
-                                {/* OTP Box */}
-                                <View style={[photoOtpStyles.otpCard, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
-                                    <View style={photoOtpStyles.otpCardHeader}>
-                                        <Ionicons name="shield-checkmark-outline" size={16} color={theme.colors.primary} />
-                                        <Text style={[photoOtpStyles.otpCardTitle, { color: theme.colors.textPrimary }]}>
-                                            Customer Verification OTP
-                                        </Text>
-                                    </View>
-                                    <OtpInput value={otp} onChange={setOtp} theme={theme} />
-
-                                    {/* Resend OTP */}
-                                    <TouchableOpacity
-                                        onPress={onResendOtp}
-                                        disabled={resending}
-                                        style={photoOtpStyles.resendRow}
-                                    >
-                                        {resending
-                                            ? <ActivityIndicator size="small" color={theme.colors.primary} />
-                                            : <Text style={[photoOtpStyles.resendTxt, { color: theme.colors.primary }]}>
-                                                Resend OTP
-                                            </Text>
-                                        }
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* Retake photo option */}
-                                <TouchableOpacity
-                                    onPress={handleRetakePhoto}
-                                    style={[photoOtpStyles.retakeBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceLow }]}
-                                    activeOpacity={0.75}
-                                >
-                                    <Ionicons name="camera-reverse-outline" size={16} color={theme.colors.textSecondary} />
-                                    <Text style={[photoOtpStyles.retakeBtnTxt, { color: theme.colors.textSecondary }]}>
-                                        Retake Photo & Restart
+                        <ScrollView
+                            contentContainerStyle={[photoOtpStyles.body, { paddingBottom: scrollBottomPad }]}
+                            keyboardShouldPersistTaps="handled"
+                            showsVerticalScrollIndicator={false}
+                            bounces={false}
+                        >
+                            {step === 'photo' ? (
+                                <>
+                                    <Text style={[photoOtpStyles.stepTitle, { color: theme.colors.textPrimary }]}>
+                                        Step 1: Take {photoLabel}
                                     </Text>
-                                </TouchableOpacity>
+                                    <Text style={[photoOtpStyles.stepHint, { color: theme.colors.textMuted }]}>
+                                        Take a clear photo of the bike {photoLabel === 'before photo' ? 'before starting repairs' : 'after completing repairs'}.
+                                    </Text>
 
-                                <TouchableOpacity
-                                    onPress={handleSubmitOtp}
-                                    style={[photoOtpStyles.primaryBtn, { backgroundColor: '#2ECC9A', opacity: otp.length === 4 ? 1 : 0.55 }]}
-                                    activeOpacity={0.85}
-                                    disabled={otp.length < 4 || submitting}
-                                >
-                                    {submitting ? (
-                                        <ActivityIndicator color="#fff" size="small" />
-                                    ) : (
-                                        <>
-                                            <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                                            <Text style={photoOtpStyles.primaryBtnTxt}>{stepLabel}</Text>
-                                        </>
+                                    <TouchableOpacity
+                                        onPress={pickPhoto}
+                                        activeOpacity={0.8}
+                                        style={[photoOtpStyles.photoBox, {
+                                            borderColor: photo ? theme.colors.primary : theme.colors.border,
+                                            backgroundColor: photo ? `${theme.colors.primary}08` : theme.colors.surfaceLow,
+                                        }]}
+                                    >
+                                        {photo ? (
+                                            <View style={{ width: '100%', height: '100%' }}>
+                                                <Image source={{ uri: photo.uri }} style={photoOtpStyles.photoPreview} resizeMode="cover" />
+                                                <View style={photoOtpStyles.retakeOverlay}>
+                                                    <Ionicons name="camera-reverse-outline" size={20} color="#fff" />
+                                                    <Text style={photoOtpStyles.retakeText}>Retake</Text>
+                                                </View>
+                                            </View>
+                                        ) : (
+                                            <View style={photoOtpStyles.photoPlaceholder}>
+                                                <View style={[photoOtpStyles.cameraIconWrap, { backgroundColor: `${theme.colors.primary}20` }]}>
+                                                    <Ionicons name="camera-outline" size={32} color={theme.colors.primary} />
+                                                </View>
+                                                <Text style={[photoOtpStyles.photoPlaceholderTitle, { color: theme.colors.textPrimary }]}>
+                                                    Tap to Open Camera
+                                                </Text>
+                                                <Text style={[photoOtpStyles.photoPlaceholderHint, { color: theme.colors.textMuted }]}>
+                                                    {photoLabel} is required
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        onPress={handlePhotoNext}
+                                        style={[photoOtpStyles.primaryBtn, { backgroundColor: theme.colors.primary, opacity: photo ? 1 : 0.55 }]}
+                                        activeOpacity={0.85}
+                                        disabled={!photo || submitting}
+                                    >
+                                        {submitting ? (
+                                            <ActivityIndicator color="#fff" size="small" />
+                                        ) : (
+                                            <>
+                                                <Text style={photoOtpStyles.primaryBtnTxt}>Continue & Send OTP</Text>
+                                                <Ionicons name="arrow-forward" size={18} color="#fff" />
+                                            </>
+                                        )}
+                                    </TouchableOpacity>
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={[photoOtpStyles.stepTitle, { color: theme.colors.textPrimary }]}>
+                                        Step 2: Enter Customer OTP
+                                    </Text>
+                                    <Text style={[photoOtpStyles.stepHint, { color: theme.colors.textMuted }]}>
+                                        A 4-digit OTP has been sent to the customer. Ask the customer for the code.
+                                    </Text>
+
+                                    {photo && (
+                                        <View style={photoOtpStyles.photoThumbRow}>
+                                            <Image source={{ uri: photo.uri }} style={photoOtpStyles.photoThumb} />
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[photoOtpStyles.photoThumbLabel, { color: theme.colors.textSecondary }]}>
+                                                    Photo captured ✓
+                                                </Text>
+                                                <Text style={[photoOtpStyles.photoThumbSub, { color: theme.colors.textMuted }]}>
+                                                    {photoLabel}
+                                                </Text>
+                                            </View>
+                                            <View style={[photoOtpStyles.checkBadge, { backgroundColor: '#2ECC9A20' }]}>
+                                                <Ionicons name="checkmark-circle" size={22} color="#2ECC9A" />
+                                            </View>
+                                        </View>
                                     )}
-                                </TouchableOpacity>
-                            </>
-                        )}
-                    </ScrollView>
+
+                                    <View style={[photoOtpStyles.otpCard, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
+                                        <View style={photoOtpStyles.otpCardHeader}>
+                                            <Ionicons name="shield-checkmark-outline" size={16} color={theme.colors.primary} />
+                                            <Text style={[photoOtpStyles.otpCardTitle, { color: theme.colors.textPrimary }]}>
+                                                Customer Verification OTP
+                                            </Text>
+                                        </View>
+                                        <OtpInput value={otp} onChange={setOtp} theme={theme} />
+
+                                        <TouchableOpacity
+                                            onPress={onResendOtp}
+                                            disabled={resending}
+                                            style={photoOtpStyles.resendRow}
+                                        >
+                                            {resending
+                                                ? <ActivityIndicator size="small" color={theme.colors.primary} />
+                                                : <Text style={[photoOtpStyles.resendTxt, { color: theme.colors.primary }]}>
+                                                    Resend OTP
+                                                </Text>
+                                            }
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <TouchableOpacity
+                                        onPress={handleRetakePhoto}
+                                        style={[photoOtpStyles.retakeBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceLow }]}
+                                        activeOpacity={0.75}
+                                    >
+                                        <Ionicons name="camera-reverse-outline" size={16} color={theme.colors.textSecondary} />
+                                        <Text style={[photoOtpStyles.retakeBtnTxt, { color: theme.colors.textSecondary }]}>
+                                            Retake Photo & Restart
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        onPress={handleSubmitOtp}
+                                        style={[photoOtpStyles.primaryBtn, { backgroundColor: '#2ECC9A', opacity: otp.length === 4 ? 1 : 0.55 }]}
+                                        activeOpacity={0.85}
+                                        disabled={otp.length < 4 || submitting}
+                                    >
+                                        {submitting ? (
+                                            <ActivityIndicator color="#fff" size="small" />
+                                        ) : (
+                                            <>
+                                                <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                                                <Text style={photoOtpStyles.primaryBtnTxt}>{stepLabel}</Text>
+                                            </>
+                                        )}
+                                    </TouchableOpacity>
+                                </>
+                            )}
+                        </ScrollView>
+                    </View>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 };
 
 const photoOtpStyles = StyleSheet.create({
+    keyboardAvoid: { flex: 1 },
     overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
     sheet: {
-        borderTopLeftRadius: 28, borderTopRightRadius: 28,
-        borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1,
-        shadowColor: '#000', shadowOffset: { width: 0, height: -8 },
-        shadowOpacity: 0.2, shadowRadius: 24, elevation: 24,
-        maxHeight: '92%',
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
+        borderTopWidth: 1,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
+        elevation: 24,
+        maxHeight: '90%',
     },
     handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
     header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
@@ -518,7 +559,7 @@ const photoOtpStyles = StyleSheet.create({
     stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 0 },
     stepDot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     stepLine: { width: 48, height: 2, borderRadius: 1, marginHorizontal: 4 },
-    body: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 },
+    body: { paddingHorizontal: 20, paddingTop: 4 },
     stepTitle: { fontSize: 15, fontWeight: '800', marginBottom: 6 },
     stepHint: { fontSize: 12.5, lineHeight: 18, marginBottom: 18 },
     photoBox: {
@@ -727,26 +768,24 @@ const MechanicActionStrip = ({
     }
 
     // work_completed status — show a waiting indicator for customer OTP
+    // After in_progress case
     if (s === 'work_completed') {
         return (
             <View style={[actionStyles.strip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                 <View style={actionStyles.stripLeft}>
-                    <View style={[actionStyles.stripIcon, { backgroundColor: 'rgba(226,167,49,0.15)' }]}>
-                        <Ionicons name="hourglass-outline" size={20} color="#E2A731" />
+                    <View style={[actionStyles.stripIcon, { backgroundColor: 'rgba(46,204,154,0.15)' }]}>
+                        <Ionicons name="checkmark-done-circle-outline" size={20} color="#2ECC9A" />
                     </View>
                     <View>
-                        <Text style={[actionStyles.stripTitle, { color: theme.colors.textPrimary }]}>Waiting for customer OTP</Text>
-                        <Text style={[actionStyles.stripSub, { color: theme.colors.textMuted }]}>Customer needs to confirm completion</Text>
+                        <Text style={[actionStyles.stripTitle, { color: theme.colors.textPrimary }]}>
+                            Work Completed
+                        </Text>
+                        <Text style={[actionStyles.stripSub, { color: theme.colors.textMuted }]}>
+                            Awaiting invoice generation
+                        </Text>
                     </View>
                 </View>
-                <TouchableOpacity
-                    onPress={onCompleteWork}
-                    style={[actionStyles.actionBtn, { backgroundColor: theme.colors.surfaceHigh, borderWidth: 1, borderColor: '#E2A731' }]}
-                    activeOpacity={0.85}
-                >
-                    <Ionicons name="refresh-outline" size={15} color="#E2A731" />
-                    <Text style={[actionStyles.actionBtnTxt, { color: '#E2A731' }]}>Resend</Text>
-                </TouchableOpacity>
+                {/* No action button */}
             </View>
         );
     }
@@ -1290,7 +1329,7 @@ export default function EmployeeOrderDetail({ route, navigation }) {
     const insets = useSafeAreaInsets();
     const position = useSelector((state) => state.auth?.user?.position);
     const isDelivery = position?.toLowerCase() === 'delivery';
-
+    const [refreshing, setRefreshing] = useState(false);
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -1322,7 +1361,11 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         });
         setPopupVisible(true);
     };
-
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchOrder();
+        setRefreshing(false);
+    }, [fetchOrder]);
     const fetchOrder = useCallback(async () => {
         if (!orderIdParam) { setLoading(false); return; }
         try {
@@ -1582,6 +1625,15 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                     showsVerticalScrollIndicator={false}
                     style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
                     keyboardShouldPersistTaps="handled"
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[theme.colors.primary]} // Android
+                            tintColor={theme.colors.primary} // iOS
+                            progressBackgroundColor={theme.colors.surface}
+                        />
+                    }
                 >
                     {/* Order ID Row */}
                     <View style={styles.orderRefRow}>
