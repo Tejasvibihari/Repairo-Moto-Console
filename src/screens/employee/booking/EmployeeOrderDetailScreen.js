@@ -1,25 +1,30 @@
 // src/screens/employee/booking/EmployeeOrderDetailScreen.js
-// ─── Employee view: edit parts/services, view financial breakdown ───
+// ─── Employee view: mechanic workflow + edit parts/services ───────────────────
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
     View, Text, ScrollView, StyleSheet, TouchableOpacity,
     Animated, Platform, Alert, ActivityIndicator, Linking,
-    TextInput, Modal, Dimensions, Keyboard,
+    TextInput, Modal, Dimensions, Keyboard, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
+import * as ImagePicker from 'expo-image-picker';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import ScreenWrapper from '../../../components/common/ScreenWrapper';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import axiosClient from '../../../services/axiosClient';
 import PopUp from '../../../components/common/PopUp';
+import { getImageUrl } from '../../../utils/imageUtils';
 
-// ─── Status config (display only) ─────────────────────────────────────────────
+// ─── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
     pending: { label: 'Pending', bg: 'rgba(158,142,120,0.18)', text: '#9E8E78', dot: '#9E8E78' },
     in_progress: { label: 'In Progress', bg: 'rgba(226,167,49,0.18)', text: '#E2A731', dot: '#E2A731' },
     mechanic_assigned: { label: 'Mechanic Assigned', bg: 'rgba(52,152,219,0.18)', text: '#3498DB', dot: '#3498DB' },
+    mechanic_arrived: { label: 'Mechanic Arrived', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', dot: '#9B59B6' },
+    work_completed: { label: 'Work Completed', bg: 'rgba(46,204,154,0.12)', text: '#2ECC9A', dot: '#2ECC9A' },
     completed: { label: 'Completed', bg: 'rgba(46,204,154,0.18)', text: '#2ECC9A', dot: '#2ECC9A' },
     invoice_generated: { label: 'Invoice Generated', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', dot: '#9B59B6' },
     cancelled: { label: 'Cancelled', bg: 'rgba(255,107,107,0.18)', text: '#FF6B6B', dot: '#FF6B6B' },
@@ -30,6 +35,8 @@ const getStatusConfig = (status = '') => {
     return STATUS_CONFIG[key] ?? STATUS_CONFIG.pending;
 };
 
+const normalizeStatus = (status = '') => status.toLowerCase().trim().replace(/\s+/g, '_');
+
 const formatDate = (iso) => {
     if (!iso) return '—';
     return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -38,7 +45,7 @@ const formatDate = (iso) => {
 const formatCurrency = (val) =>
     `₹${Number(val ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Small reusable components ────────────────────────────────────────────────
 const SectionLabel = ({ label, theme }) => (
     <Text style={[sectionStyles.label, { color: theme.colors.textMuted }]}>{label}</Text>
 );
@@ -91,7 +98,7 @@ const getServiceChipStyle = (type) => {
     return { label: type || '—', icon: 'help-circle-outline', bg: 'rgba(128,128,128,0.15)', text: '#888', border: 'rgba(128,128,128,0.3)' };
 };
 
-// ─── Map Component (unchanged) ────────────────────────────────────────────────
+// ─── Map Component ────────────────────────────────────────────────────────────
 const LocationMap = ({ coordinates, city, theme }) => {
     const [placeName, setPlaceName] = useState('');
     const [mapReady, setMapReady] = useState(false);
@@ -147,14 +154,718 @@ const mapStyles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderBottomWidth: StyleSheet.hairlineWidth },
     iconWrap: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     placeName: { flex: 1, fontSize: 12.5, fontWeight: '600', lineHeight: 17 },
-    map: { width: '100%', height: 320 },
+    map: { width: '100%', height: 220 },
     footer: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },
     coordText: { fontSize: 11, fontWeight: '500', letterSpacing: 0.3, flex: 1 },
     viewMapBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16 },
     viewMapText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 });
 
-// ─── Add/Edit Item Drawer (extracted from AdminGenerateInvoice) ───────────────
+// ─── OTP Input Component ──────────────────────────────────────────────────────
+const OtpInput = ({ value, onChange, theme }) => {
+    const inputs = useRef([]);
+    const digits = value.split('');
+
+    const handleChange = (text, index) => {
+        const cleaned = text.replace(/[^0-9]/g, '').slice(-1);
+        const newDigits = [...digits];
+        newDigits[index] = cleaned;
+        onChange(newDigits.join(''));
+        if (cleaned && index < 3) {
+            inputs.current[index + 1]?.focus();
+        }
+    };
+
+    const handleKeyPress = (e, index) => {
+        if (e.nativeEvent.key === 'Backspace' && !digits[index] && index > 0) {
+            inputs.current[index - 1]?.focus();
+        }
+    };
+
+    return (
+        <View style={otpStyles.row}>
+            {[0, 1, 2, 3].map((i) => (
+                <TextInput
+                    key={i}
+                    ref={(r) => (inputs.current[i] = r)}
+                    style={[
+                        otpStyles.box,
+                        {
+                            borderColor: digits[i] ? theme.colors.primary : theme.colors.border,
+                            backgroundColor: digits[i] ? `${theme.colors.primary}14` : theme.colors.surfaceLow,
+                            color: theme.colors.textPrimary,
+                        },
+                    ]}
+                    value={digits[i] || ''}
+                    onChangeText={(t) => handleChange(t, i)}
+                    onKeyPress={(e) => handleKeyPress(e, i)}
+                    keyboardType="number-pad"
+                    maxLength={1}
+                    textAlign="center"
+                    selectTextOnFocus
+                />
+            ))}
+        </View>
+    );
+};
+const otpStyles = StyleSheet.create({
+    row: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginVertical: 8 },
+    box: {
+        width: 56, height: 60, borderRadius: 14, borderWidth: 2,
+        fontSize: 24, fontWeight: '900',
+    },
+});
+
+// ─── Photo + OTP Modal ─────────────────────────────────────────────────────────
+/**
+ * Two-step modal:
+ *   Step 1 (photo):   Mechanic takes the photo → taps "Continue & Send OTP"
+ *                     → calls onRequestOtp(photo) which uploads photo + triggers OTP.
+ *   Step 2 (otp):     Mechanic enters the customer's OTP → taps confirm button
+ *                     → calls onSubmit(otp).
+ *                     "Resend OTP" calls onResendOtp() — no new photo needed,
+ *                     server reuses the temp photo already stored.
+ *
+ * If the mechanic closed the app mid-flow and re-opens:
+ *   - hasPendingPhoto=true  → skip directly to OTP step (photo already uploaded)
+ *   - hasPendingPhoto=false → start from photo step
+ */
+const PhotoOtpModal = ({
+    visible,
+    onClose,
+    onSubmit,
+    onResendOtp,
+    theme,
+    title,
+    subtitle,
+    photoLabel,
+    onRequestOtp,
+    submitting,
+    resending,
+    stepLabel,
+    hasPendingPhoto = false,   // ← true when server already has a temp photo
+}) => {
+    const insets = useSafeAreaInsets();
+    const [photo, setPhoto] = useState(null);
+    const [otp, setOtp] = useState('');
+    // If there is already a pending photo on the server, jump straight to OTP step
+    const [step, setStep] = useState(hasPendingPhoto ? 'otp' : 'photo');
+
+    // Sync step when hasPendingPhoto changes (e.g. modal opens after app was killed)
+    useEffect(() => {
+        if (visible) {
+            setStep(hasPendingPhoto ? 'otp' : 'photo');
+            setOtp('');
+            if (!hasPendingPhoto) setPhoto(null);
+        } else {
+            setPhoto(null);
+            setOtp('');
+        }
+    }, [visible, hasPendingPhoto]);
+
+    const pickPhoto = async () => {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission required', 'Camera access is needed to take a photo.');
+            return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.85,
+            allowsEditing: false,
+        });
+        if (!result.canceled && result.assets?.[0]) {
+            setPhoto(result.assets[0]);
+        }
+    };
+
+    const handlePhotoNext = async () => {
+        if (!photo) {
+            Alert.alert('Photo required', `Please take the ${photoLabel} before continuing.`);
+            return;
+        }
+        try {
+            await onRequestOtp(photo);
+            setStep('otp');
+        } catch (err) {
+            Alert.alert('Upload Failed', err?.response?.data?.message || 'Could not upload photo. Please try again.');
+        }
+    };
+
+    const handleSubmitOtp = async () => {
+        if (otp.length < 4) {
+            Alert.alert('Enter OTP', 'Please enter the complete 4-digit OTP.');
+            return;
+        }
+        await onSubmit(otp);
+    };
+
+    // Mechanic wants to retake the photo — go back to step 1
+    const handleRetakePhoto = () => {
+        setPhoto(null);
+        setOtp('');
+        setStep('photo');
+    };
+
+    return (
+        <Modal
+            visible={visible}
+            transparent
+            animationType="slide"
+            onRequestClose={() => { Keyboard.dismiss(); onClose(); }}
+            statusBarTranslucent
+        >
+            <View style={photoOtpStyles.overlay}>
+                <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => { Keyboard.dismiss(); onClose(); }} />
+                <View style={[photoOtpStyles.sheet, {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.border,
+                    paddingBottom: insets.bottom + 16,
+                }]}>
+                    {/* Handle */}
+                    <View style={[photoOtpStyles.handle, { backgroundColor: theme.colors.border }]} />
+
+                    {/* Header */}
+                    <View style={[photoOtpStyles.header, { borderBottomColor: theme.colors.border }]}>
+                        <View style={[photoOtpStyles.headerIcon, { backgroundColor: `${theme.colors.primary}18` }]}>
+                            <Ionicons name={step === 'photo' ? 'camera-outline' : 'keypad-outline'} size={22} color={theme.colors.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[photoOtpStyles.title, { color: theme.colors.textPrimary }]}>{title}</Text>
+                            <Text style={[photoOtpStyles.subtitle, { color: theme.colors.textMuted }]}>{subtitle}</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => { Keyboard.dismiss(); onClose(); }}
+                            style={[photoOtpStyles.closeBtn, { backgroundColor: theme.colors.surfaceLow }]}>
+                            <Ionicons name="close" size={18} color={theme.colors.textMuted} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Step indicator */}
+                    <View style={photoOtpStyles.stepRow}>
+                        <View style={[photoOtpStyles.stepDot, { backgroundColor: theme.colors.primary }]}>
+                            <Ionicons name="camera" size={12} color="#fff" />
+                        </View>
+                        <View style={[photoOtpStyles.stepLine, { backgroundColor: step === 'otp' ? theme.colors.primary : theme.colors.border }]} />
+                        <View style={[photoOtpStyles.stepDot, { backgroundColor: step === 'otp' ? theme.colors.primary : theme.colors.border }]}>
+                            <Ionicons name="keypad" size={12} color="#fff" />
+                        </View>
+                    </View>
+
+                    <ScrollView
+                        contentContainerStyle={photoOtpStyles.body}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {step === 'photo' ? (
+                            <>
+                                <Text style={[photoOtpStyles.stepTitle, { color: theme.colors.textPrimary }]}>
+                                    Step 1: Take {photoLabel}
+                                </Text>
+                                <Text style={[photoOtpStyles.stepHint, { color: theme.colors.textMuted }]}>
+                                    Take a clear photo of the bike {photoLabel === 'before photo' ? 'before starting repairs' : 'after completing repairs'}.
+                                </Text>
+
+                                <TouchableOpacity
+                                    onPress={pickPhoto}
+                                    activeOpacity={0.8}
+                                    style={[photoOtpStyles.photoBox, {
+                                        borderColor: photo ? theme.colors.primary : theme.colors.border,
+                                        backgroundColor: photo ? `${theme.colors.primary}08` : theme.colors.surfaceLow,
+                                    }]}
+                                >
+                                    {photo ? (
+                                        <View style={{ width: '100%', height: '100%' }}>
+                                            <Image source={{ uri: photo.uri }} style={photoOtpStyles.photoPreview} resizeMode="cover" />
+                                            <View style={photoOtpStyles.retakeOverlay}>
+                                                <Ionicons name="camera-reverse-outline" size={20} color="#fff" />
+                                                <Text style={photoOtpStyles.retakeText}>Retake</Text>
+                                            </View>
+                                        </View>
+                                    ) : (
+                                        <View style={photoOtpStyles.photoPlaceholder}>
+                                            <View style={[photoOtpStyles.cameraIconWrap, { backgroundColor: `${theme.colors.primary}20` }]}>
+                                                <Ionicons name="camera-outline" size={32} color={theme.colors.primary} />
+                                            </View>
+                                            <Text style={[photoOtpStyles.photoPlaceholderTitle, { color: theme.colors.textPrimary }]}>
+                                                Tap to Open Camera
+                                            </Text>
+                                            <Text style={[photoOtpStyles.photoPlaceholderHint, { color: theme.colors.textMuted }]}>
+                                                {photoLabel} is required
+                                            </Text>
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    onPress={handlePhotoNext}
+                                    style={[photoOtpStyles.primaryBtn, { backgroundColor: theme.colors.primary, opacity: photo ? 1 : 0.55 }]}
+                                    activeOpacity={0.85}
+                                    disabled={!photo || submitting}
+                                >
+                                    {submitting ? (
+                                        <ActivityIndicator color="#fff" size="small" />
+                                    ) : (
+                                        <>
+                                            <Text style={photoOtpStyles.primaryBtnTxt}>Continue & Send OTP</Text>
+                                            <Ionicons name="arrow-forward" size={18} color="#fff" />
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <>
+                                <Text style={[photoOtpStyles.stepTitle, { color: theme.colors.textPrimary }]}>
+                                    Step 2: Enter Customer OTP
+                                </Text>
+                                <Text style={[photoOtpStyles.stepHint, { color: theme.colors.textMuted }]}>
+                                    A 4-digit OTP has been sent to the customer. Ask the customer for the code.
+                                </Text>
+
+                                {/* Photo thumb — shown when we have a local photo reference */}
+                                {photo && (
+                                    <View style={photoOtpStyles.photoThumbRow}>
+                                        <Image source={{ uri: photo.uri }} style={photoOtpStyles.photoThumb} />
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[photoOtpStyles.photoThumbLabel, { color: theme.colors.textSecondary }]}>
+                                                Photo captured ✓
+                                            </Text>
+                                            <Text style={[photoOtpStyles.photoThumbSub, { color: theme.colors.textMuted }]}>
+                                                {photoLabel}
+                                            </Text>
+                                        </View>
+                                        <View style={[photoOtpStyles.checkBadge, { backgroundColor: '#2ECC9A20' }]}>
+                                            <Ionicons name="checkmark-circle" size={22} color="#2ECC9A" />
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* OTP Box */}
+                                <View style={[photoOtpStyles.otpCard, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
+                                    <View style={photoOtpStyles.otpCardHeader}>
+                                        <Ionicons name="shield-checkmark-outline" size={16} color={theme.colors.primary} />
+                                        <Text style={[photoOtpStyles.otpCardTitle, { color: theme.colors.textPrimary }]}>
+                                            Customer Verification OTP
+                                        </Text>
+                                    </View>
+                                    <OtpInput value={otp} onChange={setOtp} theme={theme} />
+
+                                    {/* Resend OTP */}
+                                    <TouchableOpacity
+                                        onPress={onResendOtp}
+                                        disabled={resending}
+                                        style={photoOtpStyles.resendRow}
+                                    >
+                                        {resending
+                                            ? <ActivityIndicator size="small" color={theme.colors.primary} />
+                                            : <Text style={[photoOtpStyles.resendTxt, { color: theme.colors.primary }]}>
+                                                Resend OTP
+                                            </Text>
+                                        }
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* Retake photo option */}
+                                <TouchableOpacity
+                                    onPress={handleRetakePhoto}
+                                    style={[photoOtpStyles.retakeBtn, { borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceLow }]}
+                                    activeOpacity={0.75}
+                                >
+                                    <Ionicons name="camera-reverse-outline" size={16} color={theme.colors.textSecondary} />
+                                    <Text style={[photoOtpStyles.retakeBtnTxt, { color: theme.colors.textSecondary }]}>
+                                        Retake Photo & Restart
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    onPress={handleSubmitOtp}
+                                    style={[photoOtpStyles.primaryBtn, { backgroundColor: '#2ECC9A', opacity: otp.length === 4 ? 1 : 0.55 }]}
+                                    activeOpacity={0.85}
+                                    disabled={otp.length < 4 || submitting}
+                                >
+                                    {submitting ? (
+                                        <ActivityIndicator color="#fff" size="small" />
+                                    ) : (
+                                        <>
+                                            <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                                            <Text style={photoOtpStyles.primaryBtnTxt}>{stepLabel}</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </ScrollView>
+                </View>
+            </View>
+        </Modal>
+    );
+};
+
+const photoOtpStyles = StyleSheet.create({
+    overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+    sheet: {
+        borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1,
+        shadowColor: '#000', shadowOffset: { width: 0, height: -8 },
+        shadowOpacity: 0.2, shadowRadius: 24, elevation: 24,
+        maxHeight: '92%',
+    },
+    handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+    headerIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    title: { fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
+    subtitle: { fontSize: 12, fontWeight: '500', marginTop: 1 },
+    closeBtn: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 0 },
+    stepDot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    stepLine: { width: 48, height: 2, borderRadius: 1, marginHorizontal: 4 },
+    body: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 12 },
+    stepTitle: { fontSize: 15, fontWeight: '800', marginBottom: 6 },
+    stepHint: { fontSize: 12.5, lineHeight: 18, marginBottom: 18 },
+    photoBox: {
+        width: '100%', height: 200, borderRadius: 18, borderWidth: 2,
+        borderStyle: 'dashed', overflow: 'hidden', marginBottom: 18,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    photoPreview: { width: '100%', height: '100%' },
+    retakeOverlay: {
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 6, paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    retakeText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+    photoPlaceholder: { alignItems: 'center', gap: 8, padding: 16 },
+    cameraIconWrap: { width: 64, height: 64, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+    photoPlaceholderTitle: { fontSize: 14, fontWeight: '700' },
+    photoPlaceholderHint: { fontSize: 12 },
+    primaryBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 8, paddingVertical: 15, borderRadius: 14, marginTop: 4,
+    },
+    primaryBtnTxt: { fontSize: 15, fontWeight: '900', color: '#fff', letterSpacing: 0.3 },
+    photoThumbRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16, padding: 12, borderRadius: 14, backgroundColor: 'rgba(46,204,154,0.08)' },
+    photoThumb: { width: 52, height: 52, borderRadius: 10 },
+    photoThumbLabel: { fontSize: 13, fontWeight: '700' },
+    photoThumbSub: { fontSize: 11, marginTop: 2 },
+    checkBadge: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    otpCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
+    otpCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    otpCardTitle: { fontSize: 13, fontWeight: '700' },
+    resendRow: { alignItems: 'center', marginTop: 12 },
+    resendTxt: { fontSize: 13, fontWeight: '700' },
+    retakeBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 7, paddingVertical: 11, borderRadius: 12, borderWidth: 1,
+        marginBottom: 12,
+    },
+    retakeBtnTxt: { fontSize: 13, fontWeight: '600' },
+});
+
+// ─── Repair Photos Gallery ────────────────────────────────────────────────────
+const RepairPhotosCard = ({ beforePhotos = [], afterPhotos = [], theme }) => {
+    const hasAny = beforePhotos.length > 0 || afterPhotos.length > 0;
+    if (!hasAny) return null;
+
+    const PhotoStrip = ({ photos, label, accentColor, accentBg }) => (
+        <View style={photoGalleryStyles.strip}>
+            <View style={photoGalleryStyles.stripHeader}>
+                <View style={[photoGalleryStyles.stripTag, { backgroundColor: accentBg }]}>
+                    <Ionicons name="camera-outline" size={11} color={accentColor} />
+                    <Text style={[photoGalleryStyles.stripLabel, { color: accentColor }]}>{label}</Text>
+                </View>
+                <Text style={[photoGalleryStyles.stripCount, { color: theme.colors.textMuted }]}>
+                    {photos.length} photo{photos.length !== 1 ? 's' : ''}
+                </Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={photoGalleryStyles.photoRow}>
+                {photos.map((p, i) => {
+                    // p is a server-side relative path like /uploads/orders/<id>/beforePhoto-xxx.jpg
+                    // getImageUrl converts it to the full URL
+                    const uri = getImageUrl(p);
+                    return (
+                        <View key={i} style={[photoGalleryStyles.photoWrap, { borderColor: accentColor + '40' }]}>
+                            <Image
+                                source={{ uri }}
+                                style={photoGalleryStyles.photo}
+                                resizeMode="cover"
+                            />
+                            <View style={[photoGalleryStyles.photoIndex, { backgroundColor: accentColor }]}>
+                                <Text style={photoGalleryStyles.photoIndexTxt}>{i + 1}</Text>
+                            </View>
+                        </View>
+                    );
+                })}
+            </ScrollView>
+        </View>
+    );
+
+    return (
+        <Card theme={theme}>
+            <SectionLabel label="Repair Photos" theme={theme} />
+            {beforePhotos.length > 0 && (
+                <PhotoStrip
+                    photos={beforePhotos}
+                    label="BEFORE"
+                    accentColor="#3498DB"
+                    accentBg="rgba(52,152,219,0.12)"
+                />
+            )}
+            {beforePhotos.length > 0 && afterPhotos.length > 0 && (
+                <Divider theme={theme} style={{ marginVertical: 12 }} />
+            )}
+            {afterPhotos.length > 0 && (
+                <PhotoStrip
+                    photos={afterPhotos}
+                    label="AFTER"
+                    accentColor="#2ECC9A"
+                    accentBg="rgba(46,204,154,0.12)"
+                />
+            )}
+        </Card>
+    );
+};
+
+const photoGalleryStyles = StyleSheet.create({
+    strip: { marginBottom: 4 },
+    stripHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+    stripTag: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    stripLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+    stripCount: { fontSize: 11, fontWeight: '500' },
+    photoRow: { gap: 8, paddingBottom: 4 },
+    photoWrap: { width: 100, height: 100, borderRadius: 12, overflow: 'hidden', borderWidth: 1.5, position: 'relative' },
+    photo: { width: '100%', height: '100%' },
+    photoIndex: { position: 'absolute', top: 4, left: 4, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    photoIndexTxt: { color: '#fff', fontSize: 10, fontWeight: '900' },
+});
+
+// ─── Mechanic Action Strip ─────────────────────────────────────────────────────
+const MechanicActionStrip = ({
+    status,
+    theme,
+    onMarkArrived,
+    onStartWork,
+    onCompleteWork,
+    arrivedLoading,
+}) => {
+    const s = normalizeStatus(status);
+
+    if (s === 'pending' || s === 'mechanic_assigned') {
+        return (
+            <View style={[actionStyles.strip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                <View style={actionStyles.stripLeft}>
+                    <View style={[actionStyles.stripIcon, { backgroundColor: 'rgba(155,89,182,0.15)' }]}>
+                        <Ionicons name="navigate-circle-outline" size={20} color="#9B59B6" />
+                    </View>
+                    <View>
+                        <Text style={[actionStyles.stripTitle, { color: theme.colors.textPrimary }]}>Ready at location?</Text>
+                        <Text style={[actionStyles.stripSub, { color: theme.colors.textMuted }]}>Confirm your arrival</Text>
+                    </View>
+                </View>
+                <TouchableOpacity
+                    onPress={onMarkArrived}
+                    disabled={arrivedLoading}
+                    style={[actionStyles.actionBtn, { backgroundColor: '#9B59B6' }]}
+                    activeOpacity={0.85}
+                >
+                    {arrivedLoading
+                        ? <ActivityIndicator color="#fff" size="small" />
+                        : <>
+                            <Ionicons name="pin" size={15} color="#fff" />
+                            <Text style={actionStyles.actionBtnTxt}>Mark Arrived</Text>
+                        </>
+                    }
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    if (s === 'mechanic_arrived') {
+        return (
+            <View style={[actionStyles.strip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                <View style={actionStyles.stripLeft}>
+                    <View style={[actionStyles.stripIcon, { backgroundColor: 'rgba(226,167,49,0.15)' }]}>
+                        <Ionicons name="construct-outline" size={20} color="#E2A731" />
+                    </View>
+                    <View>
+                        <Text style={[actionStyles.stripTitle, { color: theme.colors.textPrimary }]}>Ready to begin?</Text>
+                        <Text style={[actionStyles.stripSub, { color: theme.colors.textMuted }]}>Take photo & get OTP</Text>
+                    </View>
+                </View>
+                <TouchableOpacity
+                    onPress={onStartWork}
+                    style={[actionStyles.actionBtn, { backgroundColor: '#E2A731' }]}
+                    activeOpacity={0.85}
+                >
+                    <Ionicons name="play-circle-outline" size={15} color="#fff" />
+                    <Text style={actionStyles.actionBtnTxt}>Start Work</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    if (s === 'in_progress') {
+        return (
+            <View style={[actionStyles.strip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                <View style={actionStyles.stripLeft}>
+                    <View style={[actionStyles.stripIcon, { backgroundColor: 'rgba(46,204,154,0.15)' }]}>
+                        <Ionicons name="checkmark-done-circle-outline" size={20} color="#2ECC9A" />
+                    </View>
+                    <View>
+                        <Text style={[actionStyles.stripTitle, { color: theme.colors.textPrimary }]}>Work finished?</Text>
+                        <Text style={[actionStyles.stripSub, { color: theme.colors.textMuted }]}>Take after photo & verify</Text>
+                    </View>
+                </View>
+                <TouchableOpacity
+                    onPress={onCompleteWork}
+                    style={[actionStyles.actionBtn, { backgroundColor: '#2ECC9A' }]}
+                    activeOpacity={0.85}
+                >
+                    <Ionicons name="checkmark-circle-outline" size={15} color="#fff" />
+                    <Text style={actionStyles.actionBtnTxt}>Complete</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    // work_completed status — show a waiting indicator for customer OTP
+    if (s === 'work_completed') {
+        return (
+            <View style={[actionStyles.strip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                <View style={actionStyles.stripLeft}>
+                    <View style={[actionStyles.stripIcon, { backgroundColor: 'rgba(226,167,49,0.15)' }]}>
+                        <Ionicons name="hourglass-outline" size={20} color="#E2A731" />
+                    </View>
+                    <View>
+                        <Text style={[actionStyles.stripTitle, { color: theme.colors.textPrimary }]}>Waiting for customer OTP</Text>
+                        <Text style={[actionStyles.stripSub, { color: theme.colors.textMuted }]}>Customer needs to confirm completion</Text>
+                    </View>
+                </View>
+                <TouchableOpacity
+                    onPress={onCompleteWork}
+                    style={[actionStyles.actionBtn, { backgroundColor: theme.colors.surfaceHigh, borderWidth: 1, borderColor: '#E2A731' }]}
+                    activeOpacity={0.85}
+                >
+                    <Ionicons name="refresh-outline" size={15} color="#E2A731" />
+                    <Text style={[actionStyles.actionBtnTxt, { color: '#E2A731' }]}>Resend</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    return null;
+};
+
+const actionStyles = StyleSheet.create({
+    strip: {
+        alignItems: 'flex-start',
+        padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 12,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+    },
+    stripLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, marginBottom: 10 },
+    stripIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    stripTitle: { fontSize: 13.5, fontWeight: '800', letterSpacing: 0.1 },
+    stripSub: { fontSize: 11, marginTop: 1, fontWeight: '500' },
+    actionBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        paddingHorizontal: 14, paddingVertical: 10,
+        borderRadius: 12, minWidth: 100, justifyContent: 'center',
+    },
+    actionBtnTxt: { fontSize: 12.5, fontWeight: '900', color: '#fff', letterSpacing: 0.2 },
+});
+
+// ─── Save Changes Banner ──────────────────────────────────────────────────────
+const SaveChangesBanner = ({ theme, onSave, saving }) => (
+    <View style={[actionStyles.strip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+        <View style={actionStyles.stripLeft}>
+            <View style={[actionStyles.stripIcon, { backgroundColor: 'rgba(52,152,219,0.15)' }]}>
+                <Ionicons name="save-outline" size={20} color="#3498DB" />
+            </View>
+            <View>
+                <Text style={[actionStyles.stripTitle, { color: theme.colors.textPrimary }]}>Unsaved changes</Text>
+                <Text style={[actionStyles.stripSub, { color: theme.colors.textMuted }]}>Parts & services modified</Text>
+            </View>
+        </View>
+        <TouchableOpacity
+            onPress={onSave}
+            disabled={saving}
+            style={[actionStyles.actionBtn, { backgroundColor: '#3498DB' }]}
+            activeOpacity={0.85}
+        >
+            {saving
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <>
+                    <Ionicons name="cloud-upload-outline" size={15} color="#fff" />
+                    <Text style={actionStyles.actionBtnTxt}>Save</Text>
+                </>
+            }
+        </TouchableOpacity>
+    </View>
+);
+
+// ─── Workflow Status Timeline ─────────────────────────────────────────────────
+const WORKFLOW_STEPS = [
+    { key: 'pending', label: 'Pending' },
+    { key: 'mechanic_assigned', label: 'Assigned' },
+    { key: 'mechanic_arrived', label: 'Arrived' },
+    { key: 'in_progress', label: 'In Progress' },
+    { key: 'work_completed', label: 'Work Done' },
+    { key: 'invoice_generated', label: 'Invoice' },
+    { key: 'completed', label: 'Completed' },
+];
+
+const WorkflowTimeline = ({ status, theme }) => {
+    const current = normalizeStatus(status);
+    const currentIdx = WORKFLOW_STEPS.findIndex(s => s.key === current);
+
+    return (
+        <Card theme={theme} style={{ marginBottom: 12 }}>
+            <SectionLabel label="Order Progress" theme={theme} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 4 }}>
+                <View style={timelineStyles.row}>
+                    {WORKFLOW_STEPS.map((step, idx) => {
+                        const done = idx < currentIdx;
+                        const active = idx === currentIdx;
+                        const color = done ? '#2ECC9A' : active ? theme.colors.primary : theme.colors.border;
+                        return (
+                            <View key={step.key} style={timelineStyles.step}>
+                                {idx > 0 && (
+                                    <View style={[timelineStyles.line, { backgroundColor: done || active ? theme.colors.primary : theme.colors.border }]} />
+                                )}
+                                <View style={[timelineStyles.dot, {
+                                    backgroundColor: done ? '#2ECC9A' : active ? theme.colors.primary : theme.colors.surfaceHigh,
+                                    borderColor: color,
+                                }]}>
+                                    {done
+                                        ? <Ionicons name="checkmark" size={10} color="#fff" />
+                                        : active
+                                            ? <View style={timelineStyles.activePulse} />
+                                            : null
+                                    }
+                                </View>
+                                <Text style={[timelineStyles.label, {
+                                    color: active ? theme.colors.primary : done ? '#2ECC9A' : theme.colors.textMuted,
+                                    fontWeight: active ? '800' : '500',
+                                }]}>
+                                    {step.label}
+                                </Text>
+                            </View>
+                        );
+                    })}
+                </View>
+            </ScrollView>
+        </Card>
+    );
+};
+
+const timelineStyles = StyleSheet.create({
+    row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 4 },
+    step: { alignItems: 'center', width: 72 },
+    line: { position: 'absolute', top: 9, right: '50%', left: -36, height: 2, zIndex: 0 },
+    dot: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center', zIndex: 1, marginBottom: 6 },
+    activePulse: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
+    label: { fontSize: 9.5, letterSpacing: 0.4, textAlign: 'center', lineHeight: 13 },
+});
+
+// ─── Add/Edit Item Drawer ──────────────────────────────────────────────────────
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DISCOUNT_TYPES = ['None', 'Flat', 'Percentage'];
 const genId = () => Math.random().toString(36).substr(2, 9);
@@ -162,7 +873,6 @@ const genId = () => Math.random().toString(36).substr(2, 9);
 const AddItemDrawer = ({ visible, type, onClose, onSave, theme, editItem }) => {
     const isDark = theme === DarkTheme;
     const insets = useSafeAreaInsets();
-
     const [name, setName] = useState('');
     const [quantity, setQuantity] = useState('1');
     const [price, setPrice] = useState('');
@@ -181,25 +891,14 @@ const AddItemDrawer = ({ visible, type, onClose, onSave, theme, editItem }) => {
     useEffect(() => {
         if (visible) {
             if (editItem) {
-                setName(editItem.name || '');
-                setQuantity(String(editItem.quantity || 1));
-                setPrice(String(editItem.price || 0));
-                setDiscountType(editItem.discountType || 'None');
+                setName(editItem.name || ''); setQuantity(String(editItem.quantity || 1));
+                setPrice(String(editItem.price || 0)); setDiscountType(editItem.discountType || 'None');
                 setDiscountValue(String(editItem.discountValue || 0));
             } else {
-                setName(''); setQuantity('1'); setPrice('');
-                setDiscountType('None'); setDiscountValue('');
+                setName(''); setQuantity('1'); setPrice(''); setDiscountType('None'); setDiscountValue('');
             }
-        } else {
-            Keyboard.dismiss();
-            setKeyboardHeight(0);
-        }
+        } else { Keyboard.dismiss(); setKeyboardHeight(0); }
     }, [visible, editItem]);
-
-    const handleDiscountTypeChange = (dt) => {
-        Keyboard.dismiss();
-        setDiscountType(dt);
-    };
 
     const unitPrice = parseFloat(price) || 0;
     const qty = parseFloat(quantity) || 0;
@@ -212,7 +911,7 @@ const AddItemDrawer = ({ visible, type, onClose, onSave, theme, editItem }) => {
     const handleSave = () => {
         Keyboard.dismiss();
         if (!name.trim()) { Alert.alert('Missing Name', `Please enter a ${type} name.`); return; }
-        if (!price || parseFloat(price) <= 0) { Alert.alert('Invalid Price', 'Please enter a valid price greater than 0.'); return; }
+        if (!price || parseFloat(price) <= 0) { Alert.alert('Invalid Price', 'Price must be greater than 0.'); return; }
         onSave({
             id: editItem?.id || genId(),
             type,
@@ -234,108 +933,74 @@ const AddItemDrawer = ({ visible, type, onClose, onSave, theme, editItem }) => {
     const isPartType = type === 'part';
     const accentColor = isPartType ? '#3498DB' : '#2ECC9A';
     const accentBg = isPartType ? 'rgba(52,152,219,0.12)' : 'rgba(46,204,154,0.12)';
-
     const androidLift = Platform.OS === 'android' ? keyboardHeight : 0;
-    const scrollBottomPad = keyboardHeight > 0
-        ? (Platform.OS === 'android' ? 12 : 0)
-        : insets.bottom + 12;
-    const maxSheetHeight = keyboardHeight > 0
-        ? SCREEN_HEIGHT - keyboardHeight - (insets.top || 44) - 16
-        : SCREEN_HEIGHT * 0.88;
+    const scrollBottomPad = keyboardHeight > 0 ? (Platform.OS === 'android' ? 12 : 0) : insets.bottom + 12;
+    const maxSheetHeight = keyboardHeight > 0 ? SCREEN_HEIGHT - keyboardHeight - (insets.top || 44) - 16 : SCREEN_HEIGHT * 0.88;
 
     return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="slide"
-            onRequestClose={() => { Keyboard.dismiss(); onClose(); }}
-            statusBarTranslucent
-        >
-            <View style={drawerStyles.modalRoot}>
+        <Modal visible={visible} transparent animationType="slide"
+            onRequestClose={() => { Keyboard.dismiss(); onClose(); }} statusBarTranslucent>
+            <View style={addItemStyles.modalRoot}>
                 <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => { Keyboard.dismiss(); onClose(); }} />
-                <Animated.View
-                    style={[
-                        drawerStyles.sheet,
-                        {
-                            backgroundColor: theme.colors.surface,
-                            borderColor: theme.colors.border,
-                            maxHeight: maxSheetHeight,
-                            transform: [{ translateY: -androidLift }],
-                        },
-                    ]}
-                >
-                    <View style={[drawerStyles.handle, { backgroundColor: theme.colors.border }]} />
-                    <View style={[drawerStyles.sheetHeader, { borderBottomColor: theme.colors.border }]}>
-                        <View style={[drawerStyles.typeIcon, { backgroundColor: accentBg }]}>
+                <Animated.View style={[addItemStyles.sheet, {
+                    backgroundColor: theme.colors.surface, borderColor: theme.colors.border,
+                    maxHeight: maxSheetHeight, transform: [{ translateY: -androidLift }],
+                }]}>
+                    <View style={[addItemStyles.handle, { backgroundColor: theme.colors.border }]} />
+                    <View style={[addItemStyles.sheetHeader, { borderBottomColor: theme.colors.border }]}>
+                        <View style={[addItemStyles.typeIcon, { backgroundColor: accentBg }]}>
                             <Ionicons name={isPartType ? 'construct-outline' : 'checkmark-circle-outline'} size={20} color={accentColor} />
                         </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={[drawerStyles.sheetTitle, { color: theme.colors.textPrimary }]}>
+                            <Text style={[addItemStyles.sheetTitle, { color: theme.colors.textPrimary }]}>
                                 {editItem ? 'Edit' : 'Add'} {isPartType ? 'Part / Consumable' : 'Service'}
                             </Text>
-                            <Text style={[drawerStyles.sheetSubtitle, { color: theme.colors.textMuted }]}>
+                            <Text style={[addItemStyles.sheetSubtitle, { color: theme.colors.textMuted }]}>
                                 {isPartType ? 'Enter part details and pricing' : 'Enter service details and charges'}
                             </Text>
                         </View>
-                        <TouchableOpacity onPress={() => { Keyboard.dismiss(); onClose(); }} style={[drawerStyles.closeBtn, { backgroundColor: theme.colors.surfaceLow }]}>
+                        <TouchableOpacity onPress={() => { Keyboard.dismiss(); onClose(); }}
+                            style={[addItemStyles.closeBtn, { backgroundColor: theme.colors.surfaceLow }]}>
                             <Ionicons name="close" size={18} color={theme.colors.textMuted} />
                         </TouchableOpacity>
                     </View>
-                    <ScrollView
-                        contentContainerStyle={[drawerStyles.sheetScroll, { paddingBottom: scrollBottomPad }]}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={false}
-                        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
-                        bounces={false}
-                    >
-                        <View style={drawerStyles.fieldGroup}>
-                            <Text style={[drawerStyles.fieldLabel, { color: theme.colors.textMuted }]}>
+                    <ScrollView contentContainerStyle={[addItemStyles.sheetScroll, { paddingBottom: scrollBottomPad }]}
+                        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+                        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'} bounces={false}>
+                        <View style={addItemStyles.fieldGroup}>
+                            <Text style={[addItemStyles.fieldLabel, { color: theme.colors.textMuted }]}>
                                 {isPartType ? 'PART NAME *' : 'SERVICE NAME *'}
                             </Text>
-                            <TextInput
-                                value={name} onChangeText={setName}
+                            <TextInput value={name} onChangeText={setName}
                                 placeholder={isPartType ? 'e.g. Brake Pad, Engine Oil...' : 'e.g. Oil Change, Wheel Alignment...'}
                                 placeholderTextColor={theme.colors.textMuted + '60'}
-                                style={[drawerStyles.input, inputStyle]}
-                                returnKeyType="next"
-                            />
+                                style={[addItemStyles.input, inputStyle]} returnKeyType="next" />
                         </View>
-                        <View style={drawerStyles.twoCol}>
-                            <View style={[drawerStyles.fieldGroup, { flex: 1 }]}>
-                                <Text style={[drawerStyles.fieldLabel, { color: theme.colors.textMuted }]}>QUANTITY *</Text>
-                                <TextInput
-                                    value={quantity} onChangeText={setQuantity}
-                                    placeholder="1" placeholderTextColor={theme.colors.textMuted + '60'}
-                                    keyboardType="decimal-pad"
-                                    style={[drawerStyles.input, inputStyle]}
-                                    returnKeyType="next"
-                                />
+                        <View style={addItemStyles.twoCol}>
+                            <View style={[addItemStyles.fieldGroup, { flex: 1 }]}>
+                                <Text style={[addItemStyles.fieldLabel, { color: theme.colors.textMuted }]}>QUANTITY *</Text>
+                                <TextInput value={quantity} onChangeText={setQuantity} placeholder="1"
+                                    placeholderTextColor={theme.colors.textMuted + '60'} keyboardType="decimal-pad"
+                                    style={[addItemStyles.input, inputStyle]} returnKeyType="next" />
                             </View>
-                            <View style={[drawerStyles.fieldGroup, { flex: 1.6 }]}>
-                                <Text style={[drawerStyles.fieldLabel, { color: theme.colors.textMuted }]}>UNIT PRICE (₹) *</Text>
-                                <TextInput
-                                    value={price} onChangeText={setPrice}
-                                    placeholder="0.00" placeholderTextColor={theme.colors.textMuted + '60'}
-                                    keyboardType="decimal-pad"
-                                    style={[drawerStyles.input, inputStyle]}
-                                    returnKeyType="done"
-                                    onSubmitEditing={Keyboard.dismiss}
-                                />
+                            <View style={[addItemStyles.fieldGroup, { flex: 1.6 }]}>
+                                <Text style={[addItemStyles.fieldLabel, { color: theme.colors.textMuted }]}>UNIT PRICE (₹) *</Text>
+                                <TextInput value={price} onChangeText={setPrice} placeholder="0.00"
+                                    placeholderTextColor={theme.colors.textMuted + '60'} keyboardType="decimal-pad"
+                                    style={[addItemStyles.input, inputStyle]} returnKeyType="done"
+                                    onSubmitEditing={Keyboard.dismiss} />
                             </View>
                         </View>
-                        <View style={drawerStyles.fieldGroup}>
-                            <Text style={[drawerStyles.fieldLabel, { color: theme.colors.textMuted }]}>DISCOUNT TYPE</Text>
-                            <View style={drawerStyles.discRow}>
+                        <View style={addItemStyles.fieldGroup}>
+                            <Text style={[addItemStyles.fieldLabel, { color: theme.colors.textMuted }]}>DISCOUNT TYPE</Text>
+                            <View style={addItemStyles.discRow}>
                                 {DISCOUNT_TYPES.map((dt) => (
-                                    <TouchableOpacity
-                                        key={dt}
-                                        onPress={() => handleDiscountTypeChange(dt)}
-                                        style={[drawerStyles.discBtn, {
+                                    <TouchableOpacity key={dt} onPress={() => { Keyboard.dismiss(); setDiscountType(dt); }}
+                                        style={[addItemStyles.discBtn, {
                                             borderColor: discountType === dt ? accentColor : theme.colors.border,
                                             backgroundColor: discountType === dt ? accentBg : theme.colors.surfaceLow,
-                                        }]}
-                                    >
-                                        <Text style={[drawerStyles.discBtnTxt, {
+                                        }]}>
+                                        <Text style={[addItemStyles.discBtnTxt, {
                                             color: discountType === dt ? accentColor : theme.colors.textMuted,
                                             fontWeight: discountType === dt ? '800' : '500',
                                         }]}>
@@ -346,48 +1011,39 @@ const AddItemDrawer = ({ visible, type, onClose, onSave, theme, editItem }) => {
                             </View>
                         </View>
                         {discountType !== 'None' && (
-                            <View style={drawerStyles.fieldGroup}>
-                                <Text style={[drawerStyles.fieldLabel, { color: theme.colors.textMuted }]}>
+                            <View style={addItemStyles.fieldGroup}>
+                                <Text style={[addItemStyles.fieldLabel, { color: theme.colors.textMuted }]}>
                                     {discountType === 'Flat' ? 'DISCOUNT AMOUNT (₹)' : 'DISCOUNT PERCENTAGE (%)'}
                                 </Text>
-                                <TextInput
-                                    value={discountValue} onChangeText={setDiscountValue}
-                                    placeholder="0" placeholderTextColor={theme.colors.textMuted + '60'}
-                                    keyboardType="decimal-pad"
-                                    style={[drawerStyles.input, inputStyle]}
-                                    returnKeyType="done"
-                                    onSubmitEditing={Keyboard.dismiss}
-                                />
+                                <TextInput value={discountValue} onChangeText={setDiscountValue} placeholder="0"
+                                    placeholderTextColor={theme.colors.textMuted + '60'} keyboardType="decimal-pad"
+                                    style={[addItemStyles.input, inputStyle]} returnKeyType="done"
+                                    onSubmitEditing={Keyboard.dismiss} />
                             </View>
                         )}
                         {price && parseFloat(price) > 0 && (
-                            <View style={[drawerStyles.previewCard, { backgroundColor: accentBg, borderColor: accentColor + '30' }]}>
-                                <Text style={[drawerStyles.previewTitle, { color: accentColor }]}>PRICE PREVIEW</Text>
-                                <View style={drawerStyles.previewRow}>
-                                    <Text style={[drawerStyles.previewLabel, { color: theme.colors.textSecondary }]}>Subtotal</Text>
-                                    <Text style={[drawerStyles.previewVal, { color: theme.colors.textSecondary }]}>{formatCurrency(subtotal)}</Text>
+                            <View style={[addItemStyles.previewCard, { backgroundColor: accentBg, borderColor: accentColor + '30' }]}>
+                                <Text style={[addItemStyles.previewTitle, { color: accentColor }]}>PRICE PREVIEW</Text>
+                                <View style={addItemStyles.previewRow}>
+                                    <Text style={[addItemStyles.previewLabel, { color: theme.colors.textSecondary }]}>Subtotal</Text>
+                                    <Text style={[addItemStyles.previewVal, { color: theme.colors.textSecondary }]}>{formatCurrency(subtotal)}</Text>
                                 </View>
                                 {discAmt > 0 && (
-                                    <View style={drawerStyles.previewRow}>
-                                        <Text style={[drawerStyles.previewLabel, { color: '#2ECC9A' }]}>Discount</Text>
-                                        <Text style={[drawerStyles.previewVal, { color: '#2ECC9A' }]}>-{formatCurrency(discAmt)}</Text>
+                                    <View style={addItemStyles.previewRow}>
+                                        <Text style={[addItemStyles.previewLabel, { color: '#2ECC9A' }]}>Discount</Text>
+                                        <Text style={[addItemStyles.previewVal, { color: '#2ECC9A' }]}>-{formatCurrency(discAmt)}</Text>
                                     </View>
                                 )}
-                                <View style={[drawerStyles.previewRow, drawerStyles.previewTotalRow, { borderTopColor: accentColor + '25' }]}>
-                                    <Text style={[drawerStyles.previewTotalLabel, { color: theme.colors.textPrimary }]}>Total</Text>
-                                    <Text style={[drawerStyles.previewTotalVal, { color: accentColor }]}>{formatCurrency(total)}</Text>
+                                <View style={[addItemStyles.previewRow, addItemStyles.previewTotalRow, { borderTopColor: accentColor + '25' }]}>
+                                    <Text style={[addItemStyles.previewTotalLabel, { color: theme.colors.textPrimary }]}>Total</Text>
+                                    <Text style={[addItemStyles.previewTotalVal, { color: accentColor }]}>{formatCurrency(total)}</Text>
                                 </View>
                             </View>
                         )}
-                        <TouchableOpacity
-                            onPress={handleSave}
-                            style={[drawerStyles.saveBtn, { backgroundColor: accentColor, shadowColor: accentColor }]}
-                            activeOpacity={0.85}
-                        >
+                        <TouchableOpacity onPress={handleSave}
+                            style={[addItemStyles.saveBtn, { backgroundColor: accentColor, shadowColor: accentColor }]} activeOpacity={0.85}>
                             <Ionicons name={editItem ? 'checkmark-circle' : 'add-circle'} size={20} color="#fff" />
-                            <Text style={drawerStyles.saveBtnTxt}>
-                                {editItem ? 'Update' : 'Add'} {isPartType ? 'Part' : 'Service'}
-                            </Text>
+                            <Text style={addItemStyles.saveBtnTxt}>{editItem ? 'Update' : 'Add'} {isPartType ? 'Part' : 'Service'}</Text>
                         </TouchableOpacity>
                     </ScrollView>
                 </Animated.View>
@@ -396,14 +1052,9 @@ const AddItemDrawer = ({ visible, type, onClose, onSave, theme, editItem }) => {
     );
 };
 
-const drawerStyles = StyleSheet.create({
+const addItemStyles = StyleSheet.create({
     modalRoot: { flex: 1, justifyContent: 'flex-end' },
-    sheet: {
-        borderTopLeftRadius: 24, borderTopRightRadius: 24,
-        borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1,
-        shadowColor: '#000', shadowOffset: { width: 0, height: -8 },
-        shadowOpacity: 0.18, shadowRadius: 24, elevation: 20,
-    },
+    sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 20 },
     handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 12, marginBottom: 4 },
     sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth },
     typeIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
@@ -430,8 +1081,8 @@ const drawerStyles = StyleSheet.create({
     saveBtnTxt: { fontSize: 15, fontWeight: '900', color: '#fff', letterSpacing: 0.3 },
 });
 
-// ─── Editable Item Card for Parts/Services ────────────────────────────────────
-const ItemCard = ({ item, onEdit, onRemove, theme, index, readOnly = false }) => {
+// ─── Item Card ─────────────────────────────────────────────────────────────────
+const ItemCard = ({ item, onEdit, onRemove, theme, readOnly = false }) => {
     const isPartType = item.type === 'part';
     const accentColor = isPartType ? '#3498DB' : '#2ECC9A';
     const accentBg = isPartType ? 'rgba(52,152,219,0.08)' : 'rgba(46,204,154,0.08)';
@@ -445,59 +1096,54 @@ const ItemCard = ({ item, onEdit, onRemove, theme, index, readOnly = false }) =>
     const hasDiscount = discAmt > 0;
 
     return (
-        <Animated.View style={{ opacity: 1, transform: [{ translateY: 0 }] }}>
-            <View style={[cardItemStyles.wrap, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
-                <View style={[cardItemStyles.accentBar, { backgroundColor: accentColor }]} />
-                <View style={cardItemStyles.body}>
-                    <View style={cardItemStyles.topRow}>
-                        <View style={[cardItemStyles.typeTag, { backgroundColor: accentBg }]}>
-                            <Ionicons name={isPartType ? 'construct-outline' : 'checkmark-circle-outline'} size={10} color={accentColor} />
-                            <Text style={[cardItemStyles.typeText, { color: accentColor }]}>{isPartType ? 'PART' : 'SERVICE'}</Text>
-                        </View>
-                        <Text style={[cardItemStyles.name, { color: theme.colors.textPrimary }]} numberOfLines={1}>{item.name || 'Unnamed'}</Text>
-                        {!readOnly && (
-                            <View style={cardItemStyles.actions}>
-                                <TouchableOpacity onPress={() => onEdit(item)} style={[cardItemStyles.actionBtn, { backgroundColor: 'rgba(52,152,219,0.1)' }]} activeOpacity={0.75}>
-                                    <Ionicons name="pencil-outline" size={13} color="#3498DB" />
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => onRemove(item.id)} style={[cardItemStyles.actionBtn, { backgroundColor: 'rgba(255,107,107,0.1)' }]} activeOpacity={0.75}>
-                                    <Ionicons name="trash-outline" size={13} color="#FF6B6B" />
-                                </TouchableOpacity>
-                            </View>
-                        )}
+        <View style={[itemCardStyles.wrap, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            <View style={[itemCardStyles.accentBar, { backgroundColor: accentColor }]} />
+            <View style={itemCardStyles.body}>
+                <View style={itemCardStyles.topRow}>
+                    <View style={[itemCardStyles.typeTag, { backgroundColor: accentBg }]}>
+                        <Ionicons name={isPartType ? 'construct-outline' : 'checkmark-circle-outline'} size={10} color={accentColor} />
+                        <Text style={[itemCardStyles.typeText, { color: accentColor }]}>{isPartType ? 'PART' : 'SERVICE'}</Text>
                     </View>
-                    <View style={cardItemStyles.metaRow}>
-                        <View style={[cardItemStyles.metaChip, { backgroundColor: theme.colors.surfaceLow }]}>
-                            <Ionicons name="layers-outline" size={11} color={theme.colors.textMuted} />
-                            <Text style={[cardItemStyles.metaTxt, { color: theme.colors.textSecondary }]}>Qty: {item.quantity}</Text>
+                    <Text style={[itemCardStyles.name, { color: theme.colors.textPrimary }]} numberOfLines={1}>{item.name || 'Unnamed'}</Text>
+                    {!readOnly && (
+                        <View style={itemCardStyles.actions}>
+                            <TouchableOpacity onPress={() => onEdit(item)} style={[itemCardStyles.actionBtn, { backgroundColor: 'rgba(52,152,219,0.1)' }]} activeOpacity={0.75}>
+                                <Ionicons name="pencil-outline" size={13} color="#3498DB" />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => onRemove(item.id)} style={[itemCardStyles.actionBtn, { backgroundColor: 'rgba(255,107,107,0.1)' }]} activeOpacity={0.75}>
+                                <Ionicons name="trash-outline" size={13} color="#FF6B6B" />
+                            </TouchableOpacity>
                         </View>
-                        <View style={[cardItemStyles.metaChip, { backgroundColor: theme.colors.surfaceLow }]}>
-                            <Ionicons name="pricetag-outline" size={11} color={theme.colors.textMuted} />
-                            <Text style={[cardItemStyles.metaTxt, { color: theme.colors.textSecondary }]}>{formatCurrency(unitPrice)} / unit</Text>
-                        </View>
-                        {hasDiscount && (
-                            <View style={[cardItemStyles.metaChip, { backgroundColor: 'rgba(46,204,154,0.1)' }]}>
-                                <Ionicons name="gift-outline" size={11} color="#2ECC9A" />
-                                <Text style={[cardItemStyles.metaTxt, { color: '#2ECC9A' }]}>
-                                    {item.discountType === 'Percentage' ? `${item.discountValue}% off` : `-${formatCurrency(discAmt)}`}
-                                </Text>
-                            </View>
-                        )}
+                    )}
+                </View>
+                <View style={itemCardStyles.metaRow}>
+                    <View style={[itemCardStyles.metaChip, { backgroundColor: theme.colors.surfaceLow }]}>
+                        <Text style={[itemCardStyles.metaTxt, { color: theme.colors.textSecondary }]}>Qty: {item.quantity}</Text>
                     </View>
-                    <View style={[cardItemStyles.priceRow, { borderTopColor: theme.colors.border }]}>
-                        {hasDiscount && <Text style={[cardItemStyles.strikePrice, { color: theme.colors.textMuted }]}>{formatCurrency(subtotal)}</Text>}
-                        <View style={cardItemStyles.priceRight}>
-                            {hasDiscount && <Text style={[cardItemStyles.discSaved, { color: '#2ECC9A' }]}>Saved {formatCurrency(discAmt)}</Text>}
-                            <Text style={[cardItemStyles.totalPrice, { color: accentColor }]}>{formatCurrency(total)}</Text>
+                    <View style={[itemCardStyles.metaChip, { backgroundColor: theme.colors.surfaceLow }]}>
+                        <Text style={[itemCardStyles.metaTxt, { color: theme.colors.textSecondary }]}>{formatCurrency(unitPrice)} / unit</Text>
+                    </View>
+                    {hasDiscount && (
+                        <View style={[itemCardStyles.metaChip, { backgroundColor: 'rgba(46,204,154,0.1)' }]}>
+                            <Text style={[itemCardStyles.metaTxt, { color: '#2ECC9A' }]}>
+                                {item.discountType === 'Percentage' ? `${item.discountValue}% off` : `-${formatCurrency(discAmt)}`}
+                            </Text>
                         </View>
+                    )}
+                </View>
+                <View style={[itemCardStyles.priceRow, { borderTopColor: theme.colors.border }]}>
+                    {hasDiscount && <Text style={[itemCardStyles.strikePrice, { color: theme.colors.textMuted }]}>{formatCurrency(subtotal)}</Text>}
+                    <View style={itemCardStyles.priceRight}>
+                        {hasDiscount && <Text style={[itemCardStyles.discSaved, { color: '#2ECC9A' }]}>Saved {formatCurrency(discAmt)}</Text>}
+                        <Text style={[itemCardStyles.totalPrice, { color: accentColor }]}>{formatCurrency(total)}</Text>
                     </View>
                 </View>
             </View>
-        </Animated.View>
+        </View>
     );
 };
 
-const cardItemStyles = StyleSheet.create({
+const itemCardStyles = StyleSheet.create({
     wrap: { flexDirection: 'row', borderRadius: 14, borderWidth: 1, marginBottom: 10, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
     accentBar: { width: 4 },
     body: { flex: 1, padding: 13 },
@@ -517,7 +1163,7 @@ const cardItemStyles = StyleSheet.create({
     totalPrice: { fontSize: 16, fontWeight: '900' },
 });
 
-// ─── Editable Section for Parts or Services ───────────────────────────────────
+// ─── Editable Items Section ────────────────────────────────────────────────────
 const EditableItemsSection = ({ title, type, items, onAdd, onEdit, onRemove, theme, readOnly = false }) => {
     const isPartType = type === 'part';
     const accentColor = isPartType ? '#3498DB' : '#2ECC9A';
@@ -525,59 +1171,50 @@ const EditableItemsSection = ({ title, type, items, onAdd, onEdit, onRemove, the
 
     return (
         <Card theme={theme}>
-            <View style={sectionHeaderStyles.row}>
-                <View style={sectionHeaderStyles.left}>
-                    <View style={[sectionHeaderStyles.iconWrap, { backgroundColor: accentBg }]}>
+            <View style={eiStyles.row}>
+                <View style={eiStyles.left}>
+                    <View style={[eiStyles.iconWrap, { backgroundColor: accentBg }]}>
                         <Ionicons name={isPartType ? 'construct-outline' : 'checkmark-circle-outline'} size={14} color={accentColor} />
                     </View>
-                    <Text style={[sectionHeaderStyles.title, { color: theme.colors.textPrimary }]}>{title}</Text>
-                    {items.length > 0 && <View style={[sectionHeaderStyles.badge, { backgroundColor: accentBg }]}><Text style={[sectionHeaderStyles.badgeText, { color: accentColor }]}>{items.length}</Text></View>}
+                    <Text style={[eiStyles.title, { color: theme.colors.textPrimary }]}>{title}</Text>
+                    {items.length > 0 && (
+                        <View style={[eiStyles.badge, { backgroundColor: accentBg }]}>
+                            <Text style={[eiStyles.badgeTxt, { color: accentColor }]}>{items.length}</Text>
+                        </View>
+                    )}
                 </View>
                 {!readOnly && (
-                    <TouchableOpacity onPress={onAdd} style={[sectionHeaderStyles.addBtn, { backgroundColor: accentColor, shadowColor: accentColor }]} activeOpacity={0.82}>
+                    <TouchableOpacity onPress={onAdd} style={[eiStyles.addBtn, { backgroundColor: accentColor, shadowColor: accentColor }]} activeOpacity={0.82}>
                         <Ionicons name="add" size={16} color="#fff" />
-                        <Text style={sectionHeaderStyles.addText}>Add {isPartType ? 'Part' : 'Service'}</Text>
+                        <Text style={eiStyles.addTxt}>Add {isPartType ? 'Part' : 'Service'}</Text>
                     </TouchableOpacity>
                 )}
             </View>
+
             {items.length === 0 ? (
                 readOnly ? (
-                    <View style={[emptyStyles.wrap, { backgroundColor: accentBg, borderColor: accentColor + '30' }]}>
-                        <View style={[emptyStyles.iconWrap, { backgroundColor: accentColor + '18' }]}>
-                            <Ionicons name={isPartType ? 'construct-outline' : 'checkmark-circle-outline'} size={26} color={accentColor} />
-                        </View>
-                        <Text style={[emptyStyles.title, { color: theme.colors.textPrimary }]}>No {isPartType ? 'parts' : 'services'} added</Text>
+                    <View style={[eiStyles.empty, { backgroundColor: accentBg, borderColor: accentColor + '30' }]}>
+                        <Ionicons name={isPartType ? 'construct-outline' : 'checkmark-circle-outline'} size={26} color={accentColor} />
+                        <Text style={[eiStyles.emptyTitle, { color: theme.colors.textPrimary }]}>No {isPartType ? 'parts' : 'services'} added</Text>
                     </View>
                 ) : (
-                    <TouchableOpacity onPress={onAdd} style={[emptyStyles.wrap, { backgroundColor: accentBg, borderColor: accentColor + '30' }]} activeOpacity={0.75}>
-                        <View style={[emptyStyles.iconWrap, { backgroundColor: accentColor + '18' }]}>
+                    <TouchableOpacity onPress={onAdd} style={[eiStyles.empty, { backgroundColor: accentBg, borderColor: accentColor + '30' }]} activeOpacity={0.75}>
+                        <View style={[eiStyles.emptyIconWrap, { backgroundColor: accentColor + '18' }]}>
                             <Ionicons name={isPartType ? 'construct-outline' : 'checkmark-circle-outline'} size={26} color={accentColor} />
                         </View>
-                        <Text style={[emptyStyles.title, { color: theme.colors.textPrimary }]}>No {isPartType ? 'parts' : 'services'} added yet</Text>
-                        <Text style={[emptyStyles.hint, { color: theme.colors.textMuted }]}>Tap to add {isPartType ? 'a part or consumable' : 'a service performed'}</Text>
-                        <View style={[emptyStyles.addChip, { backgroundColor: accentColor }]}>
-                            <Ionicons name="add" size={14} color="#fff" />
-                            <Text style={emptyStyles.addChipTxt}>Add {isPartType ? 'Part' : 'Service'}</Text>
-                        </View>
+                        <Text style={[eiStyles.emptyTitle, { color: theme.colors.textPrimary }]}>No {isPartType ? 'parts' : 'services'} added yet</Text>
+                        <Text style={[eiStyles.emptyHint, { color: theme.colors.textMuted }]}>Tap to add</Text>
                     </TouchableOpacity>
                 )
             ) : (
                 <>
-                    {items.map((item, idx) => (
-                        <ItemCard
-                            key={item.id}
-                            item={item}
-                            onEdit={readOnly ? undefined : onEdit}
-                            onRemove={readOnly ? undefined : onRemove}
-                            theme={theme}
-                            index={idx}
-                            readOnly={readOnly}
-                        />
+                    {items.map((item) => (
+                        <ItemCard key={item.id} item={item} onEdit={readOnly ? undefined : onEdit} onRemove={readOnly ? undefined : onRemove} theme={theme} readOnly={readOnly} />
                     ))}
                     {!readOnly && (
-                        <TouchableOpacity onPress={onAdd} style={[addMoreStyles.btn, { borderColor: accentColor + '40', backgroundColor: accentColor + '10' }]} activeOpacity={0.75}>
+                        <TouchableOpacity onPress={onAdd} style={[eiStyles.addMore, { borderColor: accentColor + '40', backgroundColor: accentColor + '10' }]} activeOpacity={0.75}>
                             <Ionicons name="add-circle-outline" size={16} color={accentColor} />
-                            <Text style={[addMoreStyles.txt, { color: accentColor }]}>Add Another {isPartType ? 'Part' : 'Service'}</Text>
+                            <Text style={[eiStyles.addMoreTxt, { color: accentColor }]}>Add Another {isPartType ? 'Part' : 'Service'}</Text>
                         </TouchableOpacity>
                     )}
                 </>
@@ -586,106 +1223,62 @@ const EditableItemsSection = ({ title, type, items, onAdd, onEdit, onRemove, the
     );
 };
 
-const sectionHeaderStyles = StyleSheet.create({
+const eiStyles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
     left: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     iconWrap: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
     title: { fontSize: 13, fontWeight: '800', letterSpacing: 0.2 },
     badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10 },
-    badgeText: { fontSize: 11, fontWeight: '800' },
+    badgeTxt: { fontSize: 11, fontWeight: '800' },
     addBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 11, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
-    addText: { fontSize: 12, fontWeight: '800', color: '#fff' },
+    addTxt: { fontSize: 12, fontWeight: '800', color: '#fff' },
+    empty: { alignItems: 'center', padding: 24, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', gap: 6 },
+    emptyIconWrap: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+    emptyTitle: { fontSize: 14, fontWeight: '800' },
+    emptyHint: { fontSize: 12 },
+    addMore: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 11, borderRadius: 11, borderWidth: 1.5, borderStyle: 'dashed', marginTop: 4 },
+    addMoreTxt: { fontSize: 13, fontWeight: '700' },
 });
 
-const emptyStyles = StyleSheet.create({
-    wrap: { alignItems: 'center', padding: 24, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', gap: 6 },
-    iconWrap: { width: 56, height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-    title: { fontSize: 14, fontWeight: '800' },
-    hint: { fontSize: 12, textAlign: 'center', lineHeight: 17 },
-    addChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, marginTop: 6 },
-    addChipTxt: { fontSize: 13, fontWeight: '800', color: '#fff' },
-});
-
-const addMoreStyles = StyleSheet.create({
-    btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 11, borderRadius: 11, borderWidth: 1.5, borderStyle: 'dashed', marginTop: 4 },
-    txt: { fontSize: 13, fontWeight: '700' },
-});
-
-// ─── Financial Breakdown (Read‑only from order.total) ─────────────────────────
+// ─── Financial Breakdown ──────────────────────────────────────────────────────
 const FinancialBreakdownCard = ({ order, theme }) => {
     const { total = {} } = order;
-    const {
-        subTotal = 0,
-        discount = 0,
-        referralDiscount = 0,
-        cgst = 0,
-        sgst = 0,
-        cgstRate,
-        sgstRate,
-        total: grandTotal = 0,
-        finalPayable = grandTotal,
-    } = total;
-
+    const { subTotal = 0, discount = 0, referralDiscount = 0, cgst = 0, sgst = 0, cgstRate, sgstRate, total: grandTotal = 0, finalPayable = grandTotal } = total;
     const showTaxes = (cgst > 0 || sgst > 0) && (cgstRate || sgstRate);
 
     return (
         <Card theme={theme}>
             <SectionLabel label="Financial Breakdown" theme={theme} />
-            <View style={finBreakStyles.totalsBlock}>
-                <View style={finBreakStyles.totalRow}>
-                    <Text style={[finBreakStyles.totalLabel, { color: theme.colors.textSecondary }]}>Subtotal</Text>
-                    <Text style={[finBreakStyles.totalValue, { color: theme.colors.textSecondary }]}>{formatCurrency(subTotal)}</Text>
-                </View>
-
-                {discount > 0 && (
-                    <View style={finBreakStyles.totalRow}>
-                        <Text style={[finBreakStyles.totalLabel, { color: theme.colors.textSecondary }]}>Discount</Text>
-                        <Text style={[finBreakStyles.totalValue, { color: theme.colors.success }]}>-{formatCurrency(discount)}</Text>
+            <View>
+                {[
+                    { label: 'Subtotal', value: formatCurrency(subTotal), color: theme.colors.textSecondary },
+                    discount > 0 ? { label: 'Discount', value: `-${formatCurrency(discount)}`, color: '#2ECC9A' } : null,
+                    referralDiscount > 0 ? { label: 'Referral Discount', value: `-${formatCurrency(referralDiscount)}`, color: '#2ECC9A' } : null,
+                    showTaxes ? { label: `CGST (${cgstRate}%)`, value: formatCurrency(cgst), color: theme.colors.textSecondary } : null,
+                    showTaxes ? { label: `SGST (${sgstRate}%)`, value: formatCurrency(sgst), color: theme.colors.textSecondary } : null,
+                ].filter(Boolean).map((row, i) => (
+                    <View key={i} style={finStyles.row}>
+                        <Text style={[finStyles.label, { color: row.color }]}>{row.label}</Text>
+                        <Text style={[finStyles.value, { color: row.color }]}>{row.value}</Text>
                     </View>
-                )}
-
-                {referralDiscount > 0 && (
-                    <View style={finBreakStyles.totalRow}>
-                        <View style={finBreakStyles.referralLabelRow}>
-                            <Ionicons name="gift-outline" size={13} color={theme.colors.success} />
-                            <Text style={[finBreakStyles.totalLabel, { color: theme.colors.success }]}>Referral Discount</Text>
-                        </View>
-                        <Text style={[finBreakStyles.totalValue, { color: theme.colors.success }]}>-{formatCurrency(referralDiscount)}</Text>
-                    </View>
-                )}
-
-                {showTaxes && (
-                    <>
-                        <View style={finBreakStyles.totalRow}>
-                            <Text style={[finBreakStyles.totalLabel, { color: theme.colors.textSecondary }]}>CGST ({cgstRate}%)</Text>
-                            <Text style={[finBreakStyles.totalValue, { color: theme.colors.textSecondary }]}>{formatCurrency(cgst)}</Text>
-                        </View>
-                        <View style={finBreakStyles.totalRow}>
-                            <Text style={[finBreakStyles.totalLabel, { color: theme.colors.textSecondary }]}>SGST ({sgstRate}%)</Text>
-                            <Text style={[finBreakStyles.totalValue, { color: theme.colors.textSecondary }]}>{formatCurrency(sgst)}</Text>
-                        </View>
-                    </>
-                )}
-
+                ))}
                 <Divider theme={theme} style={{ marginVertical: 10 }} />
-                <View style={finBreakStyles.totalRow}>
-                    <Text style={[finBreakStyles.grandTotalLabel, { color: theme.colors.textPrimary }]}>TOTAL AMOUNT</Text>
-                    <Text style={[finBreakStyles.grandTotalValue, { color: theme.colors.primary }]}>{formatCurrency(finalPayable)}</Text>
+                <View style={finStyles.row}>
+                    <Text style={[finStyles.grandLabel, { color: theme.colors.textPrimary }]}>TOTAL AMOUNT</Text>
+                    <Text style={[finStyles.grandValue, { color: theme.colors.primary }]}>{formatCurrency(finalPayable)}</Text>
                 </View>
-                <Text style={[finBreakStyles.taxNote, { color: theme.colors.textMuted }]}>Tax inclusive</Text>
+                <Text style={[finStyles.taxNote, { color: theme.colors.textMuted }]}>Tax inclusive</Text>
             </View>
         </Card>
     );
 };
 
-const finBreakStyles = StyleSheet.create({
-    totalsBlock: { marginTop: 4 },
-    totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-    totalLabel: { fontSize: 13, fontWeight: '500' },
-    totalValue: { fontSize: 13, fontWeight: '600' },
-    referralLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    grandTotalLabel: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
-    grandTotalValue: { fontSize: 20, fontWeight: '900', letterSpacing: 0.3 },
+const finStyles = StyleSheet.create({
+    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    label: { fontSize: 13, fontWeight: '500' },
+    value: { fontSize: 13, fontWeight: '600' },
+    grandLabel: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
+    grandValue: { fontSize: 20, fontWeight: '900', letterSpacing: 0.3 },
     taxNote: { fontSize: 10, textAlign: 'right', marginTop: 2 },
 });
 
@@ -701,78 +1294,57 @@ export default function EmployeeOrderDetail({ route, navigation }) {
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [popupVisible, setPopupVisible] = useState(false);
-    const [popupConfig, setPopupConfig] = useState({
-        title: '',
-        message: '',
-        primaryLabel: 'OK',
-        secondaryLabel: 'Cancel',
-        onPrimary: () => { },
-        onSecondary: () => { },
-    });
-
-    // Editable items state
+    const [arrivedLoading, setArrivedLoading] = useState(false);
     const [items, setItems] = useState([]);
+    const [originalItems, setOriginalItems] = useState([]);
     const [drawerVisible, setDrawerVisible] = useState(false);
     const [drawerType, setDrawerType] = useState('part');
     const [editingItem, setEditingItem] = useState(null);
 
+    // Photo+OTP modal state
+    const [startWorkModal, setStartWorkModal] = useState(false);
+    const [completeWorkModal, setCompleteWorkModal] = useState(false);
+    const [photoModalSubmitting, setPhotoModalSubmitting] = useState(false);
+    const [resendingOtp, setResendingOtp] = useState(false);
+
+    // Popup state
+    const [popupVisible, setPopupVisible] = useState(false);
+    const [popupConfig, setPopupConfig] = useState({});
+
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(24)).current;
+
     const showPopup = (title, message, primaryLabel = 'OK', secondaryLabel = null, onPrimary = null, onSecondary = null) => {
         setPopupConfig({
-            title,
-            message,
-            primaryLabel,
-            secondaryLabel,
-            onPrimary: () => {
-                setPopupVisible(false);
-                onPrimary && onPrimary();
-            },
-            onSecondary: () => {
-                setPopupVisible(false);
-                onSecondary && onSecondary();
-            },
+            title, message, primaryLabel, secondaryLabel,
+            onPrimary: () => { setPopupVisible(false); onPrimary?.(); },
+            onSecondary: () => { setPopupVisible(false); onSecondary?.(); },
         });
         setPopupVisible(true);
     };
 
-    const hidePopup = () => setPopupVisible(false);
     const fetchOrder = useCallback(async () => {
         if (!orderIdParam) { setLoading(false); return; }
         try {
             setLoading(true);
             const response = await axiosClient.get(`/api/admin/order/getorderbyid/${orderIdParam}`);
-            const fetchedOrder = response.data;
-            setOrder(fetchedOrder);
+            const fetched = response.data;
+            setOrder(fetched);
 
-            // Build items array from partsUsed and serviceProvided
             const builtItems = [];
-            (fetchedOrder.partsUsed || []).forEach(p => {
-                builtItems.push({
-                    id: genId(),
-                    type: 'part',
-                    name: p.partName || '',
-                    quantity: p.quantity || 1,
-                    price: p.price || 0,
-                    discountType: p.discountType || 'None',
-                    discountValue: p.discountPrice || 0,
-                });
-            });
-            (fetchedOrder.serviceProvided || []).forEach(s => {
-                builtItems.push({
-                    id: genId(),
-                    type: 'service',
-                    name: s.serviceName || '',
-                    quantity: s.quantity || 1,
-                    price: s.price || 0,
-                    discountType: s.discountType || 'None',
-                    discountValue: s.discountPrice || 0,
-                });
-            });
+            (fetched.partsUsed || []).forEach(p => builtItems.push({
+                id: genId(), type: 'part',
+                name: p.partName || '', quantity: p.quantity || 1, price: p.price || 0,
+                discountType: p.discountType || 'None', discountValue: p.discountPrice || 0,
+            }));
+            (fetched.serviceProvided || []).forEach(s => builtItems.push({
+                id: genId(), type: 'service',
+                name: s.serviceName || '', quantity: s.quantity || 1, price: s.price || 0,
+                discountType: s.discountType || 'None', discountValue: s.discountPrice || 0,
+            }));
             setItems(builtItems);
+            setOriginalItems(builtItems);
         } catch (err) {
-            console.error('Failed to fetch order:', err);
             Alert.alert('Error', 'Failed to load order details');
         } finally {
             setLoading(false);
@@ -788,45 +1360,167 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         ]).start();
     }, []);
 
+    const hasItemChanges = JSON.stringify(items.map(i => ({ ...i, id: '' }))) !== JSON.stringify(originalItems.map(i => ({ ...i, id: '' })));
+
+    // ── Derived flags ─────────────────────────────────────────────────────────
+    // Does the server already have a pending before-photo (uploaded but OTP not yet verified)?
+    // If so, opening the start-work modal should jump straight to the OTP step.
+    const hasPendingBeforePhoto = Boolean(order?.workStartOtp?.pendingPhotoPath);
+    // Same for after-photo
+    const hasPendingAfterPhoto = Boolean(order?.workCompleteOtp?.pendingPhotoPath);
+
+    // ── API Actions ──────────────────────────────────────────────────────────
+    const handleMarkArrived = async () => {
+        setArrivedLoading(true);
+        try {
+            await axiosClient.put(`/api/admin/order/${order._id}/mechanic-arrived`);
+            await fetchOrder();
+        } catch (err) {
+            showPopup('Error', err?.response?.data?.message || 'Failed to mark arrival.');
+        } finally {
+            setArrivedLoading(false);
+        }
+    };
+
+    /**
+     * Step 1 of start-work flow:
+     * Upload before-photo to server as a temp file and trigger OTP.
+     * Server stores it in workStartOtp.pendingPhotoPath.
+     * If called again (mechanic retakes photo), server deletes old temp photo first.
+     */
+    const handleRequestWorkStart = async (photo) => {
+        setPhotoModalSubmitting(true);
+        try {
+            const formData = new FormData();
+            formData.append('beforePhoto', {
+                uri: photo.uri,
+                name: `before-${Date.now()}.jpg`,
+                type: 'image/jpeg',
+            });
+            await axiosClient.post(`/api/admin/order/${order._id}/request-work-start`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            // Refresh to get updated pendingPhotoPath flag
+            await fetchOrder();
+        } catch (err) {
+            throw err;
+        } finally {
+            setPhotoModalSubmitting(false);
+        }
+    };
+
+    /**
+     * Step 2: Verify OTP — no photo upload here.
+     * Server moves pendingPhotoPath → beforePhotos[] on success.
+     */
+    const handleVerifyWorkStart = async (otp) => {
+        setPhotoModalSubmitting(true);
+        try {
+            await axiosClient.post(`/api/admin/order/${order._id}/verify-work-start`, { otp });
+            setStartWorkModal(false);
+            await fetchOrder();
+            showPopup('Work Started! ⚙️', 'Order status is now "In Progress". You can now add parts and services.');
+        } catch (err) {
+            showPopup('Verification Failed', err?.response?.data?.message || 'Incorrect OTP. Please try again.');
+        } finally {
+            setPhotoModalSubmitting(false);
+        }
+    };
+
+    const handleResendWorkStartOtp = async () => {
+        setResendingOtp(true);
+        try {
+            await axiosClient.post(`/api/admin/order/${order._id}/resend-work-start-otp`);
+            Alert.alert('OTP Resent', 'A new OTP has been sent to the customer.');
+        } catch (err) {
+            // If server says no pending photo, tell mechanic to retake
+            const msg = err?.response?.data?.message || 'Failed to resend OTP.';
+            Alert.alert('Error', msg);
+        } finally {
+            setResendingOtp(false);
+        }
+    };
+
+    /**
+     * Complete-work step 1:
+     * Upload after-photo as temp, trigger completion OTP.
+     */
+    const handleRequestCompleteWork = async (photo) => {
+        setPhotoModalSubmitting(true);
+        try {
+            const formData = new FormData();
+            formData.append('afterPhoto', {
+                uri: photo.uri,
+                name: `after-${Date.now()}.jpg`,
+                type: 'image/jpeg',
+            });
+            await axiosClient.post(`/api/admin/order/${order._id}/complete-work`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            await fetchOrder();
+        } catch (err) {
+            throw err;
+        } finally {
+            setPhotoModalSubmitting(false);
+        }
+    };
+
+    /**
+     * Complete-work step 2: verify OTP.
+     * Server moves pendingPhotoPath → afterPhotos[] on success.
+     */
+    const handleConfirmCompletion = async (otp) => {
+        setPhotoModalSubmitting(true);
+        try {
+            await axiosClient.post(`/api/admin/order/${order._id}/confirm-completion`, { otp });
+            setCompleteWorkModal(false);
+            await fetchOrder();
+            showPopup('Work Completed! ✅', 'The order has been marked as Work Completed and the customer has been notified.');
+        } catch (err) {
+            showPopup('Verification Failed', err?.response?.data?.message || 'Incorrect OTP. Please try again.');
+        } finally {
+            setPhotoModalSubmitting(false);
+        }
+    };
+
+    const handleResendCompletionOtp = async () => {
+        setResendingOtp(true);
+        try {
+            await axiosClient.post(`/api/admin/order/${order._id}/resend-completion-otp`);
+            Alert.alert('OTP Resent', 'A new completion OTP has been sent to the customer.');
+        } catch (err) {
+            const msg = err?.response?.data?.message || 'Failed to resend OTP.';
+            Alert.alert('Error', msg);
+        } finally {
+            setResendingOtp(false);
+        }
+    };
+
     const handleSaveItems = async () => {
         if (!order) return;
         setSaving(true);
         try {
             const parts = items.filter(i => i.type === 'part').map(i => ({
-                partName: i.name,
-                quantity: i.quantity,
-                price: i.price,
+                partName: i.name, quantity: i.quantity, price: i.price,
                 discountType: i.discountType !== 'None' ? i.discountType : undefined,
                 discountPrice: i.discountValue || 0,
             }));
             const services = items.filter(i => i.type === 'service').map(i => ({
-                serviceName: i.name,
-                quantity: i.quantity,
-                price: i.price,
+                serviceName: i.name, quantity: i.quantity, price: i.price,
                 discountPrice: i.discountValue || 0,
             }));
-
-            const payload = { partsUsed: parts, serviceProvided: services };
-            await axiosClient.put(`/api/admin/order/bookings/${order._id}/update-parts`, payload);
-            showPopup('Success', 'Parts and services updated successfully.', 'OK', null, () => {
-                fetchOrder(); // Refresh after user acknowledges
-            });
+            await axiosClient.put(`/api/admin/order/bookings/${order._id}/update-parts`, { partsUsed: parts, serviceProvided: services });
+            showPopup('Saved ✓', 'Parts and services updated successfully.', 'OK', null, () => fetchOrder());
         } catch (err) {
-            showPopup('Error', err?.response?.data?.message || 'Failed to update items.', 'OK');
+            showPopup('Error', err?.response?.data?.message || 'Failed to update items.');
         } finally {
             setSaving(false);
         }
     };
 
     const removeItem = useCallback((id) => {
-        showPopup(
-            'Remove Item',
-            'Are you sure you want to remove this item?',
-            'Remove',
-            'Cancel',
-            () => setItems((prev) => prev.filter((i) => i.id !== id)),
-            () => { }
-        );
+        showPopup('Remove Item', 'Are you sure you want to remove this item?', 'Remove', 'Cancel',
+            () => setItems((prev) => prev.filter((i) => i.id !== id)));
     }, []);
 
     const openAddDrawer = useCallback((type) => { setEditingItem(null); setDrawerType(type); setDrawerVisible(true); }, []);
@@ -838,6 +1532,12 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         });
     }, []);
 
+    // ── Derived state ────────────────────────────────────────────────────────
+    const currentStatus = normalizeStatus(order?.status || '');
+    const isInProgress = currentStatus === 'in_progress';
+    const isWorkCompleted = currentStatus === 'work_completed';
+    const canEditItems = !isDelivery && isInProgress;
+    const showFinancials = !isDelivery;
 
     if (loading) {
         return (
@@ -850,7 +1550,8 @@ export default function EmployeeOrderDetail({ route, navigation }) {
     if (!order) {
         return (
             <View style={[styles.screen, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
-                <Text style={{ color: theme.colors.textMuted }}>Order not found</Text>
+                <Ionicons name="alert-circle-outline" size={40} color={theme.colors.textMuted} />
+                <Text style={[{ color: theme.colors.textMuted, marginTop: 10, fontSize: 14 }]}>Order not found</Text>
             </View>
         );
     }
@@ -860,6 +1561,7 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         selectedBrand = '', selectedModel = '', cc = '', bs = '', services = [],
         serviceType = '', preferredDate = null, preferredTime = '', status = 'pending',
         createdAt = null, userLocation = null,
+        beforePhotos = [], afterPhotos = [],
     } = order;
 
     const sc = getStatusConfig(status);
@@ -869,7 +1571,6 @@ export default function EmployeeOrderDetail({ route, navigation }) {
     const coordStr = userLocation?.coordinates?.length === 2
         ? `${userLocation.coordinates[1].toFixed(4)}, ${userLocation.coordinates[0].toFixed(4)}`
         : null;
-
     const partsItems = items.filter(i => i.type === 'part');
     const servicesItems = items.filter(i => i.type === 'service');
 
@@ -877,24 +1578,41 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
             <ScreenWrapper title="Order Details">
                 <Animated.ScrollView
-                    contentContainerStyle={[styles.scrollContent, { paddingBottom: 20 + insets.bottom }]}
+                    contentContainerStyle={[styles.scrollContent, { paddingBottom: 24 + insets.bottom }]}
                     showsVerticalScrollIndicator={false}
                     style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    {/* Order Reference */}
+                    {/* Order ID Row */}
                     <View style={styles.orderRefRow}>
                         <View>
                             <Text style={[styles.orderRefLabel, { color: theme.colors.textMuted }]}>ORDER REFERENCE</Text>
                             <Text style={[styles.orderRefId, { color: theme.colors.primary }]}>{orderId}</Text>
                         </View>
+                        <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
+                            <View style={[styles.statusDot, { backgroundColor: sc.dot }]} />
+                            <Text style={[styles.statusText, { color: sc.text }]}>{sc.label}</Text>
+                        </View>
                     </View>
 
-                    <Divider theme={theme} style={{ marginBottom: 16 }} />
+                    {/* Workflow Timeline */}
+                    <WorkflowTimeline status={status} theme={theme} />
 
-                    {/* Location map - moved to top priority */}
-                    {userLocation?.coordinates?.length === 2 && (
-                        <LocationMap coordinates={userLocation.coordinates} city={city} theme={theme} />
+                    {/* ── Mechanic Action Strip ── */}
+                    {!isDelivery && (
+                        <MechanicActionStrip
+                            status={status}
+                            theme={theme}
+                            onMarkArrived={handleMarkArrived}
+                            onStartWork={() => setStartWorkModal(true)}
+                            // In work_completed, pressing "Resend" re-opens the complete-work modal
+                            // at the OTP step (hasPendingAfterPhoto will be true)
+                            onCompleteWork={() => setCompleteWorkModal(true)}
+                            arrivedLoading={arrivedLoading}
+                        />
                     )}
+
+                    <Divider theme={theme} style={{ marginBottom: 14 }} />
 
                     {/* Vehicle Details */}
                     <Card theme={theme}>
@@ -915,10 +1633,6 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                                 ))}
                             </View>
                         )}
-                        <View style={[styles.statusBadge, { backgroundColor: sc.bg }]}>
-                            <View style={[styles.statusDot, { backgroundColor: sc.dot }]} />
-                            <Text style={[styles.statusText, { color: sc.text }]}>{sc.label}</Text>
-                        </View>
                         {serviceType && (
                             <View style={[styles.serviceTypeChip, { backgroundColor: serviceChip.bg, borderColor: serviceChip.border }]}>
                                 <Ionicons name={serviceChip.icon} size={12} color={serviceChip.text} />
@@ -927,7 +1641,7 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                         )}
                     </Card>
 
-                    {/* Customer Information */}
+                    {/* Customer Info */}
                     <Card theme={theme}>
                         <SectionLabel label="Customer Information" theme={theme} />
                         <InfoTile icon="person-outline" label="Full Name" value={name} theme={theme} accent />
@@ -937,52 +1651,100 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                         {coordStr && <InfoTile icon="navigate-outline" label="Coordinates" value={coordStr} theme={theme} />}
                     </Card>
 
-                    {/* Appointment Info */}
+                    {/* Appointment */}
                     <Card theme={theme}>
                         <SectionLabel label="Appointment" theme={theme} />
                         <InfoTile icon="calendar-outline" label="Preferred Date" value={formatDate(preferredDate)} theme={theme} />
                         <InfoTile icon="time-outline" label="Preferred Time" value={preferredTime || '—'} theme={theme} />
                     </Card>
 
-                    {/* Editable Parts Section - readOnly if delivery */}
-                    <EditableItemsSection
-                        title="Parts Used"
-                        type="part"
-                        items={partsItems}
-                        onAdd={() => openAddDrawer('part')}
-                        onEdit={openEditDrawer}
-                        onRemove={removeItem}
+                    {/* Parts & Services */}
+                    {canEditItems ? (
+                        <>
+                            <EditableItemsSection title="Parts Used" type="part" items={partsItems}
+                                onAdd={() => openAddDrawer('part')} onEdit={openEditDrawer} onRemove={removeItem} theme={theme} />
+                            <EditableItemsSection title="Services Provided" type="service" items={servicesItems}
+                                onAdd={() => openAddDrawer('service')} onEdit={openEditDrawer} onRemove={removeItem} theme={theme} />
+                        </>
+                    ) : (
+                        <>
+                            <EditableItemsSection title="Parts Used" type="part" items={partsItems}
+                                onAdd={() => { }} onEdit={() => { }} onRemove={() => { }} theme={theme} readOnly />
+                            <EditableItemsSection title="Services Provided" type="service" items={servicesItems}
+                                onAdd={() => { }} onEdit={() => { }} onRemove={() => { }} theme={theme} readOnly />
+                            {!isDelivery && !isInProgress && ['pending', 'mechanic_assigned', 'mechanic_arrived'].includes(currentStatus) && (
+                                <View style={[styles.editHint, { backgroundColor: `${theme.colors.primary}10`, borderColor: `${theme.colors.primary}30` }]}>
+                                    <Ionicons name="information-circle-outline" size={16} color={theme.colors.primary} />
+                                    <Text style={[styles.editHintTxt, { color: theme.colors.textSecondary }]}>
+                                        Parts & services can be added once work is "In Progress"
+                                    </Text>
+                                </View>
+                            )}
+                        </>
+                    )}
+
+                    {/* Save Changes Banner */}
+                    {canEditItems && hasItemChanges && (
+                        <SaveChangesBanner theme={theme} onSave={handleSaveItems} saving={saving} />
+                    )}
+
+                    {/* ── Repair Photos ── */}
+                    <RepairPhotosCard
+                        beforePhotos={beforePhotos}
+                        afterPhotos={afterPhotos}
                         theme={theme}
-                        readOnly={isDelivery}
                     />
 
-                    {/* Editable Services Section - readOnly if delivery */}
-                    <EditableItemsSection
-                        title="Services Provided"
-                        type="service"
-                        items={servicesItems}
-                        onAdd={() => openAddDrawer('service')}
-                        onEdit={openEditDrawer}
-                        onRemove={removeItem}
-                        theme={theme}
-                        readOnly={isDelivery}
-                    />
+                    {/* Location Map */}
+                    {userLocation?.coordinates?.length === 2 && (
+                        <LocationMap coordinates={userLocation.coordinates} city={city} theme={theme} />
+                    )}
 
-                    {/* Financial Breakdown - hidden for delivery */}
-                    {!isDelivery && <FinancialBreakdownCard order={order} theme={theme} />}
-
-                    {/* Save button removed entirely */}
+                    {/* Financial Breakdown */}
+                    {showFinancials && <FinancialBreakdownCard order={order} theme={theme} />}
 
                     <Text style={[styles.metaNote, { color: theme.colors.textMuted }]}>
                         Created {formatDate(createdAt)}
                     </Text>
-
                     <View style={{ height: 16 }} />
                 </Animated.ScrollView>
             </ScreenWrapper>
 
-            {/* AddItemDrawer only shown when not delivery */}
-            {!isDelivery && (
+            {/* ── Start Work Modal ── */}
+            <PhotoOtpModal
+                visible={startWorkModal}
+                onClose={() => setStartWorkModal(false)}
+                onRequestOtp={handleRequestWorkStart}
+                onSubmit={handleVerifyWorkStart}
+                onResendOtp={handleResendWorkStartOtp}
+                theme={theme}
+                title="Start Work"
+                subtitle="Verify with customer before beginning repairs"
+                photoLabel="before photo"
+                submitting={photoModalSubmitting}
+                resending={resendingOtp}
+                stepLabel="Verify & Start Work"
+                hasPendingPhoto={hasPendingBeforePhoto}
+            />
+
+            {/* ── Complete Work Modal ── */}
+            <PhotoOtpModal
+                visible={completeWorkModal}
+                onClose={() => setCompleteWorkModal(false)}
+                onRequestOtp={handleRequestCompleteWork}
+                onSubmit={handleConfirmCompletion}
+                onResendOtp={handleResendCompletionOtp}
+                theme={theme}
+                title="Complete Work"
+                subtitle="Verify with customer that work is done"
+                photoLabel="after photo"
+                submitting={photoModalSubmitting}
+                resending={resendingOtp}
+                stepLabel="Confirm Completion"
+                hasPendingPhoto={hasPendingAfterPhoto}
+            />
+
+            {canEditItems && (
                 <AddItemDrawer
                     visible={drawerVisible}
                     type={drawerType}
@@ -1001,7 +1763,7 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                 secondaryLabel={popupConfig.secondaryLabel}
                 onPrimary={popupConfig.onPrimary}
                 onSecondary={popupConfig.onSecondary}
-                onClose={hidePopup}
+                onClose={() => setPopupVisible(false)}
             />
         </View>
     );
@@ -1009,13 +1771,13 @@ export default function EmployeeOrderDetail({ route, navigation }) {
 
 const styles = StyleSheet.create({
     screen: { flex: 1 },
-    scrollContent: { paddingHorizontal: 1, paddingTop: 18 },
-    statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, alignSelf: 'flex-start', marginBottom: 8 },
-    statusDot: { width: 6, height: 6, borderRadius: 3 },
-    statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+    scrollContent: { paddingHorizontal: 1, paddingTop: 16 },
     orderRefRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
     orderRefLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1 },
     orderRefId: { fontSize: 22, fontWeight: '900', letterSpacing: 0.4, marginTop: 2 },
+    statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+    statusDot: { width: 6, height: 6, borderRadius: 3 },
+    statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
     bikeHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
     bikeName: { fontSize: 17, fontWeight: '800' },
     bikeSpecs: { fontSize: 12, marginTop: 3, fontWeight: '500' },
@@ -1025,4 +1787,6 @@ const styles = StyleSheet.create({
     serviceTypeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, marginTop: 8 },
     serviceTypeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
     metaNote: { fontSize: 11, textAlign: 'center', marginTop: 8, letterSpacing: 0.2 },
+    editHint: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 12 },
+    editHintTxt: { flex: 1, fontSize: 12.5, fontWeight: '500', lineHeight: 17 },
 });
