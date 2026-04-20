@@ -1,3 +1,11 @@
+import Constants from 'expo-constants';
+
+// Resolve API URL with fallback chain
+const API_URL =
+    process.env.EXPO_PUBLIC_API_URL ||
+    Constants.expoConfig?.extra?.apiUrl ||
+    'https://api.repairomoto.in';
+
 export const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
     if (typeof imagePath !== 'string') return imagePath;
@@ -7,6 +15,6 @@ export const getImageUrl = (imagePath) => {
     // Remove leading slash from imagePath if present
     const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
     // Ensure base URL does not end with trailing slash
-    const baseUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '') || '';
+    const baseUrl = API_URL?.replace(/\/$/, '') || '';
     return `${baseUrl}/${cleanPath}`;
 };

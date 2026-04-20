@@ -123,7 +123,7 @@ export default function AdminLoginScreen({ navigation }) {
                             PASSWORD
                         </Text>
                         <TouchableOpacity
-                            onPress={() => navigation.navigate('ForgotPassword')}
+                            onPress={() => navigation.navigate('ForgotPassword', { userType: 'Admin' })}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         >
                             <Text style={[s.forgotBtn, { color: C.primary }]}>FORGOT?</Text>

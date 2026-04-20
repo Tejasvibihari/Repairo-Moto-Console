@@ -296,7 +296,7 @@ export default function VendorLoginScreen({ navigation }) {
                     {/* ── Password ── */}
                     <View style={s.passwordRow}>
                         <Text style={s.fieldLabel}>PASSWORD</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { userType: 'Vendor' })}>
                             <Text style={s.forgotBtn}>FORGOT PASSWORD?</Text>
                         </TouchableOpacity>
                     </View>

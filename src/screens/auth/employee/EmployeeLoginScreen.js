@@ -303,7 +303,7 @@ export default function EmployeeLoginScreen({ navigation }) {
                     {/* ── Password ── */}
                     <View style={s.passwordRow}>
                         <Text style={s.fieldLabel}>PASSWORD</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { userType: 'Employee' })}>
                             <Text style={s.forgotBtn}>FORGOT PASSWORD?</Text>
                         </TouchableOpacity>
                     </View>

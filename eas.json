@@ -4,16 +4,27 @@
     },
     "build": {
         "preview": {
+            "distribution": "internal",
+            "env": {
+                "EXPO_PUBLIC_API_URL": "https://api.repairomoto.in"
+            },
             "android": {
                 "buildType": "apk"
             }
         },
         "preview2": {
+            "distribution": "internal",
+            "env": {
+                "EXPO_PUBLIC_API_URL": "https://api.repairomoto.in"
+            },
             "android": {
                 "buildType": "apk"
             }
         },
         "production": {
+            "env": {
+                "EXPO_PUBLIC_API_URL": "https://api.repairomoto.in"
+            },
             "android": {
                 "buildType": "app-bundle"
             }
@@ -22,4 +33,4 @@
     "submit": {
         "production": {}
     }
-}
+}

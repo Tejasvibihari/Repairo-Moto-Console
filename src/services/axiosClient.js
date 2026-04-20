@@ -1,11 +1,20 @@
 // src/services/axiosClient.js
 import axios from 'axios';
+import Constants from 'expo-constants';
 import { store } from '../store';
 import { logout } from '../store/slices/authSlice';
 
+// Resolve API URL with fallback chain:
+// 1. process.env (works in local dev with .env file)
+// 2. expo-constants extra (works in EAS builds via app.config.js)
+// 3. Hardcoded fallback (last resort)
+const API_URL =
+    process.env.EXPO_PUBLIC_API_URL ||
+    Constants.expoConfig?.extra?.apiUrl ||
+    'https://api.repairomoto.in';
 
 const axiosClient = axios.create({
-    baseURL: process.env.EXPO_PUBLIC_API_URL,
+    baseURL: API_URL,
     headers: {
         'Content-Type': 'application/json',
     },
