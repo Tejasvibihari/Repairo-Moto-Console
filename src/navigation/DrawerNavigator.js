@@ -29,6 +29,7 @@ import VendorNavigator from './vendor/VendorNavigator';
 import VendorTerms from '../screens/vendor/terms/VendorTerms';
 
 import AdminSupportScreen from '../screens/admin/support/AdminSupportScreen';
+import AdminChatDetail from '../screens/admin/support/AdminChatDetail';
 import AdminSettingsScreen from '../screens/admin/settings/AdminSettingsScreen';
 import NotificationsScreen from '../screens/shared/NotificationScreen';
 import AdminDashboardScreen from '../screens/admin/dashboard/AdminDashboardScreen';
@@ -41,20 +42,27 @@ import EmployeeTermsScreen from '../screens/employee/terms/EmployeeTermsScreen';
 const Drawer = createDrawerNavigator();
 
 // ─── Role conditional data ──────────────────────────────────────────────────────────
-const getDrawerConfig = (role) => {
+const getDrawerConfig = (role, user) => {
     let HomeNav = AdminNavigator;
     let group1 = [];
     let group2 = [];
+
+    const isAuthorizedChatEmployee = role === 'employee' || role === 'Employee' ? 
+        ['manager', 'operational manager', 'telecaller'].includes(user?.position?.toLowerCase()) : false;
 
     if (role === 'admin' || role === 'Admin') {
         HomeNav = AdminNavigator;
         group1 = [
             { name: 'Dashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
             { name: 'Orders', label: 'Orders', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' },
+            { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
         ];
     } else if (role === 'employee' || role === 'Employee') {
         // Employee default
         HomeNav = EmployeeNavigator;
+        if (isAuthorizedChatEmployee) {
+            group1.push({ name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' });
+        }
         // group1 = [
         //     { name: 'Dashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
         //     { name: 'Orders', label: 'Orders', icon: 'list-outline', iconActive: 'list', lib: 'ion' },
@@ -333,7 +341,8 @@ export default function DrawerNavigator() {
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const isDark = mode === 'dark';
 
-    const roleConfig = getDrawerConfig(role);
+    const user = useSelector((s) => s.auth.user);
+    const roleConfig = getDrawerConfig(role, user);
     const HomeNavComponent = roleConfig.HomeNav;
 
     return (
@@ -363,6 +372,7 @@ export default function DrawerNavigator() {
         >
             <Drawer.Screen name="AdminHome" component={HomeNavComponent} />
             <Drawer.Screen name="AdminSupport" component={AdminSupportScreen} />
+            <Drawer.Screen name="AdminChatDetail" component={AdminChatDetail} />
             <Drawer.Screen name="AdminSettings" component={AdminSettingsScreen} />
             <Drawer.Screen name="Notifications" component={NotificationsScreen} />
             <Drawer.Screen name="EmployeeTerms" component={EmployeeTermsScreen} />
