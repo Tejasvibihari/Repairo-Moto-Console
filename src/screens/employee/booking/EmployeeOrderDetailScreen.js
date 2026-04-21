@@ -19,6 +19,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import axiosClient from '../../../services/axiosClient';
 import PopUp from '../../../components/common/PopUp';
 import { getImageUrl } from '../../../utils/imageUtils';
+import MechanicRatingsCard from '../../../components/common/MechanicRatingCard';
 
 // ─── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -1979,6 +1980,7 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                     {/* Financial Breakdown */}
                     {showFinancials && <FinancialBreakdownCard order={order} theme={theme} />}
 
+                    <MechanicRatingsCard order={order} theme={theme} />
                     <Text style={[styles.metaNote, { color: theme.colors.textMuted }]}>
                         Created {formatDate(createdAt)}
                     </Text>

@@ -295,14 +295,14 @@ export default function EmployeeDashboardScreen() {
         try {
             setError(null);
             const { data } = await axiosClient.get('/api/admin/dashboard/order-counts');
-            console.log(data);
+
             if (data.success) {
                 setCounts(data.data);
             } else {
                 setError(data.message || 'Failed to load data.');
             }
         } catch (err) {
-            console.log(err);
+
             setError(err.response?.data?.message || 'Failed to load dashboard.');
         } finally {
             setLoading(false);

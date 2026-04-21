@@ -15,10 +15,9 @@ import AssignmentPanel from '../../../components/admin/order/AssignmentPanel';
 import useEmployee from '../../../hooks/useEmployee';
 import useVendor from '../../../hooks/useVendor';
 import useOrder from '../../../hooks/useOrder';
-// Import image URL helper (adjust path as needed)
 import { getImageUrl } from '../../../utils/imageUtils';
 import PopUp from '../../../components/common/PopUp';
-
+import MechanicRatingsCard from '../../../components/common/MechanicRatingCard';
 const { width } = Dimensions.get('window');
 
 
@@ -48,8 +47,6 @@ const PAYMENT_METHOD_ICONS = {
     razorpay: 'globe-outline',
     bank_transfer: 'business-outline',
 };
-
-
 
 const getStatusConfig = (status = '') => {
     const key = status.toLowerCase().trim().replace(/\s+/g, '_');
@@ -81,7 +78,28 @@ const sectionStyles = StyleSheet.create({
 const Divider = ({ theme, style }) => (
     <View style={[{ height: StyleSheet.hairlineWidth, backgroundColor: theme.colors.border }, style]} />
 );
-// ─── Force Status Update Modal ───────────────────────────────────────────────
+
+// ─── Star Rating Row ───────────────────────────────────────────────────────────
+const StarRow = ({ rating = 0, size = 14, theme }) => {
+    const filled = Math.round(rating);
+    return (
+        <View style={starStyles.row}>
+            {[1, 2, 3, 4, 5].map((i) => (
+                <Ionicons
+                    key={i}
+                    name={i <= filled ? 'star' : 'star-outline'}
+                    size={size}
+                    color={i <= filled ? '#E2A731' : theme.colors.border}
+                />
+            ))}
+        </View>
+    );
+};
+const starStyles = StyleSheet.create({
+    row: { flexDirection: 'row', gap: 2, alignItems: 'center' },
+});
+
+// ─── Force Status Update Modal ────────────────────────────────────────────────
 const ForceStatusModal = ({ visible, onClose, onConfirm, theme, currentStatus }) => {
     const statusOptions = [
         'Pending', 'Mechanic Assigned', 'Mechanic Arrived', 'In Progress',
@@ -135,7 +153,7 @@ const ForceStatusModal = ({ visible, onClose, onConfirm, theme, currentStatus })
     );
 };
 
-// ─── COD Payment Modal ───────────────────────────────────────────────────────
+// ─── COD Payment Modal ────────────────────────────────────────────────────────
 const CodPaymentModal = ({ visible, onClose, onConfirm, theme, defaultAmount }) => {
     const [amount, setAmount] = useState(String(defaultAmount || ''));
 
@@ -144,7 +162,7 @@ const CodPaymentModal = ({ visible, onClose, onConfirm, theme, defaultAmount }) 
     const handleConfirm = () => {
         const parsed = parseFloat(amount);
         if (isNaN(parsed) || parsed < 0) {
-            showAlert('Invalid Amount', 'Please enter a valid amount.');
+            Alert.alert('Invalid Amount', 'Please enter a valid amount.');
             return;
         }
         onConfirm(parsed);
@@ -255,7 +273,7 @@ const getServiceChipStyle = (type) => {
     return { label: type || '—', icon: 'help-circle-outline', bg: 'rgba(128,128,128,0.15)', text: '#888', border: 'rgba(128,128,128,0.3)' };
 };
 
-// ─── Payment Status Card (unchanged) ───────────────────────────────────────────
+// ─── Payment Status Card (unchanged) ──────────────────────────────────────────
 const PaymentStatusCard = ({ order, theme }) => {
     const ps = PAYMENT_STATUS_CONFIG[order.paymentStatus] ?? PAYMENT_STATUS_CONFIG.unpaid;
     const methodIcon = PAYMENT_METHOD_ICONS[order.paymentMethod] ?? 'cash-outline';
@@ -271,9 +289,9 @@ const PaymentStatusCard = ({ order, theme }) => {
 
     const handlePayNow = () => {
         if (razorpayLink) {
-            Linking.openURL(razorpayLink).catch(() => showAlert('Error', 'Could not open payment link'));
+            Linking.openURL(razorpayLink).catch(() => Alert.alert('Error', 'Could not open payment link'));
         } else {
-            showAlert('Not Available', 'No payment link found for this order.');
+            Alert.alert('Not Available', 'No payment link found for this order.');
         }
     };
 
@@ -433,10 +451,10 @@ const timelineStyles = StyleSheet.create({
     cancelledText: { fontSize: 13, fontWeight: '500' },
 });
 
-// ─── Photo Gallery Components ─────────────────────────────────────────────────
+// ─── Photo Gallery Components ──────────────────────────────────────────────────
 const PhotoGrid = ({ photos, theme, onPhotoPress }) => {
     if (!photos || photos.length === 0) return null;
-    const imageSize = (width - 80) / 3; // 3 images per row with spacing
+    const imageSize = (width - 80) / 3;
     return (
         <View style={photoStyles.grid}>
             {photos.slice(0, 6).map((uri, index) => (
@@ -509,7 +527,7 @@ const fullStyles = StyleSheet.create({
     counter: { position: 'absolute', bottom: 32, alignSelf: 'center', fontSize: 14, fontWeight: '600' },
 });
 
-// ─── Map Component (unchanged) ────────────────────────────────────────────────
+// ─── Map Component (unchanged) ─────────────────────────────────────────────────
 const LocationMap = ({ coordinates, city, theme }) => {
     const [placeName, setPlaceName] = useState('');
     const [mapReady, setMapReady] = useState(false);
@@ -571,21 +589,13 @@ const mapStyles = StyleSheet.create({
     viewMapBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16 },
     viewMapText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 });
-// ─── Action Buttons (updated to include COD and Force Status) ────────────────
+
+// ─── Action Buttons (updated to include COD and Force Status) ─────────────────
 const ActionButtons = ({
     onManage, onGenerateBill, onViewInvoice, onMarkCod, onForceStatus,
     theme, isCompletedAndPaid, isInvoiceGenerated, paymentStatus,
 }) => (
     <View style={fabStyles.container}>
-        {/* Force Status Button (Admin only) - always visible */}
-        {/* <TouchableOpacity
-            style={[fabStyles.warningBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.warning }]}
-            onPress={onForceStatus}
-        >
-            <Ionicons name="warning-outline" size={16} color={theme.colors.warning} />
-            <Text style={[fabStyles.warningLabel, { color: theme.colors.warning }]}>Force Status</Text>
-        </TouchableOpacity> */}
-
         <View style={fabStyles.row}>
             <TouchableOpacity
                 style={[fabStyles.secondaryBtn, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
@@ -648,7 +658,7 @@ const fabStyles = StyleSheet.create({
     codLabel: { fontSize: 13, fontWeight: '900', color: '#fff' },
 });
 
-// ─── Updated AssignmentSummaryCard (shows all mechanics) ─────────────────────
+// ─── Updated AssignmentSummaryCard (shows all mechanics) ──────────────────────
 const AssignmentSummaryCard = ({ order, theme, onManage }) => {
     const sc = getStatusConfig(order.status);
     const mechanicNames = order.assignedMechanics?.length ? order.assignedMechanics.join(', ') : 'Unassigned';
@@ -712,7 +722,7 @@ const assignStyles = StyleSheet.create({
     pillText: { fontSize: 10, fontWeight: '700' },
 });
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
+// ─── Main Screen ───────────────────────────────────────────────────────────────
 export default function AdminOrderDetail({ route, navigation }) {
     const orderIdParam = route?.params?.order?._id || route?.params?.orderId;
     const mode = useSelector((s) => s.theme?.mode || 'light');
@@ -745,6 +755,7 @@ export default function AdminOrderDetail({ route, navigation }) {
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(24)).current;
+
     const showAlert = (title, message, onOk) => {
         setPopup({
             visible: true,
@@ -760,7 +771,6 @@ export default function AdminOrderDetail({ route, navigation }) {
         });
     };
 
-    // Helper for confirmation popup
     const showConfirm = (title, message, onConfirm, onCancel) => {
         setPopup({
             visible: true,
@@ -826,8 +836,8 @@ export default function AdminOrderDetail({ route, navigation }) {
         }
     }, [order]);
 
-
     const handlePanelClose = useCallback(() => { setPanelVisible(false); fetchOrder(); }, [fetchOrder]);
+
     const handleAssignMechanic = useCallback(async (orderId, mechanicIds) => {
         if (!Array.isArray(mechanicIds) || mechanicIds.length === 0) {
             showAlert('Error', 'Please select at least one mechanic.');
@@ -840,7 +850,6 @@ export default function AdminOrderDetail({ route, navigation }) {
             } else {
                 await fetchOrder();
             }
-            // Close the panel after successful assignment
             setPanelVisible(false);
         } catch (err) {
             showAlert('Error', err.message || 'Failed to assign mechanics');
@@ -870,7 +879,7 @@ export default function AdminOrderDetail({ route, navigation }) {
     }, [navigation, order]);
 
     const handleViewInvoice = useCallback(async () => {
-        console.log(order._id)
+        console.log(order._id);
         try {
             setInvoiceLoading(true);
             setInvoiceModalVisible(true);
@@ -952,13 +961,9 @@ export default function AdminOrderDetail({ route, navigation }) {
     const servicesWithDiscount = serviceProvided.map(s => getEffectiveItem(s, false));
     const showTaxes = (total.cgst > 0 || total.sgst > 0) && (total.cgstRate || total.sgstRate);
 
-    // Build base URL for images (adjust if your backend serves static files differently)
     const baseUrl = axiosClient.defaults.baseURL?.replace('/api', '') || '';
     const beforePhotoUrls = order?.beforePhoto ? [getImageUrl(order.beforePhoto)] : [];
     const afterPhotoUrls = order?.afterPhoto ? [getImageUrl(order.afterPhoto)] : [];
-
-
-
 
     return (
         <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -989,7 +994,6 @@ export default function AdminOrderDetail({ route, navigation }) {
                     <AssignmentSummaryCard order={order} theme={theme} onManage={() => setPanelVisible(true)} />
 
                     {(paymentStatus || isInvoiceGenerated) && <PaymentStatusCard order={order} theme={theme} />}
-
 
                     {/* Vehicle Details */}
                     <Card theme={theme}>
@@ -1192,6 +1196,12 @@ export default function AdminOrderDetail({ route, navigation }) {
                         isInvoiceGenerated={isInvoiceGenerated}
                         paymentStatus={paymentStatus}
                     />
+
+                    {/* ── Mechanic Ratings Card ─────────────────────────────────────
+                        Fetches every assigned mechanic's ratings via
+                        GET /api/admin/employee/:id. Tap a mechanic row to expand
+                        their full review list. Hidden when no mechanicIds exist. ── */}
+                    <MechanicRatingsCard order={order} theme={theme} />
 
                     <Text style={[styles.metaNote, { color: theme.colors.textMuted }]}>
                         Created {formatDate(createdAt)} · Invoice {invoiceDate ? formatDate(invoiceDate) : '—'}
