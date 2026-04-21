@@ -54,7 +54,7 @@ const MessageBubble = React.memo(({ msg, theme, isDark }) => {
             )}
             <View style={[styles.bubbleCol, isAdmin && { alignItems: 'flex-end' }]}>
                 <View style={[styles.bubble, isAdmin ? styles.bubbleUser : styles.bubbleBot, { backgroundColor: bubbleBg }, !isAdmin && { borderColor: theme.colors.border, borderWidth: 1 }, isFailed && { opacity: 0.5 }]}>
-                    {msg.senderType === 'employee' ? <Text style={{fontSize: 9, color: '#333', fontWeight: 'bold', marginBottom: 2}}>Employee</Text> : null}
+                    {msg.senderType === 'employee' ? <Text style={{ fontSize: 9, color: '#333', fontWeight: 'bold', marginBottom: 2 }}>Employee</Text> : null}
                     <Text style={[styles.bubbleText, { color: textColor }]}>{msg.message}</Text>
                 </View>
                 <View style={[styles.tsRow, isAdmin && { flexDirection: 'row-reverse' }]}>
@@ -163,7 +163,7 @@ export default function AdminChatDetail({ route, navigation }) {
     return (
         <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
             <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: theme.colors.background, borderBottomColor: theme.colors.border }]}>
-                <TouchableOpacity style={[styles.backBtn, { backgroundColor: isDark ? '#2E2618' : '#FFF4E0', borderColor: theme.colors.border }]} onPress={() => navigation.navigate('AdminSupport')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <TouchableOpacity style={[styles.backBtn, { backgroundColor: isDark ? '#2E2618' : '#FFF4E0', borderColor: theme.colors.border }]} onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                     <Ionicons name="chevron-back" size={20} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
 

@@ -28,8 +28,7 @@ import EmployeeNavigator from './employee/EmployeeNavigator';
 import VendorNavigator from './vendor/VendorNavigator';
 import VendorTerms from '../screens/vendor/terms/VendorTerms';
 
-import AdminSupportScreen from '../screens/admin/support/AdminSupportScreen';
-import AdminChatDetail from '../screens/admin/support/AdminChatDetail';
+import AdminSupportNavigator from './AdminSupportNavigator';
 import AdminSettingsScreen from '../screens/admin/settings/AdminSettingsScreen';
 import NotificationsScreen from '../screens/shared/NotificationScreen';
 import AdminDashboardScreen from '../screens/admin/dashboard/AdminDashboardScreen';
@@ -371,8 +370,7 @@ export default function DrawerNavigator() {
             }}
         >
             <Drawer.Screen name="AdminHome" component={HomeNavComponent} />
-            <Drawer.Screen name="AdminSupport" component={AdminSupportScreen} />
-            <Drawer.Screen name="AdminChatDetail" component={AdminChatDetail} />
+            <Drawer.Screen name="AdminSupport" component={AdminSupportNavigator} />
             <Drawer.Screen name="AdminSettings" component={AdminSettingsScreen} />
             <Drawer.Screen name="Notifications" component={NotificationsScreen} />
             <Drawer.Screen name="EmployeeTerms" component={EmployeeTermsScreen} />
