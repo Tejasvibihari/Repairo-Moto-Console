@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
     View, Text, ScrollView, StyleSheet, TouchableOpacity,
     Animated, Platform, Alert, ActivityIndicator, Linking,
-    Image, Modal, Dimensions, Pressable, TextInput,
+    Image, Modal, Dimensions, Pressable, TextInput, RefreshControl, Switch,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
@@ -25,14 +25,13 @@ const { width } = Dimensions.get('window');
 const STATUS_CONFIG = {
     pending: { label: 'Pending', bg: 'rgba(158,142,120,0.18)', text: '#9E8E78', dot: '#9E8E78' },
     mechanic_assigned: { label: 'Mechanic Assigned', bg: 'rgba(52,152,219,0.18)', text: '#3498DB', dot: '#3498DB' },
-    arrived: { label: 'Mechanic Arrived', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', dot: '#9B59B6' },
+    mechanic_arrived: { label: 'Mechanic Arrived', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', dot: '#9B59B6' },
     in_progress: { label: 'In Progress', bg: 'rgba(226,167,49,0.18)', text: '#E2A731', dot: '#E2A731' },
-    work_done: { label: 'Work Done', bg: 'rgba(46,204,154,0.18)', text: '#2ECC9A', dot: '#2ECC9A' },
+    work_completed: { label: 'Work Completed', bg: 'rgba(46,204,154,0.18)', text: '#2ECC9A', dot: '#2ECC9A' },
     invoice_generated: { label: 'Invoice Generated', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', dot: '#9B59B6' },
     completed: { label: 'Completed', bg: 'rgba(46,204,154,0.18)', text: '#2ECC9A', dot: '#2ECC9A' },
     cancelled: { label: 'Cancelled', bg: 'rgba(255,107,107,0.18)', text: '#FF6B6B', dot: '#FF6B6B' },
 };
-
 // ─── Payment Status config ─────────────────────────────────────────────────────
 const PAYMENT_STATUS_CONFIG = {
     unpaid: { label: 'Unpaid', bg: 'rgba(255,107,107,0.15)', text: '#FF6B6B', border: 'rgba(255,107,107,0.3)', icon: 'close-circle' },
@@ -153,11 +152,21 @@ const ForceStatusModal = ({ visible, onClose, onConfirm, theme, currentStatus })
     );
 };
 
-// ─── COD Payment Modal ────────────────────────────────────────────────────────
-const CodPaymentModal = ({ visible, onClose, onConfirm, theme, defaultAmount }) => {
+const CodPaymentModal = ({
+    visible,
+    onClose,
+    onConfirm,
+    theme,
+    defaultAmount,
+    isBusinessAccount,          // new prop
+    useGstInvoice,              // new state passed from parent
+    setUseGstInvoice            // state setter from parent
+}) => {
     const [amount, setAmount] = useState(String(defaultAmount || ''));
 
-    useEffect(() => { if (visible) setAmount(String(defaultAmount || '')); }, [visible, defaultAmount]);
+    useEffect(() => {
+        if (visible) setAmount(String(defaultAmount || ''));
+    }, [visible, defaultAmount]);
 
     const handleConfirm = () => {
         const parsed = parseFloat(amount);
@@ -165,7 +174,8 @@ const CodPaymentModal = ({ visible, onClose, onConfirm, theme, defaultAmount }) 
             Alert.alert('Invalid Amount', 'Please enter a valid amount.');
             return;
         }
-        onConfirm(parsed);
+        // Pass both amount and GST flag to parent
+        onConfirm(parsed, useGstInvoice);
     };
 
     return (
@@ -184,6 +194,22 @@ const CodPaymentModal = ({ visible, onClose, onConfirm, theme, defaultAmount }) 
                         placeholder="Amount"
                         placeholderTextColor={theme.colors.textMuted}
                     />
+
+                    {/* GST Invoice Toggle - only for business accounts */}
+                    {isBusinessAccount && (
+                        <View style={modalStyles.gstRow}>
+                            <Text style={{ color: theme.colors.textPrimary, flex: 1 }}>
+                                Generate GST Invoice
+                            </Text>
+                            <Switch
+                                value={useGstInvoice}
+                                onValueChange={setUseGstInvoice}
+                                trackColor={{ false: '#767577', true: theme.colors.primary }}
+                                thumbColor={useGstInvoice ? '#f4f3f4' : '#f4f3f4'}
+                            />
+                        </View>
+                    )}
+
                     <View style={modalStyles.buttonRow}>
                         <TouchableOpacity style={[modalStyles.cancelBtn, { borderColor: theme.colors.border }]} onPress={onClose}>
                             <Text style={{ color: theme.colors.textSecondary }}>Cancel</Text>
@@ -364,14 +390,14 @@ const OrderTimeline = ({ order, theme }) => {
     const steps = [
         { key: 'pending', label: 'Pending', icon: 'time-outline', timestamp: order.createdAt },
         { key: 'mechanic_assigned', label: 'Mechanic Assigned', icon: 'person-add-outline', timestamp: order.assignedAt },
-        { key: 'arrived', label: 'Mechanic Arrived', icon: 'location-outline', timestamp: order.arrivedAt },
+        { key: 'mechanic_arrived', label: 'Mechanic Arrived', icon: 'location-outline', timestamp: order.arrivedAt },
         { key: 'in_progress', label: 'Work Started', icon: 'construct-outline', timestamp: order.workStartedAt },
-        { key: 'work_done', label: 'Work Done', icon: 'checkmark-done-outline', timestamp: order.workCompletedAt },
+        { key: 'work_completed', label: 'Work Done', icon: 'checkmark-done-outline', timestamp: order.workCompletedAt },
         { key: 'invoice_generated', label: 'Invoice Generated', icon: 'receipt-outline', timestamp: order.invoiceDate },
         { key: 'completed', label: 'Completed', icon: 'checkmark-circle-outline', timestamp: order.completedAt },
     ];
 
-    const currentStatusKey = order.status?.toLowerCase().replace(/\s+/g, '_');
+    const currentStatusKey = order.status?.toLowerCase().trim().replace(/\s+/g, '_');
     let currentIndex = steps.findIndex(s => s.key === currentStatusKey);
     if (currentIndex === -1) currentIndex = 0;
 
@@ -396,7 +422,7 @@ const OrderTimeline = ({ order, theme }) => {
                 {steps.map((step, idx) => {
                     const isCompleted = idx <= currentIndex;
                     const isActive = idx === currentIndex;
-                    const config = getStatusConfig(step.key);
+                    const config = STATUS_CONFIG[step.key] ?? STATUS_CONFIG.pending;
                     const timestamp = step.timestamp;
                     return (
                         <View key={step.key} style={timelineStyles.stepRow}>
@@ -726,6 +752,8 @@ const assignStyles = StyleSheet.create({
 export default function AdminOrderDetail({ route, navigation }) {
     const orderIdParam = route?.params?.order?._id || route?.params?.orderId;
     const mode = useSelector((s) => s.theme?.mode || 'light');
+    const isBusinessAccount = order?.userId?.accountType || false;
+
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const [popup, setPopup] = useState({
         visible: false,
@@ -746,11 +774,12 @@ export default function AdminOrderDetail({ route, navigation }) {
 
     const [forceModalVisible, setForceModalVisible] = useState(false);
     const [codModalVisible, setCodModalVisible] = useState(false);
+    const [useGstInvoice, setUseGstInvoice] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     const { data: mechanics, loading: mechanicsLoading } = useEmployee({ position: 'mechanic' });
     const { data: deliveryBoys, loading: deliveryBoysLoading } = useEmployee({ position: 'delivery' });
     const { data: vendors, loading: vendorsLoading } = useVendor();
-
     const { updateMechanic, updateVendor, updateDelivery: updateDeliveryBoy, updateOrderStatus, mutationLoading } = useOrder({}, 1, 10);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -802,6 +831,11 @@ export default function AdminOrderDetail({ route, navigation }) {
             setLoading(false);
         }
     }, [orderIdParam]);
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchOrder();
+        setRefreshing(false);
+    }, [fetchOrder]);
 
     useEffect(() => { fetchOrder(); }, [fetchOrder]);
 
@@ -826,7 +860,10 @@ export default function AdminOrderDetail({ route, navigation }) {
 
     const handleMarkCod = useCallback(async (amount) => {
         try {
-            const res = await axiosClient.post(`/api/admin/order/${order._id}/mark-paid-cod`, { amountCollected: amount });
+            const res = await axiosClient.post(`/api/admin/order/${order._id}/mark-paid-cod`, {
+                amountCollected: amount,
+                useGstInvoice,
+            });
             setOrder(res.data.order);
             showAlert('Success', 'Payment recorded and invoice generated.');
         } catch (err) {
@@ -938,7 +975,7 @@ export default function AdminOrderDetail({ route, navigation }) {
     const isPaid = order?.paymentStatus === 'paid';
     const isCompletedAndPaid = order?.status === 'Completed' && isPaid;
     const grandTotal = total?.finalPayable ?? total?.total ?? 0;
-    const mechanicName = assignedMechanics?.length ? assignedMechanics[0] : 'Unassigned';
+    const mechanicNames = assignedMechanics?.length ? assignedMechanics.join(', ') : 'Unassigned';
 
     const getEffectiveItem = (item, isPart = true) => {
         const price = item.price || 0;
@@ -972,6 +1009,15 @@ export default function AdminOrderDetail({ route, navigation }) {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                     style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[theme.colors.primary]}
+                            tintColor={theme.colors.primary}
+                            progressBackgroundColor={theme.colors.surface}
+                        />
+                    }
                 >
                     {/* Order Reference */}
                     <View style={styles.orderRefRow}>
@@ -1060,7 +1106,7 @@ export default function AdminOrderDetail({ route, navigation }) {
                         <View style={styles.logisticsGrid}>
                             {[
                                 { icon: 'calendar-outline', label: 'SCHEDULE', value: formatDate(preferredDate), sub: preferredTime, subColor: theme.colors.primary },
-                                { icon: 'person-circle-outline', label: 'MECHANIC', value: mechanicName, assigned: !!mechanicName && mechanicName !== 'Unassigned', assignedColor: '#2ECC9A' },
+                                { icon: 'person-circle-outline', label: 'MECHANIC(S)', value: mechanicNames, assigned: assignedMechanics?.length > 0, assignedColor: '#2ECC9A' },
                                 { icon: 'bicycle-outline', label: 'DELIVERY BOY', value: assignedDelivery || 'Unassigned', assigned: !!assignedDelivery, assignedColor: '#E2A731' },
                             ].map((cell) => (
                                 <View key={cell.label} style={styles.logisticsCell}>
@@ -1256,6 +1302,9 @@ export default function AdminOrderDetail({ route, navigation }) {
                 onConfirm={handleMarkCod}
                 theme={theme}
                 defaultAmount={order?.total?.total || 0}
+                isBusinessAccount={isBusinessAccount}
+                useGstInvoice={useGstInvoice}
+                setUseGstInvoice={setUseGstInvoice}
             />
             <PopUp
                 visible={popup.visible}
@@ -1284,6 +1333,13 @@ const modalStyles = StyleSheet.create({
     cancelBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1 },
     confirmBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
     input: { height: 50, borderRadius: 12, borderWidth: 1, paddingHorizontal: 16, fontSize: 16, marginBottom: 20 },
+    gstRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 12,
+        marginBottom: 4,
+    },
 });
 
 const styles = StyleSheet.create({

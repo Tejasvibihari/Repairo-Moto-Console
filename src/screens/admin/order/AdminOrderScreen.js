@@ -1,5 +1,5 @@
 // src/screens/admin/order/AdminOrderScreen.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
@@ -27,10 +27,12 @@ import { LightTheme, DarkTheme } from '../../../styles/Theme';
 const STATUS_PILLS = [
     { key: '', label: 'All' },
     { key: 'pending', label: 'Pending' },
-    { key: 'in_progress', label: 'In Progress' },
-    { key: 'mechanic_assigned', label: 'Assigned' },
+    { key: 'mechanic assigned', label: 'Mechanic Assigned' },
+    { key: 'mechanic arrived', label: 'Mechanic Arrived' },
+    { key: 'in progress', label: 'In Progress' },
+    { key: 'work completed', label: 'Work Completed' },
+    { key: 'invoice generated', label: 'Invoice Generated' },
     { key: 'completed', label: 'Completed' },
-    { key: 'invoice_generated', label: 'Invoiced' },
     { key: 'cancelled', label: 'Cancelled' },
 ];
 
@@ -175,7 +177,7 @@ const SummaryStrip = ({ pagination, statusCounts, theme }) => {
         { label: 'Total', value: pagination.totalItems, color: theme.colors.primary },
         { label: 'Pending', value: statusCounts.pending ?? '–', color: theme.colors.textMuted },
         { label: 'Assigned', value: statusCounts.mechanic_assigned ?? '–', color: '#e2a731' },
-        { label: 'Done', value: statusCounts.invoice_generated ?? '–', color: '#2ECC9A' },
+        { label: 'Done', value: statusCounts.completed ?? '–', color: '#2ECC9A' },
     ];
     return (
         <View style={[sumStyles.strip, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.border }]}>
@@ -294,6 +296,28 @@ const AdminOrderScreen = () => {
         refetch,
     } = useOrder({}, 1, 10);
 
+    // ✅ Sort orders: active statuses first, then by updatedAt desc
+    const sortedData = useMemo(() => {
+        const activeStatuses = new Set([
+            'pending',
+            'mechanic assigned',
+            'mechanic arrived',
+            'in progress',
+            'work completed',
+            'invoice generated',
+        ]);
+        return [...data].sort((a, b) => {
+            const aStatus = (a.status || '').toLowerCase();
+            const bStatus = (b.status || '').toLowerCase();
+            const aActive = activeStatuses.has(aStatus);
+            const bActive = activeStatuses.has(bStatus);
+            if (aActive !== bActive) {
+                return aActive ? -1 : 1;
+            }
+            return new Date(b.updatedAt) - new Date(a.updatedAt);
+        });
+    }, [data]);
+
     const filterBadgeCount = activeFilterCount(filters);
     const handleRefresh = useCallback(async () => {
         setRefreshing(true);
@@ -315,12 +339,9 @@ const AdminOrderScreen = () => {
     }, [searchQuery, setFilters]);
 
     const handleFilterApply = useCallback((newFilters) => {
-        // Fully replace all filter-sheet-controlled keys so Reset actually clears them.
-        // Only search (managed separately in local state) is preserved.
         setFilters({
             search: searchQuery,
             ...newFilters,
-            // Ensure status is always present (empty string = "All") for pill sync
             status: newFilters.status ?? '',
         });
         setStatusPill(newFilters.status ?? '');
@@ -334,6 +355,8 @@ const AdminOrderScreen = () => {
             onPress={() => navigation.navigate('AdminOrderDetail', { order: item })}
         />
     ), []);
+
+    // Status counts (based on original data, unaffected by sorting)
     const statusCounts = {
         pending: data.filter(o => o.status === 'Pending').length,
         in_progress: data.filter(o => o.status === 'In Progress').length,
@@ -360,7 +383,6 @@ const AdminOrderScreen = () => {
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-
             <TabScreenWrapper greeting="Orders" showMenuIcon>
                 <KeyboardAvoidingView
                     style={{ flex: 1 }}
@@ -377,7 +399,7 @@ const AdminOrderScreen = () => {
                         </View>
                     ) : (
                         <FlatList
-                            data={data}
+                            data={sortedData}  // ✅ Use sorted orders
                             renderItem={renderItem}
                             keyExtractor={(item) => String(item._id ?? item.id ?? item.orderId)}
                             refreshControl={
@@ -390,9 +412,8 @@ const AdminOrderScreen = () => {
                             }
                             contentContainerStyle={[
                                 listStyles.content,
-                                data.length === 0 && { flex: 1 },
+                                sortedData.length === 0 && { flex: 1 },
                             ]}
-
                             showsVerticalScrollIndicator={false}
                             keyboardShouldPersistTaps="handled"
                             ListHeaderComponent={ListHeader}
@@ -401,7 +422,7 @@ const AdminOrderScreen = () => {
                             }
                             ListFooterComponent={
                                 <>
-                                    {loading && data.length > 0 && (
+                                    {loading && sortedData.length > 0 && (
                                         <ActivityIndicator
                                             size="small"
                                             color={theme.colors.primary}
@@ -434,5 +455,5 @@ const AdminOrderScreen = () => {
 export default AdminOrderScreen;
 
 const listStyles = StyleSheet.create({
-    content: { paddingBottom: 24, paddingHorizontal: 0 }, // no horizontal padding
+    content: { paddingBottom: 24, paddingHorizontal: 0 },
 });

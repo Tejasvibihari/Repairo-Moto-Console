@@ -19,20 +19,26 @@ const STATUS_CONFIG = {
         text: '#9E8E78',
         dot: '#9E8E78'
     },
-    in_progress: {
-        label: 'In Progress',
-        bg: 'rgba(226,167,49,0.18)',
-        text: '#E2A731',
-        dot: '#E2A731'
-    },
     mechanic_assigned: {
         label: 'Mechanic Assigned',
         bg: 'rgba(52,152,219,0.18)',
         text: '#3498DB',
         dot: '#3498DB'
     },
-    completed: {
-        label: 'Completed',
+    mechanic_arrived: {
+        label: 'Mechanic Arrived',
+        bg: 'rgba(52,152,219,0.18)',
+        text: '#3498DB',
+        dot: '#3498DB'
+    },
+    in_progress: {
+        label: 'In Progress',
+        bg: 'rgba(226,167,49,0.18)',
+        text: '#E2A731',
+        dot: '#E2A731'
+    },
+    work_completed: {
+        label: 'Work Completed',
         bg: 'rgba(46,204,154,0.18)',
         text: '#2ECC9A',
         dot: '#2ECC9A'
@@ -43,14 +49,19 @@ const STATUS_CONFIG = {
         text: '#9B59B6',
         dot: '#9B59B6'
     },
+    completed: {
+        label: 'Completed',
+        bg: 'rgba(46,204,154,0.18)',
+        text: '#2ECC9A',
+        dot: '#2ECC9A'
+    },
     cancelled: {
         label: 'Cancelled',
         bg: 'rgba(255,107,107,0.18)',
         text: '#FF6B6B',
         dot: '#FF6B6B'
-    },
+    }
 };
-
 const truncateText = (text = '', maxLength = 12) => {
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength) + '...';

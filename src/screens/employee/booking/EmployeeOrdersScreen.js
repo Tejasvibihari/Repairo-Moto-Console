@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -105,7 +105,7 @@ export default function EmployeeOrdersScreen() {
             setRefreshing(false);
         }
     }, [employeeId]);
-
+    console.log('OrdersScreen rendered with orders:', orders);
     useEffect(() => {
         fetchOrders({ pageNum: 1, replace: true });
     }, [fetchOrders]);
@@ -132,6 +132,23 @@ export default function EmployeeOrdersScreen() {
             o.selectedModel?.toLowerCase().includes(q);
         return matchesFilter && matchesSearch;
     });
+    const sortedOrders = useMemo(() => {
+        const activeStatuses = new Set([
+            'Pending',
+            'In Progress',
+            'Mechanic Assigned',
+            'Mechanic Arrived',
+        ]);
+        return [...filteredOrders].sort((a, b) => {
+            const aActive = activeStatuses.has(a.status);
+            const bActive = activeStatuses.has(b.status);
+            if (aActive !== bActive) {
+                return aActive ? -1 : 1;
+            }
+            // both active or both inactive → newer updatedAt first
+            return new Date(b.updatedAt) - new Date(a.updatedAt);
+        });
+    }, [filteredOrders]);
 
     const renderCard = useCallback(({ item, index }) => (
         <EmployeeOrderCard
@@ -249,7 +266,7 @@ export default function EmployeeOrdersScreen() {
                     </View>
                 ) : (
                     <FlatList
-                        data={filteredOrders}
+                        data={sortedOrders}
                         keyExtractor={(item) => item._id || item.orderId}
                         renderItem={renderCard}
                         contentContainerStyle={[
