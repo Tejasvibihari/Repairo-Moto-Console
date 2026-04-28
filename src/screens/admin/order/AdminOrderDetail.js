@@ -916,16 +916,13 @@ export default function AdminOrderDetail({ route, navigation }) {
     }, [navigation, order]);
 
     const handleViewInvoice = useCallback(async () => {
-        console.log(order._id);
         try {
             setInvoiceLoading(true);
             setInvoiceModalVisible(true);
             const res = await axiosClient.get(`/api/admin/order/${order._id}/invoice`);
-            console.log(res.data);
             setInvoiceData(res.data?.invoice || null);
         } catch (err) {
             setInvoiceModalVisible(false);
-            console.log(err);
             const msg = err.response?.data?.message || 'Failed to fetch invoice';
             showAlert('Error', msg);
         } finally {

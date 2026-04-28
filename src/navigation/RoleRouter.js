@@ -17,9 +17,8 @@ import UnauthorizedScreen from '../screens/shared/UnauthorizedScreen';
 
 export default function RoleRouter() {
     const role = useSelector(selectUserRole);
-    console.log(role)
+
     const category = ROLE_CATEGORY[role];
-    console.log(category)
 
     switch (category) {
         case 'admin': return <AdminNavigator />;

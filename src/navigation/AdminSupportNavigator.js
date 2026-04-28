@@ -16,6 +16,7 @@ export default function AdminSupportNavigator() {
         >
             <Stack.Screen name="AdminSupportList" component={AdminSupportScreen} />
             <Stack.Screen name="AdminChatDetail" component={AdminChatDetail} />
+
         </Stack.Navigator>
     );
 }

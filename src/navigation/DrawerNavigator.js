@@ -31,12 +31,10 @@ import VendorTerms from '../screens/vendor/terms/VendorTerms';
 import AdminSupportNavigator from './AdminSupportNavigator';
 import AdminSettingsScreen from '../screens/admin/settings/AdminSettingsScreen';
 import NotificationsScreen from '../screens/shared/NotificationScreen';
-import AdminDashboardScreen from '../screens/admin/dashboard/AdminDashboardScreen';
-import EmployeeOrderDetailScreen from '../screens/employee/booking/EmployeeOrderDetailScreen';
-import EmployeeOrderDetail from '../screens/employee/booking/EmployeeOrderDetailScreen';
-import EmployeeOrdersScreen from '../screens/employee/booking/EmployeeOrdersScreen';
-import EmployeeDashboardScreen from '../screens/employee/dashboard/EmployeeDashboard';
 import EmployeeTermsScreen from '../screens/employee/terms/EmployeeTermsScreen';
+
+import CreateInoviceScreen from '../screens/admin/invoice/CreateInoviceScreen';
+import InvoiceScreen from '../screens/admin/invoice/InvoiceScreen';
 
 const Drawer = createDrawerNavigator();
 
@@ -46,7 +44,7 @@ const getDrawerConfig = (role, user) => {
     let group1 = [];
     let group2 = [];
 
-    const isAuthorizedChatEmployee = role === 'employee' || role === 'Employee' ? 
+    const isAuthorizedChatEmployee = role === 'employee' || role === 'Employee' ?
         ['manager', 'operational manager', 'telecaller'].includes(user?.position?.toLowerCase()) : false;
 
     if (role === 'admin' || role === 'Admin') {
@@ -54,6 +52,8 @@ const getDrawerConfig = (role, user) => {
         group1 = [
             { name: 'Dashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
             { name: 'Orders', label: 'Orders', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' },
+            { name: 'CreateInvoice', label: 'Create Invoice', icon: 'add-outline', iconActive: 'add', lib: 'ion' },
+            { name: 'Invoices', label: 'Invoices', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
         ];
     } else if (role === 'employee' || role === 'Employee') {
@@ -371,10 +371,14 @@ export default function DrawerNavigator() {
         >
             <Drawer.Screen name="AdminHome" component={HomeNavComponent} />
             <Drawer.Screen name="AdminSupport" component={AdminSupportNavigator} />
+
             <Drawer.Screen name="AdminSettings" component={AdminSettingsScreen} />
             <Drawer.Screen name="Notifications" component={NotificationsScreen} />
             <Drawer.Screen name="EmployeeTerms" component={EmployeeTermsScreen} />
             <Drawer.Screen name="VendorTerms" component={VendorTerms} />
+
+            <Drawer.Screen name="CreateInvoice" component={CreateInoviceScreen} />
+            <Drawer.Screen name="Invoices" component={InvoiceScreen} />
         </Drawer.Navigator>
     );
 }

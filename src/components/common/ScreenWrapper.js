@@ -132,14 +132,14 @@ const styles = StyleSheet.create({
     },
     wrapper: {
         zIndex: 10,
-        backgroundColor: 'transparent', 
+        backgroundColor: 'transparent',
     },
     card: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         borderBottomWidth: StyleSheet.hairlineWidth,
-        paddingVertical: 12,      
+        paddingVertical: 12,
         paddingHorizontal: 16,
     },
     leftSlot: {

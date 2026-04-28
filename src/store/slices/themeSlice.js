@@ -25,9 +25,6 @@ const themeSlice = createSlice({
         syncSystemTheme: (state, action) => {
             if (!state.userOverride) {
                 state.mode = action.payload;
-                // console.log("🌗 System theme synced to:", action.payload);
-            } else {
-                // console.log("🔒 User override active, ignoring system theme");
             }
         },
         // Resets user override — app goes back to following system

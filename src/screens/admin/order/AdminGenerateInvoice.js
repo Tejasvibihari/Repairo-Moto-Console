@@ -597,6 +597,187 @@ const payStyles = StyleSheet.create({
     paidHintText: { flex: 1, fontSize: 11.5, fontWeight: '600', lineHeight: 16 },
 });
 
+// ─── GST Invoice Section ──────────────────────────────────────────────────────
+const GstInvoiceSection = ({
+    gstEnabled, setGstEnabled,
+    gstDetails, setGstDetails,
+    fetchingUser, userAccountType,
+    theme,
+}) => {
+    const isDark = theme === DarkTheme;
+    const inputStyle = {
+        backgroundColor: isDark ? theme.colors.surfaceHigh : theme.colors.surfaceLow,
+        borderColor: theme.colors.border,
+        color: theme.colors.textPrimary,
+    };
+
+    const updateField = (field, value) => {
+        setGstDetails((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const isBusiness = userAccountType === 'business';
+
+    return (
+        <View style={[gstStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+            {/* Header + Toggle */}
+            <View style={gstStyles.headerRow}>
+                <View style={gstStyles.headerLeft}>
+                    <View style={[gstStyles.headerIcon, { backgroundColor: 'rgba(155,89,182,0.12)' }]}>
+                        <Ionicons name="document-text-outline" size={16} color="#9B59B6" />
+                    </View>
+                    <View>
+                        <Text style={[gstStyles.heading, { color: theme.colors.textPrimary }]}>GST Invoice</Text>
+                        <Text style={[gstStyles.subHeading, { color: theme.colors.textMuted }]}>
+                            Enable to generate tax invoice with GSTIN
+                        </Text>
+                    </View>
+                </View>
+                <TouchableOpacity
+                    onPress={() => setGstEnabled(!gstEnabled)}
+                    style={[gstStyles.toggle, {
+                        backgroundColor: gstEnabled ? '#9B59B6' : (isDark ? theme.colors.surfaceHigh : '#E0E0E0'),
+                    }]}
+                    activeOpacity={0.8}
+                >
+                    <Animated.View style={[gstStyles.toggleKnob, {
+                        backgroundColor: '#fff',
+                        transform: [{ translateX: gstEnabled ? 18 : 2 }],
+                    }]} />
+                </TouchableOpacity>
+            </View>
+
+            {gstEnabled && (
+                <View style={gstStyles.detailsWrap}>
+                    {fetchingUser ? (
+                        <View style={gstStyles.loadingWrap}>
+                            <ActivityIndicator size="small" color="#9B59B6" />
+                            <Text style={[gstStyles.loadingText, { color: theme.colors.textMuted }]}>
+                                Fetching user details...
+                            </Text>
+                        </View>
+                    ) : (
+                        <>
+                            {/* Account type badge */}
+                            <View style={[gstStyles.accountBadge, {
+                                backgroundColor: isBusiness ? 'rgba(155,89,182,0.12)' : 'rgba(52,152,219,0.12)',
+                                borderColor: isBusiness ? 'rgba(155,89,182,0.3)' : 'rgba(52,152,219,0.3)',
+                            }]}>
+                                <Ionicons
+                                    name={isBusiness ? 'business-outline' : 'person-outline'}
+                                    size={14}
+                                    color={isBusiness ? '#9B59B6' : '#3498DB'}
+                                />
+                                <Text style={[gstStyles.accountBadgeText, {
+                                    color: isBusiness ? '#9B59B6' : '#3498DB',
+                                }]}>
+                                    {isBusiness ? 'Business Account — Details auto-filled' : 'Personal Account — Enter details manually'}
+                                </Text>
+                            </View>
+
+                            {/* GSTIN */}
+                            <View style={gstStyles.fieldGroup}>
+                                <Text style={[gstStyles.fieldLabel, { color: theme.colors.textMuted }]}>GSTIN *</Text>
+                                <TextInput
+                                    value={gstDetails.gstin}
+                                    onChangeText={(v) => updateField('gstin', v.toUpperCase())}
+                                    placeholder="e.g. 22AAAAA0000A1Z5"
+                                    placeholderTextColor={theme.colors.textMuted + '60'}
+                                    style={[gstStyles.input, inputStyle]}
+                                    maxLength={15}
+                                    autoCapitalize="characters"
+                                />
+                            </View>
+
+                            {/* Business Name */}
+                            <View style={gstStyles.fieldGroup}>
+                                <Text style={[gstStyles.fieldLabel, { color: theme.colors.textMuted }]}>BUSINESS NAME *</Text>
+                                <TextInput
+                                    value={gstDetails.businessName}
+                                    onChangeText={(v) => updateField('businessName', v)}
+                                    placeholder="Legal business name"
+                                    placeholderTextColor={theme.colors.textMuted + '60'}
+                                    style={[gstStyles.input, inputStyle]}
+                                />
+                            </View>
+
+                            {/* Business Address */}
+                            <View style={gstStyles.fieldGroup}>
+                                <Text style={[gstStyles.fieldLabel, { color: theme.colors.textMuted }]}>BUSINESS ADDRESS *</Text>
+                                <TextInput
+                                    value={gstDetails.businessAddress}
+                                    onChangeText={(v) => updateField('businessAddress', v)}
+                                    placeholder="Registered business address"
+                                    placeholderTextColor={theme.colors.textMuted + '60'}
+                                    style={[gstStyles.input, inputStyle, { minHeight: 60, textAlignVertical: 'top' }]}
+                                    multiline
+                                />
+                            </View>
+
+                            {/* City + State */}
+                            <View style={gstStyles.twoCol}>
+                                <View style={[gstStyles.fieldGroup, { flex: 1 }]}>
+                                    <Text style={[gstStyles.fieldLabel, { color: theme.colors.textMuted }]}>CITY *</Text>
+                                    <TextInput
+                                        value={gstDetails.businessCity}
+                                        onChangeText={(v) => updateField('businessCity', v)}
+                                        placeholder="City"
+                                        placeholderTextColor={theme.colors.textMuted + '60'}
+                                        style={[gstStyles.input, inputStyle]}
+                                    />
+                                </View>
+                                <View style={[gstStyles.fieldGroup, { flex: 1 }]}>
+                                    <Text style={[gstStyles.fieldLabel, { color: theme.colors.textMuted }]}>STATE *</Text>
+                                    <TextInput
+                                        value={gstDetails.businessState}
+                                        onChangeText={(v) => updateField('businessState', v)}
+                                        placeholder="State"
+                                        placeholderTextColor={theme.colors.textMuted + '60'}
+                                        style={[gstStyles.input, inputStyle]}
+                                    />
+                                </View>
+                            </View>
+
+                            {/* Pincode */}
+                            <View style={[gstStyles.fieldGroup, { maxWidth: '50%' }]}>
+                                <Text style={[gstStyles.fieldLabel, { color: theme.colors.textMuted }]}>PINCODE *</Text>
+                                <TextInput
+                                    value={gstDetails.businessPincode}
+                                    onChangeText={(v) => updateField('businessPincode', v)}
+                                    placeholder="PIN code"
+                                    placeholderTextColor={theme.colors.textMuted + '60'}
+                                    keyboardType="number-pad"
+                                    maxLength={6}
+                                    style={[gstStyles.input, inputStyle]}
+                                />
+                            </View>
+                        </>
+                    )}
+                </View>
+            )}
+        </View>
+    );
+};
+
+const gstStyles = StyleSheet.create({
+    card: { borderRadius: 16, borderWidth: 1, padding: 18, marginBottom: 12, elevation: 3 },
+    headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+    headerIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    heading: { fontSize: 14, fontWeight: '800', letterSpacing: 0.2 },
+    subHeading: { fontSize: 11, fontWeight: '500', marginTop: 1 },
+    toggle: { width: 44, height: 26, borderRadius: 13, justifyContent: 'center', padding: 0 },
+    toggleKnob: { width: 22, height: 22, borderRadius: 11, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 2 },
+    detailsWrap: { marginTop: 16, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(150,150,150,0.2)' },
+    loadingWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
+    loadingText: { fontSize: 13, fontWeight: '500' },
+    accountBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10, borderWidth: 1, marginBottom: 16 },
+    accountBadgeText: { fontSize: 12, fontWeight: '600', flex: 1 },
+    fieldGroup: { marginBottom: 14 },
+    fieldLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginBottom: 7 },
+    input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontWeight: '600' },
+    twoCol: { flexDirection: 'row', gap: 12 },
+});
+
 // ─── Pre-filled banner ────────────────────────────────────────────────────────
 const PrefilledBanner = ({ count, theme }) => {
     if (count === 0) return null;
@@ -827,6 +1008,19 @@ export default function AdminGenerateInvoice({ route, navigation }) {
     const [sgstRate, setSgstRate] = useState('');
     const [cgstRate, setCgstRate] = useState('');
 
+    // GST Invoice state
+    const [gstEnabled, setGstEnabled] = useState(false);
+    const [fetchingUser, setFetchingUser] = useState(false);
+    const [userAccountType, setUserAccountType] = useState('personal');
+    const [gstDetails, setGstDetails] = useState({
+        gstin: '',
+        businessName: '',
+        businessAddress: '',
+        businessCity: '',
+        businessState: '',
+        businessPincode: '',
+    });
+
     // Prefill from existing order if available (invoice regeneration)
     useEffect(() => {
         if (!order) return;
@@ -842,7 +1036,57 @@ export default function AdminGenerateInvoice({ route, navigation }) {
         if (order.paymentStatus) setPaymentStatus(order.paymentStatus);
         if (order.paymentMethod) setPaymentMethod(order.paymentMethod);
         if (order.amountPaid) setAmountPaid(String(order.amountPaid));
+        // Prefill GST invoice data if already set on order
+        if (order.gstInvoice?.requested) {
+            setGstEnabled(true);
+            const bd = order.gstInvoice.businessDetails || {};
+            setGstDetails({
+                gstin: bd.gstin || '',
+                businessName: bd.businessName || '',
+                businessAddress: bd.businessAddress || '',
+                businessCity: bd.businessCity || '',
+                businessState: bd.businessState || '',
+                businessPincode: bd.businessPincode || '',
+            });
+        }
     }, [order]);
+
+    // Fetch user details when GST invoice is enabled
+    useEffect(() => {
+        if (!gstEnabled || !order?.userId) return;
+
+        const userId = typeof order.userId === 'object' ? order.userId._id : order.userId;
+        if (!userId) return;
+
+        const fetchUserDetails = async () => {
+            setFetchingUser(true);
+            try {
+                const res = await axiosClient.get(`/api/user/get-user-by-id/${userId}`);
+                const user = res.data?.user;
+                if (user) {
+                    setUserAccountType(user.accountType || 'personal');
+
+                    if (user.accountType === 'business') {
+                        setGstDetails((prev) => ({
+                            gstin: user.gstin || prev.gstin || '',
+                            businessName: user.businessName || prev.businessName || '',
+                            businessAddress: user.address || prev.businessAddress || '',
+                            businessCity: user.city || prev.businessCity || '',
+                            businessState: user.state || prev.businessState || '',
+                            businessPincode: user.pincode || prev.businessPincode || '',
+                        }));
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch user details for GST:', err);
+                // Keep manual entry available
+            } finally {
+                setFetchingUser(false);
+            }
+        };
+
+        fetchUserDetails();
+    }, [gstEnabled, order?.userId]);
 
     const openAddDrawer = useCallback((type) => { setEditingItem(null); setDrawerType(type); setDrawerVisible(true); }, []);
     const openEditDrawer = useCallback((item) => { setEditingItem(item); setDrawerType(item.type); setDrawerVisible(true); }, []);
@@ -933,6 +1177,15 @@ export default function AdminGenerateInvoice({ route, navigation }) {
                 };
             });
 
+            // Validate GST details if enabled
+            if (gstEnabled) {
+                const { gstin, businessName, businessAddress, businessCity, businessState, businessPincode } = gstDetails;
+                if (!gstin?.trim() || !businessName?.trim() || !businessAddress?.trim() || !businessCity?.trim() || !businessState?.trim() || !businessPincode?.trim()) {
+                    Alert.alert('Incomplete GST Details', 'Please fill all required GST business details before generating the invoice.');
+                    return;
+                }
+            }
+
             const payload = {
                 partsAndServices,
                 invoiceDetails: { invoiceDate: new Date().toISOString() },
@@ -949,6 +1202,17 @@ export default function AdminGenerateInvoice({ route, navigation }) {
                     total: totals.grandTotal,
                     finalPayable: totals.finalPayable,
                 },
+                gstInvoice: gstEnabled ? {
+                    requested: true,
+                    businessDetails: {
+                        gstin: gstDetails.gstin.trim(),
+                        businessName: gstDetails.businessName.trim(),
+                        businessAddress: gstDetails.businessAddress.trim(),
+                        businessCity: gstDetails.businessCity.trim(),
+                        businessState: gstDetails.businessState.trim(),
+                        businessPincode: gstDetails.businessPincode.trim(),
+                    },
+                } : { requested: false },
                 payment: {
                     paymentStatus,
                     paymentMethod: paymentStatus === 'paid' ? paymentMethod : null,
@@ -1078,6 +1342,17 @@ export default function AdminGenerateInvoice({ route, navigation }) {
                                 <Text style={[totStyles.taxNote, { color: theme.colors.textMuted }]}>* Prices are inclusive of GST</Text>
                             </View>
                         )}
+
+                        {/* GST Invoice Section */}
+                        <GstInvoiceSection
+                            gstEnabled={gstEnabled}
+                            setGstEnabled={setGstEnabled}
+                            gstDetails={gstDetails}
+                            setGstDetails={setGstDetails}
+                            fetchingUser={fetchingUser}
+                            userAccountType={userAccountType}
+                            theme={theme}
+                        />
 
                         <PaymentSection
                             paymentStatus={paymentStatus}

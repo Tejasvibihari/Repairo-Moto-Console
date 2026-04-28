@@ -105,7 +105,6 @@ export default function EmployeeOrdersScreen() {
             setRefreshing(false);
         }
     }, [employeeId]);
-    console.log('OrdersScreen rendered with orders:', orders);
     useEffect(() => {
         fetchOrders({ pageNum: 1, replace: true });
     }, [fetchOrders]);

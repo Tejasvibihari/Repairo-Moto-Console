@@ -18,7 +18,6 @@ export function useAuth() {
 
     const login = async (email, password, role) => {
         dispatch(loginStart());
-        console.log(email, password, role);
 
         let url = '';
         let userKey = '';
@@ -38,7 +37,7 @@ export function useAuth() {
             return { success: false, error: errorMsg };
         }
 
-        console.log(url);
+
 
         try {
             const response = await axiosClient.post(url, { email, password });
@@ -65,7 +64,7 @@ export function useAuth() {
             dispatch(loginSuccess({ token, user: mappedUser }));
             return { success: true };
         } catch (err) {
-            console.log(err);
+
             const errorMessage = err.response?.data?.message || err.message || 'Login failed. Please try again.';
             dispatch(loginFailure(errorMessage));
             return { success: false, error: errorMessage };
