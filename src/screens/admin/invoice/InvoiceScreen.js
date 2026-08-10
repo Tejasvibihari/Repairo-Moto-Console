@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View, Text, StyleSheet, FlatList, TouchableOpacity,
-    TextInput, ActivityIndicator, RefreshControl,
+    TextInput, ActivityIndicator, RefreshControl, Alert,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { useFocusEffect } from '@react-navigation/native';
@@ -139,23 +139,69 @@ export default function InvoiceScreen({ navigation }) {
         try {
             const params = new URLSearchParams({ page: pg, limit: 20 });
 
-            if (filters.status && filters.status !== 'all') params.append('status', filters.status);
-            if (SORT_MAP[filters.sortBy]) params.append('sortBy', SORT_MAP[filters.sortBy]);
-            if (debouncedSearch) params.append('search', debouncedSearch);
-            if (filters.customerName) params.append('customerName', filters.customerName);
-            if (filters.vehicleBrand) params.append('vehicleBrand', filters.vehicleBrand);
-            if (filters.vehicleModel) params.append('vehicleModel', filters.vehicleModel);
-            if (filters.startDate) params.append('startDate', filters.startDate);
-            if (filters.endDate) params.append('endDate', filters.endDate);
+            // Always include sort (never omit)
+            const sortValue = SORT_MAP[filters?.sortBy] || SORT_MAP['newest'];
+            params.append('sortBy', sortValue);
+            console.log('Filter - sortBy:', sortValue);
 
+            // Add filter parameters
+            if (filters?.status && filters.status !== 'all') {
+                params.append('status', filters.status);
+                console.log('Filter - status:', filters.status);
+            }
+            if (debouncedSearch) {
+                params.append('search', debouncedSearch);
+                console.log('Filter - search:', debouncedSearch);
+            }
+            if (filters?.customerName) {
+                params.append('customerName', filters.customerName);
+                console.log('Filter - customerName:', filters.customerName);
+            }
+            if (filters?.vehicleBrand) {
+                params.append('vehicleBrand', filters.vehicleBrand);
+                console.log('Filter - vehicleBrand:', filters.vehicleBrand);
+            }
+            if (filters?.vehicleModel) {
+                params.append('vehicleModel', filters.vehicleModel);
+                console.log('Filter - vehicleModel:', filters.vehicleModel);
+            }
+            if (filters?.startDate) {
+                params.append('startDate', filters.startDate);
+                console.log('Filter - startDate:', filters.startDate);
+            }
+            if (filters?.endDate) {
+                params.append('endDate', filters.endDate);
+                console.log('Filter - endDate:', filters.endDate);
+            }
+
+            console.log('📍 Fetching invoices page:', pg, 'URL:', `/api/manual-invoices?${params.toString()}`);
             const res = await axiosClient.get(`/api/manual-invoices?${params.toString()}`);
-            const data = res.data;
-            const items = data.data || data.invoices || [];
+            const responseData = res.data;
+
+            // Handle response - API returns { success, data, pagination }
+            const items = responseData.data || responseData.invoices || [];
+            const paginationInfo = responseData.pagination || {};
+
+            console.log('✅ API Response:', {
+                itemsReceived: items.length,
+                currentPage: paginationInfo.page,
+                totalPages: paginationInfo.pages,
+                totalRecords: paginationInfo.total,
+                appliedSort: sortValue,
+            });
+
+            // Update invoices - replace if page 1, append if loading more
             setInvoices((prev) => (pg === 1 ? items : [...prev, ...items]));
-            setHasMore(items.length === 20);
+
+            // Calculate if there are more pages using pagination.pages
+            const hasMorePages = paginationInfo.pages && pg < paginationInfo.pages;
+            setHasMore(hasMorePages || false);
             setPage(pg);
+
+            console.log('Has more pages:', hasMorePages);
         } catch (err) {
-            console.error('Fetch invoices failed', err);
+            console.error('❌ Fetch invoices failed:', err.response?.data || err.message);
+            // Don't set empty invoices on error, keep existing data
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -172,40 +218,76 @@ export default function InvoiceScreen({ navigation }) {
     // Re-fetch when filters or search change
     useEffect(() => {
         fetchInvoices(1);
-    }, [filters, debouncedSearch]);
+    }, [fetchInvoices]);
 
     const handleRefresh = () => fetchInvoices(1, true);
     const handleLoadMore = () => { if (hasMore && !loading) fetchInvoices(page + 1); };
 
     const handleApplyFilters = (newFilters) => {
+        console.log('Applying new filters:', newFilters);
+        setPage(1); // Reset to first page when filters change
         setFilters(newFilters);
     };
 
     const handleResetFilters = () => {
+        console.log('Resetting filters to defaults');
+        setPage(1); // Reset to first page when filters reset
         setFilters({ ...DEFAULT_FILTERS });
         setSearch('');
         setDebouncedSearch('');
     };
 
-    const handleCardPress = (invoice) => {
+    const handleCardPress = useCallback((invoice) => {
         navigation.navigate('AdminHome', {
             screen: 'ManualInvoiceDetail',
             params: { invoiceId: invoice._id },
         });
-    };
+    }, [navigation]);
 
-    const handleCardEdit = (invoice) => {
+    const handleCardEdit = useCallback((invoice) => {
         navigation.navigate('AdminEditManualInvoice', { invoiceId: invoice._id, invoice });
-    };
+    }, [navigation]);
+
+    const handleCardDelete = useCallback((invoice) => {
+        Alert.alert(
+            'Delete Invoice',
+            `Are you sure you want to delete invoice #${invoice.invoiceNumber}? This action cannot be undone.`,
+            [
+                {
+                    text: 'Cancel',
+                    onPress: () => { },
+                    style: 'cancel',
+                },
+                {
+                    text: 'Delete',
+                    onPress: async () => {
+                        try {
+                            setLoading(true);
+                            await axiosClient.delete(`/api/manual-invoices/${invoice._id}`);
+                            setInvoices((prev) => prev.filter((inv) => inv._id !== invoice._id));
+                            Alert.alert('Success', 'Invoice deleted successfully');
+                        } catch (err) {
+                            console.error('Delete failed:', err);
+                            Alert.alert('Error', err?.response?.data?.message || 'Failed to delete invoice');
+                        } finally {
+                            setLoading(false);
+                        }
+                    },
+                    style: 'destructive',
+                },
+            ]
+        );
+    }, []);
 
     const renderItem = useCallback(({ item, index }) => (
         <ManualInvoiceCard
             invoice={item}
             onPress={handleCardPress}
             onEdit={handleCardEdit}
+            onDelete={handleCardDelete}
             index={index}
         />
-    ), []);
+    ), [handleCardPress, handleCardEdit, handleCardDelete]);
 
     const keyExtractor = useCallback((item) => item._id, []);
 
@@ -318,9 +400,12 @@ export default function InvoiceScreen({ navigation }) {
                             />
                         }
                         ListFooterComponent={
-                            loading && page > 1
-                                ? <ActivityIndicator size="small" color={C.primary} style={{ marginVertical: 16 }} />
-                                : null
+                            loading && page > 1 ? (
+                                <View style={[mainS.footerLoadingWrap, { borderTopColor: C.border }]}>
+                                    <ActivityIndicator size="large" color={C.primary} />
+                                    <Text style={[mainS.footerLoadingText, { color: C.textMuted }]}>Loading more...</Text>
+                                </View>
+                            ) : null
                         }
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={{ paddingBottom: 120, flexGrow: 1, paddingTop: 4 }}
@@ -369,4 +454,11 @@ const mainS = StyleSheet.create({
         borderRadius: 8, borderWidth: 1,
     },
     activeChipText: { fontSize: 11, fontWeight: '600', maxWidth: 100 },
+    footerLoadingWrap: {
+        justifyContent: 'center', alignItems: 'center',
+        paddingVertical: 24, paddingHorizontal: 16,
+        gap: 12, borderTopWidth: 1,
+        marginTop: 8,
+    },
+    footerLoadingText: { fontSize: 12, fontWeight: '500' },
 });

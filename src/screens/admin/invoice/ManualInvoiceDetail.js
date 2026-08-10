@@ -34,6 +34,7 @@ const fmtDate = (d) =>
 // ─── Status badge ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
     paid: { color: '#2ECC9A', bg: '#2ECC9A18', label: 'Paid', icon: 'checkmark-circle' },
+    unpaid: { color: '#FF6B6B', bg: '#FF6B6B18', label: 'Unpaid', icon: 'time-outline' },
     draft: { color: '#e2a731', bg: '#e2a73118', label: 'Draft', icon: 'time-outline' },
     cancelled: { color: '#FF6B6B', bg: '#FF6B6B18', label: 'Cancelled', icon: 'close-circle' },
 };
@@ -422,8 +423,10 @@ export default function ManualInvoiceDetail({ route, navigation }) {
 
                     {/* Amount highlight */}
                     <View style={[detailS.amountHero, { backgroundColor: isDark ? '#2A2318' : '#FFF8EC', borderColor: C.border }]}>
-                        <Text style={[detailS.amountLabel, { color: C.textMuted }]}>TOTAL PAID</Text>
-                        <Text style={[detailS.amountValue, { color: '#2ECC9A' }]}>
+                        <Text style={[detailS.amountLabel, { color: C.textMuted }]}>
+                            {invoice.status === 'unpaid' ? 'AMOUNT DUE' : 'TOTAL PAID'}
+                        </Text>
+                        <Text style={[detailS.amountValue, { color: invoice.status === 'unpaid' ? '#FF6B6B' : '#2ECC9A' }]}>
                             {fmt(totalSettled || finalPayable)}
                         </Text>
                     </View>
@@ -549,6 +552,27 @@ export default function ManualInvoiceDetail({ route, navigation }) {
                 <SectionCard C={C} isDark={isDark}>
                     <SectionLabel label="PAYMENT BREAKDOWN" icon="cash-multiple" C={C} />
 
+                    {/* Payment Status Badge */}
+                    <View style={{
+                        backgroundColor: statusCfg.bg,
+                        borderColor: statusCfg.color,
+                        borderWidth: 1.5,
+                        borderRadius: 10,
+                        padding: 10,
+                        marginBottom: 14,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                    }}>
+                        <Ionicons name={statusCfg.icon} size={16} color={statusCfg.color} />
+                        <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: C.textMuted, letterSpacing: 0.5 }}>STATUS</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '800', color: statusCfg.color }}>
+                                {statusCfg.label}
+                            </Text>
+                        </View>
+                    </View>
+
                     {subTotal > 0 && <AmtRow label="Subtotal (Services + Parts)" value={fmt(subTotal)} C={C} />}
                     {itemSavings > 0 && <AmtRow label="Item Discounts" value={`-${fmt(itemSavings)}`} positive C={C} />}
                     {billDiscount > 0 && (
@@ -575,25 +599,52 @@ export default function ManualInvoiceDetail({ route, navigation }) {
                         </>
                     )}
 
-                    {/* Grand total row */}
-                    <View style={[detailS.grandTotalBox, { backgroundColor: isDark ? '#2A2318' : '#FFF8EC', borderRadius: 12, padding: 12, marginTop: 8 }]}>
-                        <View>
-                            <Text style={[detailS.grandTotalLabel, { color: C.textMuted }]}>TOTAL PAID</Text>
-                            {walletUsed > 0 && !isCash && (
-                                <Text style={[detailS.walletNote, { color: C.textMuted }]}>
-                                    {isFullWallet
-                                        ? 'Fully covered by wallet'
-                                        : `Gateway: ${fmt(gatewayAmount)} + Wallet: ${fmt(walletUsed)}`}
+                    {/* Grand total row or Unpaid message */}
+                    {invoice?.status === 'unpaid' ? (
+                        <View style={{
+                            backgroundColor: (C.error ?? '#FF6B6B') + '15',
+                            borderColor: (C.error ?? '#FF6B6B'),
+                            borderWidth: 1.5,
+                            borderRadius: 12,
+                            padding: 14,
+                            marginTop: 8,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 10,
+                        }}>
+                            <Ionicons name="time-outline" size={20} color={C.error ?? '#FF6B6B'} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 12, fontWeight: '700', color: C.error ?? '#FF6B6B', marginBottom: 3 }}>
+                                    PAYMENT PENDING
                                 </Text>
-                            )}
-                            {isCash && (
-                                <Text style={[detailS.walletNote, { color: C.textMuted }]}>Cash on Delivery</Text>
-                            )}
+                                <Text style={{ fontSize: 13, fontWeight: '700', color: C.error ?? '#FF6B6B' }}>
+                                    Amount Due: {fmt(finalPayable)}
+                                </Text>
+                                <Text style={{ fontSize: 11, fontWeight: '500', color: (C.error ?? '#FF6B6B'), marginTop: 3, opacity: 0.8 }}>
+                                    Update payment details when received
+                                </Text>
+                            </View>
                         </View>
-                        <Text style={[detailS.grandTotalValue, { color: '#2ECC9A' }]}>
-                            {fmt(totalSettled || finalPayable)}
-                        </Text>
-                    </View>
+                    ) : (
+                        <View style={[detailS.grandTotalBox, { backgroundColor: isDark ? '#2A2318' : '#FFF8EC', borderRadius: 12, padding: 12, marginTop: 8 }]}>
+                            <View>
+                                <Text style={[detailS.grandTotalLabel, { color: C.textMuted }]}>TOTAL PAID</Text>
+                                {walletUsed > 0 && !isCash && (
+                                    <Text style={[detailS.walletNote, { color: C.textMuted }]}>
+                                        {isFullWallet
+                                            ? 'Fully covered by wallet'
+                                            : `Gateway: ${fmt(gatewayAmount)} + Wallet: ${fmt(walletUsed)}`}
+                                    </Text>
+                                )}
+                                {isCash && (
+                                    <Text style={[detailS.walletNote, { color: C.textMuted }]}>Cash on Delivery</Text>
+                                )}
+                            </View>
+                            <Text style={[detailS.grandTotalValue, { color: '#2ECC9A' }]}>
+                                {fmt(totalSettled || finalPayable)}
+                            </Text>
+                        </View>
+                    )}
                 </SectionCard>
 
                 {/* ── Edit button at bottom ──────────────────────────────────── */}

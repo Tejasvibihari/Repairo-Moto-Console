@@ -2,6 +2,7 @@
 import React, { useRef, useEffect } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, Animated,
+    Pressable,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
@@ -10,6 +11,7 @@ import { useSelector } from 'react-redux';
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
     paid: { bg: '#2ECC9A22', color: '#2ECC9A', label: 'Paid', icon: 'checkmark-circle' },
+    unpaid: { bg: '#FF6B6B22', color: '#FF6B6B', label: 'Unpaid', icon: 'time-outline' },
     draft: { bg: '#e2a73122', color: '#e2a731', label: 'Draft', icon: 'time-outline' },
     cancelled: { bg: '#FF6B6B22', color: '#FF6B6B', label: 'Cancelled', icon: 'close-circle' },
 };
@@ -60,7 +62,7 @@ const pmBadge = StyleSheet.create({
 });
 
 // ─── Main Card ────────────────────────────────────────────────────────────────
-export default function ManualInvoiceCard({ invoice, onPress, onEdit, index = 0 }) {
+export default function ManualInvoiceCard({ invoice, onPress, onEdit, onDelete, index = 0 }) {
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const C = theme.colors;
@@ -179,14 +181,36 @@ export default function ManualInvoiceCard({ invoice, onPress, onEdit, index = 0 
                     <PaymentBadge method={invoice?.paymentDetails?.method} theme={theme} />
 
                     {/* Edit button */}
-                    <TouchableOpacity
-                        onPress={() => onEdit?.(invoice)}
+                    <Pressable
+                        onPress={(event) => {
+                            event.stopPropagation?.();
+                            onEdit?.(invoice);
+                        }}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={[styles.editBtn, { backgroundColor: C.surfaceLow, borderColor: C.border }]}
-                        activeOpacity={0.7}
+                        style={({ pressed }) => [
+                            styles.editBtn,
+                            { backgroundColor: C.surfaceLow, borderColor: C.border, opacity: pressed ? 0.75 : 1 },
+                        ]}
+                        android_ripple={{ color: '#00000010', radius: 20 }}
                     >
                         <Ionicons name="create-outline" size={14} color={C.primary} />
-                    </TouchableOpacity>
+                    </Pressable>
+
+                    {/* Delete button */}
+                    <Pressable
+                        onPress={(event) => {
+                            event.stopPropagation?.();
+                            onDelete?.(invoice);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={({ pressed }) => [
+                            styles.deleteBtn,
+                            { backgroundColor: '#FF6B6B18', borderColor: '#FF6B6B44', opacity: pressed ? 0.75 : 1 },
+                        ]}
+                        android_ripple={{ color: '#FF6B6B22', radius: 20 }}
+                    >
+                        <Ionicons name="trash-outline" size={14} color="#FF6B6B" />
+                    </Pressable>
                 </View>
             </TouchableOpacity>
         </Animated.View>
@@ -231,5 +255,9 @@ const styles = StyleSheet.create({
     editBtn: {
         width: 28, height: 28, borderRadius: 8, borderWidth: 1,
         alignItems: 'center', justifyContent: 'center', marginLeft: 'auto',
+    },
+    deleteBtn: {
+        width: 28, height: 28, borderRadius: 8, borderWidth: 1,
+        alignItems: 'center', justifyContent: 'center',
     },
 });

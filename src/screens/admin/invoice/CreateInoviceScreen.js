@@ -554,6 +554,7 @@ export default function CreateInvoiceScreen({ navigation, route }) {
     const [discountType, setDiscountType] = useState('flat');
     const [sgstRate, setSgstRate] = useState('9');      // always 9% initially
     const [cgstRate, setCgstRate] = useState('9');      // always 9% initially
+    const [paymentStatus, setPaymentStatus] = useState('paid'); // 'paid' | 'unpaid'
     const [payMethod, setPayMethod] = useState('cash');
     const [rzpPayId, setRzpPayId] = useState('');
     const [rzpOrdId, setRzpOrdId] = useState('');
@@ -612,6 +613,7 @@ export default function CreateInvoiceScreen({ navigation, route }) {
 
         // Payment
         const pd = existingInvoice.paymentDetails || {};
+        setPaymentStatus(existingInvoice.status === 'unpaid' ? 'unpaid' : 'paid');
         setPayMethod(pd.method || 'cash');
         setAmountPaid(String(pd.amountPaid ?? t.totalAmountPaid ?? ''));
         setRzpPayId(pd.razorpayPaymentId || '');
@@ -667,6 +669,7 @@ export default function CreateInvoiceScreen({ navigation, route }) {
         setDiscountType('flat');
         setSgstRate('9');
         setCgstRate('9');
+        setPaymentStatus('paid');
         setPayMethod('cash');
         setAmountPaid('');
         setRzpPayId('');
@@ -681,6 +684,18 @@ export default function CreateInvoiceScreen({ navigation, route }) {
         if (parts.length === 0 && services.length === 0) {
             Alert.alert('Missing Items', 'Please add at least one part or service.');
             return;
+        }
+
+        // Validate payment details for PAID invoices
+        if (paymentStatus === 'paid') {
+            if (!payMethod) {
+                Alert.alert('Missing Payment Method', 'Please select a payment method for paid invoices.');
+                return;
+            }
+            if (!amountPaid || parseFloat(amountPaid) <= 0) {
+                Alert.alert('Missing Amount', 'Please enter an amount paid for paid invoices.');
+                return;
+            }
         }
 
         setLoading(true);
@@ -716,8 +731,9 @@ export default function CreateInvoiceScreen({ navigation, route }) {
             }
             const total = afterDisc;   // inclusive total
             const finalPayable = total;
-            const totalPaid = amountPaidNum || finalPayable;
+            const totalPaid = paymentStatus === 'paid' ? (amountPaidNum || finalPayable) : 0;
 
+            const isUnpaid = paymentStatus === 'unpaid';
 
             const payload = {
                 invoiceNumber: isEditing ? existingInvoice.invoiceNumber : `INV-${Date.now()}`,
@@ -751,7 +767,13 @@ export default function CreateInvoiceScreen({ navigation, route }) {
                     finalPayable,
                     totalAmountPaid: totalPaid,
                 },
-                paymentDetails: {
+                paymentDetails: isUnpaid ? {
+                    method: 'cash',
+                    amountPaid: 0,
+                    walletAmountUsed: 0,
+                    totalSettled: 0,
+                    paymentDate: null,
+                } : {
                     method: payMethod,
                     razorpayPaymentId: rzpPayId.trim() || null,
                     razorpayOrderId: rzpOrdId.trim() || null,
@@ -760,7 +782,7 @@ export default function CreateInvoiceScreen({ navigation, route }) {
                     totalSettled: totalPaid,
                     paymentDate: new Date().toISOString(),
                 },
-                status: 'paid',
+                status: isUnpaid ? 'unpaid' : 'paid',
             };
 
             // Remove discountType if discount is zero
@@ -952,25 +974,173 @@ export default function CreateInvoiceScreen({ navigation, route }) {
 
                 {/* Payment */}
                 <SectionCard title="Payment" icon="card-outline" theme={theme}>
-                    <Text style={[fldS.label, { color: C.textMuted, marginBottom: 8 }]}>METHOD</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-                        {PAY.map(m => (
-                            <TouchableOpacity key={m} onPress={() => setPayMethod(m)}
-                                style={[dcS.chip, {
-                                    backgroundColor: payMethod === m ? C.primary : C.surfaceLow,
-                                    borderColor: payMethod === m ? C.primary : C.border,
-                                }]}>
-                                <Text style={{ fontSize: 12, fontWeight: '700', color: payMethod === m ? '#1a1a1a' : C.textSecondary, textTransform: 'capitalize' }}>
-                                    {m.replace('_', ' ')}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
+                    {/* ── Paid / Unpaid toggle with descriptions ── */}
+                    <Text style={[fldS.label, { color: C.textMuted, marginBottom: 12 }]}>PAYMENT STATUS</Text>
+                    <View style={{ gap: 10, marginBottom: 16 }}>
+                        {['paid', 'unpaid'].map(s => {
+                            const isPaidOpt = s === 'paid';
+                            const isActive = paymentStatus === s;
+                            const statusColor = isPaidOpt ? (C.success ?? '#22c55e') : (C.error ?? '#ef4444');
+                            const description = isPaidOpt
+                                ? 'Payment received - Select method and enter amount paid'
+                                : 'Payment pending - No payment details required now';
+                            return (
+                                <TouchableOpacity
+                                    key={s}
+                                    onPress={() => setPaymentStatus(s)}
+                                    activeOpacity={0.8}
+                                    style={[{
+                                        borderRadius: 14,
+                                        borderWidth: 2,
+                                        padding: 14,
+                                        backgroundColor: isActive ? statusColor + '15' : C.surfaceLow,
+                                        borderColor: isActive ? statusColor : C.border,
+                                    }]}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                                        <View style={{
+                                            width: 28,
+                                            height: 28,
+                                            borderRadius: 14,
+                                            backgroundColor: isActive ? statusColor : C.surfaceHigh,
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}>
+                                            <Ionicons
+                                                name={isPaidOpt ? 'checkmark-circle' : 'time'}
+                                                size={18}
+                                                color={isActive ? statusColor : C.textMuted}
+                                            />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{
+                                                fontSize: 14,
+                                                fontWeight: '800',
+                                                color: isActive ? statusColor : C.textSecondary,
+                                                textTransform: 'uppercase',
+                                                letterSpacing: 0.5,
+                                                marginBottom: 4,
+                                            }}>
+                                                {isPaidOpt ? '✓  Paid' : '⏳  Unpaid'}
+                                            </Text>
+                                            <Text style={{
+                                                fontSize: 12,
+                                                fontWeight: '500',
+                                                color: C.textMuted,
+                                                lineHeight: 16,
+                                            }}>
+                                                {description}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+                            );
+                        })}
                     </View>
-                    <Field label="Amount Paid ₹" value={amountPaid} onChangeText={setAmountPaid} keyboardType="numeric" theme={theme} />
-                    {payMethod === 'razorpay' && (
+
+                    {/* Only show method + amount when PAID */}
+                    {paymentStatus === 'paid' && (
                         <>
-                            <Field label="Razorpay Payment ID" value={rzpPayId} onChangeText={setRzpPayId} theme={theme} />
-                            <Field label="Razorpay Order ID" value={rzpOrdId} onChangeText={setRzpOrdId} theme={theme} />
+                            <View style={{
+                                backgroundColor: C.primary + '10',
+                                borderLeftWidth: 4,
+                                borderLeftColor: C.primary,
+                                padding: 12,
+                                borderRadius: 8,
+                                marginBottom: 16
+                            }}>
+                                <Text style={{ fontSize: 12, fontWeight: '600', color: C.primary, lineHeight: 16 }}>
+                                    💡 Payment method is required for paid invoices
+                                </Text>
+                            </View>
+
+                            <Text style={[fldS.label, { color: C.textMuted, marginBottom: 8 }]}>PAYMENT METHOD *</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                                {PAY.map(m => (
+                                    <TouchableOpacity
+                                        key={m}
+                                        onPress={() => setPayMethod(m)}
+                                        style={[dcS.chip, {
+                                            backgroundColor: payMethod === m ? C.primary : C.surfaceLow,
+                                            borderColor: payMethod === m ? C.primary : C.border,
+                                            borderWidth: 1.5,
+                                            paddingHorizontal: 12,
+                                            paddingVertical: 8,
+                                        }]}>
+                                        <Text style={{
+                                            fontSize: 12,
+                                            fontWeight: '700',
+                                            color: payMethod === m ? '#1a1a1a' : C.textSecondary,
+                                            textTransform: 'capitalize'
+                                        }}>
+                                            {m.replace('_', ' ')}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <Field
+                                label="Amount Paid ₹ *"
+                                value={amountPaid}
+                                onChangeText={setAmountPaid}
+                                keyboardType="decimal-pad"
+                                theme={theme}
+                                placeholder={`0 (Default: ₹${finalPayable.toFixed(0)})`}
+                            />
+
+                            {/* Razorpay specific fields */}
+                            {payMethod === 'razorpay' && (
+                                <>
+                                    <Field label="Razorpay Payment ID" value={rzpPayId} onChangeText={setRzpPayId} theme={theme} />
+                                    <Field label="Razorpay Order ID" value={rzpOrdId} onChangeText={setRzpOrdId} theme={theme} />
+                                </>
+                            )}
+
+                            {/* Amount validation hint */}
+                            {amountPaid && (
+                                <View style={{
+                                    backgroundColor: Math.abs(parseFloat(amountPaid) - finalPayable) < 0.01 ? C.success + '15' : C.warning + '15',
+                                    padding: 10,
+                                    borderRadius: 8,
+                                    marginTop: 8,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                }}>
+                                    <Ionicons
+                                        name={Math.abs(parseFloat(amountPaid) - finalPayable) < 0.01 ? 'checkmark-circle' : 'information-circle'}
+                                        size={14}
+                                        color={Math.abs(parseFloat(amountPaid) - finalPayable) < 0.01 ? C.success : C.warning}
+                                    />
+                                    <Text style={{
+                                        fontSize: 11,
+                                        fontWeight: '600',
+                                        color: Math.abs(parseFloat(amountPaid) - finalPayable) < 0.01 ? C.success : C.warning,
+                                        flex: 1,
+                                    }}>
+                                        {Math.abs(parseFloat(amountPaid) - finalPayable) < 0.01
+                                            ? `✓ Amount matches total (₹${finalPayable.toFixed(2)})`
+                                            : `Amount entered: ₹${parseFloat(amountPaid).toFixed(2)} vs Total: ₹${finalPayable.toFixed(2)}`}
+                                    </Text>
+                                </View>
+                            )}
+                        </>
+                    )}
+
+                    {/* Unpaid status message */}
+                    {paymentStatus === 'unpaid' && (
+                        <>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, backgroundColor: (C.error ?? '#ef4444') + '15', borderWidth: 1.5, borderColor: (C.error ?? '#ef4444') + '40', marginBottom: 12 }}>
+                                <Ionicons name="time-outline" size={18} color={C.error ?? '#ef4444'} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ fontSize: 13, color: C.error ?? '#ef4444', fontWeight: '700', marginBottom: 2 }}>
+                                        Invoice will be marked as Unpaid
+                                    </Text>
+                                    <Text style={{ fontSize: 11, color: C.error ?? '#ef4444', fontWeight: '500', opacity: 0.8 }}>
+                                        No payment details required. Update later if needed.
+                                    </Text>
+                                </View>
+                            </View>
                         </>
                     )}
                 </SectionCard>
