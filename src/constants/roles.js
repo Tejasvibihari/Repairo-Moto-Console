@@ -9,9 +9,10 @@ export const ROLES = {
 
 export const ROLE_CATEGORY = {
     [ROLES.admin]: 'admin',
-    [ROLES.Mechanic]: 'employee',
-    [ROLES.Delivery]: 'employee',
-    [ROLES.Operational_Manager]: 'employee',
-    [ROLES.Telecaller]: 'employee',
-    [ROLES.Vendor]: 'vendor'
+    [ROLES.mechanic]: 'employee',
+    [ROLES.delivery]: 'employee',
+    [ROLES.operational_manager]: 'employee',
+    [ROLES.telecaller]: 'employee',
+    [ROLES.vendor]: 'vendor'
 };
+
