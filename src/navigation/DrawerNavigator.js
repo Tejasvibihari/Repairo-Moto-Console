@@ -18,6 +18,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../styles/Theme';
 import { logout, selectUserRole } from '../store/slices/authSlice';
 import { getImageUrl } from '../utils/imageUtils';
+import { ROLE_CATEGORY } from '../constants/roles';
+
 
 // Import our common PopUp (or create a dummy one if it doesn't exist)
 import PopUp from '../components/common/PopUp';
@@ -35,6 +37,7 @@ import EmployeeTermsScreen from '../screens/employee/terms/EmployeeTermsScreen';
 
 import CreateInoviceScreen from '../screens/admin/invoice/CreateInoviceScreen';
 import InvoiceScreen from '../screens/admin/invoice/InvoiceScreen';
+import AdminCouponNavigator from './AdminCouponNavigator';
 
 const Drawer = createDrawerNavigator();
 
@@ -44,19 +47,23 @@ const getDrawerConfig = (role, user) => {
     let group1 = [];
     let group2 = [];
 
-    const isAuthorizedChatEmployee = role === 'employee' || role === 'Employee' ?
+    const normalizedRole = role ? role.toLowerCase() : '';
+    const category = ROLE_CATEGORY[normalizedRole] || normalizedRole;
+
+    const isAuthorizedChatEmployee = category === 'employee' ?
         ['manager', 'operational manager', 'telecaller'].includes(user?.position?.toLowerCase()) : false;
 
-    if (role === 'admin' || role === 'Admin') {
+    if (category === 'admin') {
         HomeNav = AdminNavigator;
         group1 = [
             { name: 'Dashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
             { name: 'Orders', label: 'Orders', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' },
             { name: 'CreateInvoice', label: 'Create Invoice', icon: 'add-outline', iconActive: 'add', lib: 'ion' },
             { name: 'Invoices', label: 'Invoices', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
+            { name: 'Coupons', label: 'Coupons', icon: 'pricetag-outline', iconActive: 'pricetag', lib: 'ion' },
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
         ];
-    } else if (role === 'employee' || role === 'Employee') {
+    } else if (category === 'employee') {
         // Employee default
         HomeNav = EmployeeNavigator;
         if (isAuthorizedChatEmployee) {
@@ -379,6 +386,7 @@ export default function DrawerNavigator() {
 
             <Drawer.Screen name="CreateInvoice" component={CreateInoviceScreen} />
             <Drawer.Screen name="Invoices" component={InvoiceScreen} />
+            <Drawer.Screen name="Coupons" component={AdminCouponNavigator} />
         </Drawer.Navigator>
     );
 }
