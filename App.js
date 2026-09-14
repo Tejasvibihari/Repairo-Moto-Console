@@ -13,6 +13,10 @@ import { store, persistor } from './src/store';
 import { LightTheme, DarkTheme } from './src/styles/Theme';
 import { syncSystemTheme } from './src/store/slices/themeSlice';
 
+import UpdateModal from "./src/components/common/UpdateModal";
+import useVersionCheck from "./src/utils/useVersionCheck";
+
+
 // Inner component that uses Redux hooks
 function ThemedApp() {
   const dispatch = useDispatch();
@@ -34,8 +38,11 @@ function ThemedApp() {
     </>
   );
 }
-
 export default function App() {
+  const [updateInfo, setUpdateInfo] = useVersionCheck(
+    process.env.EXPO_PUBLIC_API_URL || "https://api.repairomoto.in"
+  );
+
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
@@ -43,6 +50,14 @@ export default function App() {
           <NavigationContainer>
             <ThemedApp />
           </NavigationContainer>
+
+          <UpdateModal
+            visible={updateInfo.visible}
+            force={updateInfo.force}
+            message={updateInfo.message}
+            storeUrl={updateInfo.storeUrl}
+            onLater={() => setUpdateInfo((prev) => ({ ...prev, visible: false }))}
+          />
         </SafeAreaProvider>
       </PersistGate>
     </Provider>
