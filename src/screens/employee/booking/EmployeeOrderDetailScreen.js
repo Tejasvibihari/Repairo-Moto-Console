@@ -9,6 +9,7 @@ import {
     KeyboardAvoidingView,
     RefreshControl,
 } from 'react-native';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
@@ -27,12 +28,22 @@ const STATUS_CONFIG = {
     in_progress: { label: 'In Progress', bg: 'rgba(226,167,49,0.18)', text: '#E2A731', dot: '#E2A731' },
     mechanic_assigned: { label: 'Mechanic Assigned', bg: 'rgba(52,152,219,0.18)', text: '#3498DB', dot: '#3498DB' },
     mechanic_arrived: { label: 'Mechanic Arrived', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', dot: '#9B59B6' },
+    completion_requested: { label: 'Completion Requested', bg: 'rgba(46,204,154,0.12)', text: '#2ECC9A', dot: '#2ECC9A' },
     work_completed: { label: 'Work Completed', bg: 'rgba(46,204,154,0.12)', text: '#2ECC9A', dot: '#2ECC9A' },
-    completed: { label: 'Completed', bg: 'rgba(46,204,154,0.18)', text: '#2ECC9A', dot: '#2ECC9A' },
+    completed: { label: 'Completed', bg: 'rgba(46,204,154,0.18)', text: '#1b7a5c', dot: '#2ECC9A' },
     invoice_generated: { label: 'Invoice Generated', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', dot: '#9B59B6' },
     cancelled: { label: 'Cancelled', bg: 'rgba(255,107,107,0.18)', text: '#FF6B6B', dot: '#FF6B6B' },
 };
 
+
+const compressImage = async (uri) => {
+    const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1280 } }], // downscale — height auto-scales proportionally
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    return result; // { uri, width, height }
+};
 const getStatusConfig = (status = '') => {
     const key = status.toLowerCase().trim().replace(/\s+/g, '_');
     return STATUS_CONFIG[key] ?? STATUS_CONFIG.pending;
@@ -484,12 +495,13 @@ const PhotoOtpModal = ({
             return;
         }
         const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             quality: 0.85,
             allowsEditing: false,
         });
         if (!result.canceled && result.assets?.[0]) {
-            setPhoto(result.assets[0]);
+            const compressed = await compressImage(result.assets[0].uri);
+            setPhoto({ ...result.assets[0], uri: compressed.uri });
         }
     };
 
@@ -502,6 +514,7 @@ const PhotoOtpModal = ({
             await onRequestOtp(photo);
             setStep('otp');
         } catch (err) {
+            console.log(err)
             Alert.alert('Upload Failed', err?.response?.data?.message || 'Could not upload photo. Please try again.');
         }
     };
@@ -907,7 +920,7 @@ const MechanicActionStrip = ({
         );
     }
 
-    if (s === 'in_progress') {
+    if (s === 'in_progress' || s === 'work_started' || s === 'completion_requested') {
         return (
             <View style={[actionStyles.strip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                 <View style={actionStyles.stripLeft}>
@@ -1032,6 +1045,7 @@ const WORKFLOW_STEPS = [
     { key: 'mechanic_assigned', label: 'Assigned' },
     { key: 'mechanic_arrived', label: 'Arrived' },
     { key: 'in_progress', label: 'In Progress' },
+    { key: 'completion_requested', label: 'Completion Requested' },
     { key: 'work_completed', label: 'Work Done' },
     { key: 'invoice_generated', label: 'Invoice' },
     { key: 'completed', label: 'Completed' },
