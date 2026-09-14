@@ -20,6 +20,7 @@ import { logout, selectUserRole } from '../store/slices/authSlice';
 import { getImageUrl } from '../utils/imageUtils';
 import { ROLE_CATEGORY } from '../constants/roles';
 
+import AdminBannerNavigator from './AdminBannerNavigator';
 
 // Import our common PopUp (or create a dummy one if it doesn't exist)
 import PopUp from '../components/common/PopUp';
@@ -61,6 +62,7 @@ const getDrawerConfig = (role, user) => {
             { name: 'CreateInvoice', label: 'Create Invoice', icon: 'add-outline', iconActive: 'add', lib: 'ion' },
             { name: 'Invoices', label: 'Invoices', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
             { name: 'Coupons', label: 'Coupons', icon: 'pricetag-outline', iconActive: 'pricetag', lib: 'ion' },
+            { name: 'Banners', label: 'Banners', icon: 'images-outline', iconActive: 'images', lib: 'ion' },   // ← add this
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
         ];
     } else if (category === 'employee') {
@@ -387,6 +389,7 @@ export default function DrawerNavigator() {
             <Drawer.Screen name="CreateInvoice" component={CreateInoviceScreen} />
             <Drawer.Screen name="Invoices" component={InvoiceScreen} />
             <Drawer.Screen name="Coupons" component={AdminCouponNavigator} />
+            <Drawer.Screen name="Banners" component={AdminBannerNavigator} />
         </Drawer.Navigator>
     );
 }
