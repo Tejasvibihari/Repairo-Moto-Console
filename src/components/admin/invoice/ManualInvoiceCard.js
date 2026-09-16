@@ -11,6 +11,7 @@ import { useSelector } from 'react-redux';
 const STATUS_CONFIG = {
     paid: { bg: '#2ECC9A22', color: '#2ECC9A', label: 'Paid', icon: 'checkmark-circle' },
     draft: { bg: '#e2a73122', color: '#e2a731', label: 'Draft', icon: 'time-outline' },
+    unpaid: { bg: '#FF6B6B22', color: '#FF6B6B', label: 'Unpaid', icon: 'alert-circle-outline' },
     cancelled: { bg: '#FF6B6B22', color: '#FF6B6B', label: 'Cancelled', icon: 'close-circle' },
 };
 

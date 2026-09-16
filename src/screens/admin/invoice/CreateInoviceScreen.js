@@ -558,6 +558,11 @@ export default function CreateInvoiceScreen({ navigation, route }) {
     const [rzpPayId, setRzpPayId] = useState('');
     const [rzpOrdId, setRzpOrdId] = useState('');
     const [amountPaid, setAmountPaid] = useState('');
+    // Was hardcoded to always send status: 'paid' regardless of what was
+    // actually collected — meaning an invoice with money still owed could
+    // never be marked as such, and features that depend on "is anything due"
+    // (like the Scan & Pay QR code) never had anything to trigger on.
+    const [fullyPaid, setFullyPaid] = useState(true);
 
     const PAY = ['cash', 'upi', 'card', 'razorpay', 'bank_transfer'];
 
@@ -616,6 +621,7 @@ export default function CreateInvoiceScreen({ navigation, route }) {
         setAmountPaid(String(pd.amountPaid ?? t.totalAmountPaid ?? ''));
         setRzpPayId(pd.razorpayPaymentId || '');
         setRzpOrdId(pd.razorpayOrderId || '');
+        setFullyPaid(existingInvoice.status === 'paid');
 
     }, [existingInvoice]);
 
@@ -716,7 +722,11 @@ export default function CreateInvoiceScreen({ navigation, route }) {
             }
             const total = afterDisc;   // inclusive total
             const finalPayable = total;
-            const totalPaid = amountPaidNum || finalPayable;
+            // When not fully paid, don't silently default to the full amount —
+            // an empty/0 "Amount Paid" genuinely means nothing has been
+            // collected yet, which is exactly the case the Scan & Pay QR and
+            // bank details exist to help with.
+            const totalPaid = fullyPaid ? (amountPaidNum || finalPayable) : amountPaidNum;
 
 
             const payload = {
@@ -758,9 +768,9 @@ export default function CreateInvoiceScreen({ navigation, route }) {
                     amountPaid: totalPaid,
                     walletAmountUsed: 0,
                     totalSettled: totalPaid,
-                    paymentDate: new Date().toISOString(),
+                    paymentDate: fullyPaid ? new Date().toISOString() : null,
                 },
-                status: 'paid',
+                status: fullyPaid ? 'paid' : 'unpaid',
             };
 
             // Remove discountType if discount is zero
@@ -952,6 +962,23 @@ export default function CreateInvoiceScreen({ navigation, route }) {
 
                 {/* Payment */}
                 <SectionCard title="Payment" icon="card-outline" theme={theme}>
+                    <View style={[ms.taxBanner, { backgroundColor: C.surfaceLow, borderColor: C.border, marginBottom: 14 }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: C.textPrimary }}>
+                                Payment received in full?
+                            </Text>
+                            <Text style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>
+                                Turn off if the customer still owes some or all of this invoice — a
+                                "Scan & Pay" QR code and bank details will then appear when it's shared.
+                            </Text>
+                        </View>
+                        <Switch
+                            value={fullyPaid}
+                            onValueChange={setFullyPaid}
+                            trackColor={{ false: C.border, true: `${C.primary}90` }}
+                            thumbColor={fullyPaid ? C.primary : '#f4f3f4'}
+                        />
+                    </View>
                     <Text style={[fldS.label, { color: C.textMuted, marginBottom: 8 }]}>METHOD</Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
                         {PAY.map(m => (
@@ -966,7 +993,13 @@ export default function CreateInvoiceScreen({ navigation, route }) {
                             </TouchableOpacity>
                         ))}
                     </View>
-                    <Field label="Amount Paid ₹" value={amountPaid} onChangeText={setAmountPaid} keyboardType="numeric" theme={theme} />
+                    <Field
+                        label={fullyPaid ? "Amount Paid ₹" : "Amount Collected So Far ₹ (leave blank if nothing yet)"}
+                        value={amountPaid}
+                        onChangeText={setAmountPaid}
+                        keyboardType="numeric"
+                        theme={theme}
+                    />
                     {payMethod === 'razorpay' && (
                         <>
                             <Field label="Razorpay Payment ID" value={rzpPayId} onChangeText={setRzpPayId} theme={theme} />

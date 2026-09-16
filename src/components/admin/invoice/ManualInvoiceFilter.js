@@ -13,6 +13,7 @@ import { LightTheme, DarkTheme } from '../../../styles/Theme';
 const STATUSES = [
     { value: 'all', label: 'All', icon: 'apps-outline' },
     { value: 'paid', label: 'Paid', icon: 'checkmark-circle-outline' },
+    { value: 'unpaid', label: 'Unpaid', icon: 'alert-circle-outline' },
     { value: 'draft', label: 'Draft', icon: 'time-outline' },
     { value: 'cancelled', label: 'Cancelled', icon: 'close-circle-outline' },
 ];

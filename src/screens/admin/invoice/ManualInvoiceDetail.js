@@ -36,6 +36,7 @@ const fmtDate = (d) =>
 const STATUS_CONFIG = {
     paid: { color: '#2ECC9A', bg: '#2ECC9A18', label: 'Paid', icon: 'checkmark-circle' },
     draft: { color: '#e2a731', bg: '#e2a73118', label: 'Draft', icon: 'time-outline' },
+    unpaid: { color: '#FF6B6B', bg: '#FF6B6B18', label: 'Unpaid', icon: 'alert-circle-outline' },
     cancelled: { color: '#FF6B6B', bg: '#FF6B6B18', label: 'Cancelled', icon: 'close-circle' },
 };
 
