@@ -40,7 +40,8 @@ function ThemedApp() {
 }
 export default function App() {
   const [updateInfo, setUpdateInfo] = useVersionCheck(
-    process.env.EXPO_PUBLIC_API_URL || "https://api.repairomoto.in"
+    process.env.EXPO_PUBLIC_API_URL || "https://api.repairomoto.in",
+    "console"
   );
 
   return (

@@ -793,6 +793,62 @@ const bannerStyles = StyleSheet.create({
     txt: { flex: 1, fontSize: 12, fontWeight: '500', lineHeight: 17 },
 });
 
+// ─── Applied Coupon Card ──────────────────────────────────────────────────────
+// Shown when the customer selected a coupon on this order (order.coupon).
+// Lets the admin remove it before generating the invoice — once the invoice
+// is generated the coupon is "finalized" server-side and can no longer be
+// removed from here.
+const CouponAppliedCard = ({ coupon, estimatedDiscount, removing, onRemove, theme }) => {
+    if (!coupon?.code) return null;
+    const isPercentage = coupon.discountType === 'percentage';
+    return (
+        <View style={[couponStyles.card, { backgroundColor: theme.colors.surface, borderColor: 'rgba(22,160,133,0.3)' }]}>
+            <View style={couponStyles.row}>
+                <View style={[couponStyles.iconWrap, { backgroundColor: 'rgba(22,160,133,0.12)' }]}>
+                    <Ionicons name="ticket-outline" size={18} color="#16A085" />
+                </View>
+                <View style={{ flex: 1 }}>
+                    <View style={couponStyles.codeRow}>
+                        <Text style={[couponStyles.code, { color: theme.colors.textPrimary }]}>{coupon.code}</Text>
+                        <View style={couponStyles.badge}>
+                            <Text style={couponStyles.badgeText}>COUPON APPLIED</Text>
+                        </View>
+                    </View>
+                    <Text style={[couponStyles.sub, { color: theme.colors.textMuted }]}>
+                        {isPercentage ? `${coupon.discountValue}% off` : `${formatCurrency(coupon.discountValue)} flat off`}
+                        {estimatedDiscount > 0 ? ` · ~${formatCurrency(estimatedDiscount)} off this order` : ''}
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    onPress={onRemove}
+                    disabled={removing}
+                    style={[couponStyles.removeBtn, { opacity: removing ? 0.6 : 1 }]}
+                    activeOpacity={0.75}
+                >
+                    {removing
+                        ? <ActivityIndicator size="small" color="#FF6B6B" />
+                        : <Ionicons name="close-circle-outline" size={18} color="#FF6B6B" />}
+                </TouchableOpacity>
+            </View>
+            <Text style={[couponStyles.note, { color: theme.colors.textMuted }]}>
+                The exact discount is calculated automatically when the invoice is generated.
+            </Text>
+        </View>
+    );
+};
+const couponStyles = StyleSheet.create({
+    card: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 14 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    iconWrap: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    codeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+    code: { fontSize: 15, fontWeight: '900', letterSpacing: 0.5 },
+    badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, backgroundColor: 'rgba(22,160,133,0.15)' },
+    badgeText: { fontSize: 9, fontWeight: '800', color: '#16A085', letterSpacing: 0.5 },
+    sub: { fontSize: 12, fontWeight: '500', marginTop: 3 },
+    removeBtn: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,107,107,0.12)' },
+    note: { fontSize: 10.5, marginTop: 10, lineHeight: 14 },
+});
+
 // ─── Empty State ──────────────────────────────────────────────────────────────
 const EmptyState = ({ type, onAdd, theme }) => {
     const isPartType = type === 'part';
@@ -993,6 +1049,11 @@ export default function AdminGenerateInvoice({ route, navigation }) {
 
     const [items, setItems] = useState([]);
     const [prefilledCount, setPrefilledCount] = useState(0);
+
+    // Coupon the customer selected on this order (if any) — shown so the
+    // admin can see/remove it before generating the invoice.
+    const [couponInfo, setCouponInfo] = useState(order?.coupon?.code ? order.coupon : null);
+    const [removingCoupon, setRemovingCoupon] = useState(false);
     const [referralDiscount, setReferralDiscount] = useState('0');
     const [paymentStatus, setPaymentStatus] = useState('unpaid');
     const [paymentMethod, setPaymentMethod] = useState('cash');
@@ -1160,6 +1221,51 @@ export default function AdminGenerateInvoice({ route, navigation }) {
 
     const totals = computedTotals();
 
+    // Rough client-side preview of what the coupon will knock off — mirrors
+    // the server (Controllers/couponController.js computeCouponDiscount),
+    // applied against the raw items subtotal the way the backend does at
+    // invoice-generation time. The real amount (clamped to the coupon's
+    // maxDiscountAmount, usage limits, etc.) is only known once the invoice
+    // is actually generated — this is just for admin visibility.
+    const couponEstimatedDiscount = (() => {
+        if (!couponInfo?.code) return 0;
+        const rawSubtotal = items.reduce(
+            (acc, item) => acc + (parseFloat(item.price) || 0) * (parseFloat(item.quantity) || 0),
+            0
+        );
+        if (rawSubtotal <= 0) return 0;
+        if (couponInfo.discountType === 'percentage') {
+            return rawSubtotal * (parseFloat(couponInfo.discountValue) || 0) / 100;
+        }
+        return Math.min(parseFloat(couponInfo.discountValue) || 0, rawSubtotal);
+    })();
+
+    const handleRemoveCoupon = () => {
+        if (!order?._id || !couponInfo?.code) return;
+        Alert.alert(
+            'Remove Coupon',
+            `Remove coupon "${couponInfo.code}" from this order? The customer will no longer get this discount.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Remove',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setRemovingCoupon(true);
+                        try {
+                            await axiosClient.delete(`/api/admin/coupons/order/${order._id}`);
+                            setCouponInfo(null);
+                        } catch (err) {
+                            Alert.alert('Error', err?.response?.data?.message || 'Failed to remove coupon. Please try again.');
+                        } finally {
+                            setRemovingCoupon(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     const handleGenerateInvoice = async () => {
         if (items.length === 0) { Alert.alert('No Items', 'Please add at least one part or service before generating the invoice.'); return; }
         setSubmitting(true);
@@ -1255,6 +1361,14 @@ export default function AdminGenerateInvoice({ route, navigation }) {
                         </View>
 
                         <PrefilledBanner count={prefilledCount} theme={theme} />
+
+                        <CouponAppliedCard
+                            coupon={couponInfo}
+                            estimatedDiscount={couponEstimatedDiscount}
+                            removing={removingCoupon}
+                            onRemove={handleRemoveCoupon}
+                            theme={theme}
+                        />
 
                         {/* Parts */}
                         <View style={[gs.section, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>

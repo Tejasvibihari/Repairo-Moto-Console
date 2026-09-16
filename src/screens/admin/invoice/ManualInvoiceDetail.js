@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    ActivityIndicator, Alert, Animated, Platform,
+    ActivityIndicator, Alert, Animated, Platform, Image,
 } from 'react-native';
 import { useSelector } from 'react-redux';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import { StorageAccessFramework } from 'expo-file-system';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import ScreenWrapper from '../../../components/common/ScreenWrapper';
 import axiosClient from '../../../services/axiosClient';
+import { adminSettingsService } from '../../../services/adminSettingsService';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const safeNum = (v) => {
@@ -153,6 +154,7 @@ export default function ManualInvoiceDetail({ route, navigation }) {
     const [invoice, setInvoice] = useState(null);
     const [loading, setLoading] = useState(true);
     const [sharing, setSharing] = useState(false);
+    const [paymentSettings, setPaymentSettings] = useState(null);
 
     // Entrance animation
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -170,6 +172,13 @@ export default function ManualInvoiceDetail({ route, navigation }) {
             setLoading(false);
         }
     }, [invoiceId]);
+
+    // Fetched once — powers the "Scan & Pay" QR code and bank-details block
+    // on the shared PDF. Failure here is non-fatal: the invoice still shares
+    // fine, it just won't have a payment-collection section.
+    useEffect(() => {
+        adminSettingsService.get().then(setPaymentSettings).catch(() => setPaymentSettings(null));
+    }, []);
 
     useEffect(() => { fetchInvoice(); }, [fetchInvoice]);
 
@@ -191,6 +200,21 @@ export default function ManualInvoiceDetail({ route, navigation }) {
     const gatewayAmount = safeNum(pd.amountPaid);
     const isCash = pd.method === 'cash';
     const isFullWallet = pd.method === 'referral';
+
+    // Amount still owed by the customer — this is what the "Scan & Pay" QR
+    // and bank details are for. A fully paid invoice has nothing to collect,
+    // so that section is simply omitted (see buildHTML below).
+    const amountDue = Math.max(0, safeNum(finalPayable) - safeNum(totalSettled));
+    const showCollection = invoice?.status !== 'paid' && amountDue > 0 && !!paymentSettings?.upiId;
+
+    // Built once and reused by both the on-screen preview and the shared PDF.
+    const upiUri = useMemo(() => {
+        if (!showCollection) return null;
+        const payeeName = paymentSettings.upiPayeeName || 'Repairo Moto';
+        const note = `Invoice ${invoice?.invoiceNumber || ''}`;
+        return `upi://pay?pa=${encodeURIComponent(paymentSettings.upiId)}&pn=${encodeURIComponent(payeeName)}&am=${amountDue.toFixed(2)}&cu=INR&tn=${encodeURIComponent(note)}`;
+    }, [showCollection, paymentSettings, amountDue, invoice?.invoiceNumber]);
+    const qrImgUrl = upiUri ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiUri)}` : null;
 
 
     const effectivePrice = (item) => safeNum(item?.effectivePrice) || safeNum(item?.price);
@@ -264,6 +288,17 @@ export default function ManualInvoiceDetail({ route, navigation }) {
             .total-row.grand-total { font-size: 18px; font-weight: bold; color: #e2a731; border-top: 2px solid #e2a731; padding-top: 15px; margin-top: 10px; }
             .clear { clear: both; }
             .footer { text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #888; }
+            .collection { clear: both; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2a731; display: flex; justify-content: space-between; align-items: flex-start; }
+            .collection-qr { text-align: center; }
+            .collection-qr img { width: 150px; height: 150px; border: 1px solid #ddd; border-radius: 8px; padding: 6px; }
+            .collection-qr .amt { font-size: 13px; font-weight: bold; color: #e2a731; margin-top: 8px; }
+            .collection-qr .hint { font-size: 10px; color: #888; margin-top: 2px; }
+            .collection-bank { width: 55%; }
+            .collection-bank .section-title { font-size: 12px; font-weight: bold; color: #888; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 1px; }
+            .collection-bank table { width: 100%; margin-bottom: 0; }
+            .collection-bank td { padding: 3px 0; font-size: 13px; border: none; }
+            .collection-bank td:first-child { color: #888; width: 40%; }
+            .collection-bank td:last-child { font-weight: 600; }
         </style></head><body>
         <div class="header">
             <div class="company-info">
@@ -315,12 +350,34 @@ export default function ManualInvoiceDetail({ route, navigation }) {
             ${sgst > 0 ? `<div class="total-row"><span>SGST (${sgstRate}%)</span><span>${fmt(sgst)}</span></div>` : ''}
             ${cgst > 0 ? `<div class="total-row"><span>CGST (${cgstRate}%)</span><span>${fmt(cgst)}</span></div>` : ''}
             ${walletUsed > 0 ? `<div class="total-row"><span>Wallet Used</span><span style="color:#e2a731;">-${fmt(walletUsed)}</span></div>` : ''}
-            <div class="total-row grand-total"><span>Total Paid</span><span>${fmt(totalSettled || finalPayable)}</span></div>
+            <div class="total-row grand-total"><span>${amountDue > 0 ? 'Amount Due' : 'Total Paid'}</span><span>${fmt(amountDue > 0 ? amountDue : (totalSettled || finalPayable))}</span></div>
         </div>
         <div class="clear"></div>
+        ${showCollection ? (() => {
+                const hasBankDetails = paymentSettings.bankAccountNumber || paymentSettings.bankIFSC;
+                return `
+        <div class="collection">
+            <div class="collection-qr">
+                <img src="${qrImgUrl}" />
+                <div class="amt">Scan & Pay ${fmt(amountDue)}</div>
+                <div class="hint">UPI: ${paymentSettings.upiId}</div>
+            </div>
+            ${hasBankDetails ? `
+            <div class="collection-bank">
+                <div class="section-title">Bank Transfer</div>
+                <table>
+                    ${paymentSettings.bankAccountName ? `<tr><td>Account Name</td><td>${paymentSettings.bankAccountName}</td></tr>` : ''}
+                    ${paymentSettings.bankAccountNumber ? `<tr><td>Account Number</td><td>${paymentSettings.bankAccountNumber}</td></tr>` : ''}
+                    ${paymentSettings.bankIFSC ? `<tr><td>IFSC Code</td><td>${paymentSettings.bankIFSC}</td></tr>` : ''}
+                    ${paymentSettings.bankName ? `<tr><td>Bank</td><td>${paymentSettings.bankName}</td></tr>` : ''}
+                    ${paymentSettings.bankBranch ? `<tr><td>Branch</td><td>${paymentSettings.bankBranch}</td></tr>` : ''}
+                </table>
+            </div>` : ''}
+        </div>`;
+            })() : ''}
         <div class="footer">Thank you for choosing Repairo Moto!<br>This is a computer-generated invoice.</div>
         </body></html>`;
-    }, [invoice]);
+    }, [invoice, paymentSettings, showCollection, amountDue, qrImgUrl]);
 
     const handleShare = useCallback(async () => {
         if (!invoice) return;
@@ -596,6 +653,48 @@ export default function ManualInvoiceDetail({ route, navigation }) {
                     </View>
                 </SectionCard>
 
+                {/* ── Scan & Pay ─────────────────────────────────────────────── */}
+                {showCollection && (
+                    <SectionCard C={C} isDark={isDark}>
+                        <SectionLabel label="SCAN & PAY" icon="qrcode" C={C} />
+                        <View style={detailS.collectionRow}>
+                            <View style={[detailS.qrBox, { borderColor: C.border }]}>
+                                <Image source={{ uri: qrImgUrl }} style={detailS.qrImage} />
+                            </View>
+                            <View style={{ flex: 1, gap: 4 }}>
+                                <Text style={[detailS.collectionAmt, { color: '#2ECC9A' }]}>
+                                    {fmt(amountDue)} due
+                                </Text>
+                                <Text style={[detailS.infoText, { color: C.textSecondary }]}>
+                                    UPI: {paymentSettings.upiId}
+                                </Text>
+                                {(paymentSettings.bankAccountNumber || paymentSettings.bankIFSC) && (
+                                    <>
+                                        <View style={[detailS.divider, { backgroundColor: C.border, marginVertical: 8 }]} />
+                                        {paymentSettings.bankAccountName ? (
+                                            <Text style={[detailS.infoText, { color: C.textSecondary }]}>{paymentSettings.bankAccountName}</Text>
+                                        ) : null}
+                                        {paymentSettings.bankAccountNumber ? (
+                                            <Text style={[detailS.infoText, { color: C.textMuted }]}>A/C: {paymentSettings.bankAccountNumber}</Text>
+                                        ) : null}
+                                        {paymentSettings.bankIFSC ? (
+                                            <Text style={[detailS.infoText, { color: C.textMuted }]}>IFSC: {paymentSettings.bankIFSC}</Text>
+                                        ) : null}
+                                        {paymentSettings.bankName ? (
+                                            <Text style={[detailS.infoText, { color: C.textMuted }]}>
+                                                {paymentSettings.bankName}{paymentSettings.bankBranch ? `, ${paymentSettings.bankBranch}` : ''}
+                                            </Text>
+                                        ) : null}
+                                    </>
+                                )}
+                            </View>
+                        </View>
+                        <Text style={{ fontSize: 10.5, color: C.textMuted, marginTop: 10, lineHeight: 14 }}>
+                            This QR and bank details are also included when you share this invoice.
+                        </Text>
+                    </SectionCard>
+                )}
+
                 {/* ── Edit button at bottom ──────────────────────────────────── */}
                 <TouchableOpacity
                     onPress={handleEdit}
@@ -696,4 +795,9 @@ const detailS = StyleSheet.create({
         gap: 8, paddingVertical: 14, borderRadius: 16, borderWidth: 1, marginTop: 4,
     },
     editFullBtnText: { fontSize: 15, fontWeight: '800' },
+
+    collectionRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
+    qrBox: { width: 100, height: 100, borderRadius: 12, borderWidth: 1, padding: 6 },
+    qrImage: { width: '100%', height: '100%', borderRadius: 6 },
+    collectionAmt: { fontSize: 16, fontWeight: '900', marginBottom: 2 },
 });

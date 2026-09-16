@@ -37,6 +37,8 @@ export default function InvoiceModal({ visible, invoice, onClose, theme, loading
     // ── Discount waterfall values ─────────────────────────────────────────────
     const subTotal = safeNum(t.subTotal || t.baseAmount);
     const billDiscount = safeNum(t.discount);
+    const couponCode = t.couponCode || null;
+    const couponDiscount = safeNum(t.couponDiscount);
     const referralDiscount = safeNum(t.referralDiscount);   // admin applied on bill
     const walletUsed = safeNum(t.walletAmountUsed ?? pd.walletAmountUsed);
     const sgst = safeNum(t.sgst);
@@ -336,6 +338,16 @@ export default function InvoiceModal({ visible, invoice, onClose, theme, loading
                                 <InvRow
                                     label={`Bill Discount${invoice.total?.discountType ? ` (${invoice.total.discountType})` : ''}`}
                                     value={`-${fmt(billDiscount)}`}
+                                    positive
+                                    C={C}
+                                />
+                            )}
+
+                            {/* Coupon discount */}
+                            {couponDiscount > 0 && (
+                                <InvRow
+                                    label={`Coupon${couponCode ? ` (${couponCode})` : ''}`}
+                                    value={`-${fmt(couponDiscount)}`}
                                     positive
                                     C={C}
                                 />

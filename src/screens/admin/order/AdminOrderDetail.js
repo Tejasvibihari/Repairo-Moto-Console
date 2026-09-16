@@ -752,7 +752,6 @@ const assignStyles = StyleSheet.create({
 export default function AdminOrderDetail({ route, navigation }) {
     const orderIdParam = route?.params?.order?._id || route?.params?.orderId;
     const mode = useSelector((s) => s.theme?.mode || 'light');
-    const isBusinessAccount = order?.userId?.accountType || false;
 
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const [popup, setPopup] = useState({
@@ -765,6 +764,10 @@ export default function AdminOrderDetail({ route, navigation }) {
         onSecondary: () => { },
     });
     const [order, setOrder] = useState(null);
+    // Must come after `order` is declared above — this used to read `order`
+    // before its useState declaration, which throws a "Cannot access 'order'
+    // before initialization" ReferenceError and crashes the whole screen.
+    const isBusinessAccount = order?.userId?.accountType === 'business';
     const [loading, setLoading] = useState(true);
     const [panelVisible, setPanelVisible] = useState(false);
     const [invoiceModalVisible, setInvoiceModalVisible] = useState(false);
@@ -1196,6 +1199,18 @@ export default function AdminOrderDetail({ route, navigation }) {
                                             <Text style={[styles.totalLabel, { color: theme.colors.success }]}>Referral Discount</Text>
                                         </View>
                                         <Text style={[styles.totalValue, { color: theme.colors.success }]}>-{formatCurrency(total.referralDiscount)}</Text>
+                                    </View>
+                                )}
+
+                                {total.couponDiscount > 0 && (
+                                    <View style={styles.totalRow}>
+                                        <View style={styles.referralLabelRow}>
+                                            <Ionicons name="ticket-outline" size={13} color={theme.colors.success} />
+                                            <Text style={[styles.totalLabel, { color: theme.colors.success }]}>
+                                                Coupon{total.couponCode ? ` (${total.couponCode})` : ''}
+                                            </Text>
+                                        </View>
+                                        <Text style={[styles.totalValue, { color: theme.colors.success }]}>-{formatCurrency(total.couponDiscount)}</Text>
                                     </View>
                                 )}
 

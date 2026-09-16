@@ -64,6 +64,7 @@ const getDrawerConfig = (role, user) => {
             { name: 'Coupons', label: 'Coupons', icon: 'pricetag-outline', iconActive: 'pricetag', lib: 'ion' },
             { name: 'Banners', label: 'Banners', icon: 'images-outline', iconActive: 'images', lib: 'ion' },   // ← add this
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
+            { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
         ];
     } else if (category === 'employee') {
         // Employee default

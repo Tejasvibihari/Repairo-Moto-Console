@@ -2,8 +2,14 @@ import React from "react";
 import { Modal, View, Text, TouchableOpacity, Linking, BackHandler, Platform, StyleSheet } from "react-native";
 
 export default function UpdateModal({ visible, force, message, storeUrl, onLater }) {
-    const handleUpdate = () => Linking.openURL(storeUrl);
+    const handleUpdate = () => {
+        if (storeUrl) Linking.openURL(storeUrl);
+    };
+
     const handleExit = () => {
+        // iOS does not allow apps to programmatically terminate themselves —
+        // Apple rejects apps that try. On iOS we just keep the modal up
+        // (non-dismissable, onRequestClose is a no-op) instead of an Exit button.
         if (Platform.OS === "android") BackHandler.exitApp();
     };
 
@@ -19,9 +25,11 @@ export default function UpdateModal({ visible, force, message, storeUrl, onLater
                     </TouchableOpacity>
 
                     {force ? (
-                        <TouchableOpacity style={styles.exitBtn} onPress={handleExit}>
-                            <Text style={styles.exitText}>Exit</Text>
-                        </TouchableOpacity>
+                        Platform.OS === "android" ? (
+                            <TouchableOpacity style={styles.exitBtn} onPress={handleExit}>
+                                <Text style={styles.exitText}>Exit</Text>
+                            </TouchableOpacity>
+                        ) : null
                     ) : (
                         <TouchableOpacity style={styles.exitBtn} onPress={onLater}>
                             <Text style={styles.exitText}>Later</Text>
