@@ -41,7 +41,7 @@ export default ({ config }) => {
       },
       edgeToEdgeEnabled: true,
       package: "com.roottechnology.repairomotoconsole",
-      versionCode: 1,
+      versionCode: 3,
       googleServicesFile: "./google-services.json",
       config: {
         googleMaps: {
