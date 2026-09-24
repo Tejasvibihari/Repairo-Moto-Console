@@ -72,8 +72,12 @@ const getDrawerConfig = (role, user) => {
         // Employee default — telecallers get their own lead-management section
         HomeNav = isTelecaller(user) ? TelecallerNavigator : EmployeeNavigator;
         if (isTelecaller(user)) {
-            group1.push({ name: 'CreateInvoice', label: 'Create Invoice', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' });
+            group1.push({ name: 'CreateInvoice', label: 'Create Invoice', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' },
+                { name: 'Invoices', label: 'Invoices', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
+
+            );
         }
+
         if (isAuthorizedChatEmployee) {
             group1.push({ name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' });
         }
