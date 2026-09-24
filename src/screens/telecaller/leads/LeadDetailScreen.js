@@ -106,6 +106,16 @@ export default function LeadDetailScreen() {
         return () => sub.remove();
     }, []);
 
+    // Opens the invoice that was linked to this lead (read-only for staff).
+    const openLinkedInvoice = () => {
+        const id = lead?.invoice?.invoiceId;
+        if (!id) return;
+        navigation.navigate('ManualInvoiceDetail', {
+            invoiceId: String(id?._id || id),
+            readOnly: true,
+        });
+    };
+
     const startCall = async () => {
         pendingCall.current = true;
         const ok = await callNumber(lead.customer?.phone);
@@ -227,26 +237,14 @@ export default function LeadDetailScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        <View style={styles.secondaryRow}>
-                            <TouchableOpacity
-                                onPress={() => setSheet({ visible: true, title: 'Update status' })}
-                                activeOpacity={0.8}
-                                style={[styles.statusBtn, { borderColor: C.border, backgroundColor: C.surfaceLow }]}
-                            >
-                                <Ionicons name="swap-horizontal-outline" size={17} color={C.textPrimary} />
-                                <Text style={{ color: C.textPrimary, fontWeight: '700', fontSize: 13.5 }}>Update status</Text>
-                            </TouchableOpacity>
-                            {!lead.invoice?.linked && (
-                                <TouchableOpacity
-                                    onPress={() => navigation.navigate('CreateInvoice', { lead })}
-                                    activeOpacity={0.8}
-                                    style={[styles.statusBtn, { borderColor: C.primary, backgroundColor: `${C.primary}18` }]}
-                                >
-                                    <Ionicons name="receipt-outline" size={17} color={C.primary} />
-                                    <Text style={{ color: C.primary, fontWeight: '800', fontSize: 13.5 }}>Create invoice</Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
+                        <TouchableOpacity
+                            onPress={() => setSheet({ visible: true, title: 'Update status' })}
+                            activeOpacity={0.8}
+                            style={[styles.statusBtn, { borderColor: C.border, backgroundColor: C.surfaceLow }]}
+                        >
+                            <Ionicons name="swap-horizontal-outline" size={17} color={C.textPrimary} />
+                            <Text style={{ color: C.textPrimary, fontWeight: '700', fontSize: 13.5 }}>Update status</Text>
+                        </TouchableOpacity>
                     </View>
 
                     {/* Follow-up */}
@@ -278,11 +276,16 @@ export default function LeadDetailScreen() {
                                 ))}
                             </View>
                         )}
-                        {lead.invoice?.linked && (
-                            <View style={styles.invoiceTag}>
-                                <Ionicons name="document-text-outline" size={15} color="#2ECC9A" />
-                                <Text style={{ color: '#2ECC9A', fontWeight: '700', fontSize: 12.5 }}>Invoice linked</Text>
-                            </View>
+                        {lead.invoice?.linked && !!lead.invoice?.invoiceId && (
+                            <TouchableOpacity
+                                onPress={openLinkedInvoice}
+                                activeOpacity={0.8}
+                                style={styles.invoiceBtn}
+                            >
+                                <Ionicons name="document-text-outline" size={17} color="#2ECC9A" />
+                                <Text style={{ flex: 1, color: '#2ECC9A', fontWeight: '800', fontSize: 13.5 }}>View linked invoice</Text>
+                                <Ionicons name="chevron-forward" size={17} color="#2ECC9A" />
+                            </TouchableOpacity>
                         )}
                     </Section>
 
@@ -378,8 +381,7 @@ const styles = StyleSheet.create({
     callBtn: { flex: 1, height: 48, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
     waBtn: { flex: 1, height: 48, borderRadius: 14, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
     callBtnText: { color: '#1a1a1a', fontWeight: '800', fontSize: 15 },
-    secondaryRow: { flexDirection: 'row', gap: 10 },
-    statusBtn: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    statusBtn: { height: 44, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
     followUp: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 16, padding: 14 },
     section: { borderRadius: 18, borderWidth: 1, padding: 14, gap: 10 },
     sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -389,7 +391,7 @@ const styles = StyleSheet.create({
     rowValue: { flex: 1, fontSize: 14, fontWeight: '600' },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     chip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
-    invoiceTag: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    invoiceBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#2ECC9A', backgroundColor: '#2ECC9A14', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11 },
     mapBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     remarkInputWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, borderWidth: 1, borderRadius: 14, padding: 8 },
     remarkInput: { flex: 1, fontSize: 14, minHeight: 40, maxHeight: 110, paddingHorizontal: 6, paddingVertical: 6, textAlignVertical: 'top' },

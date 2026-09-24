@@ -8,7 +8,7 @@ import TelecallerDashboardScreen from '../../screens/telecaller/dashboard/Teleca
 import LeadsScreen from '../../screens/telecaller/leads/LeadsScreen';
 import LeadDetailScreen from '../../screens/telecaller/leads/LeadDetailScreen';
 import LeadFormScreen from '../../screens/telecaller/leads/LeadFormScreen';
-import CreateInvoiceScreen from '../../screens/admin/invoice/CreateInoviceScreen';
+import ManualInvoiceDetail from '../../screens/admin/invoice/ManualInvoiceDetail';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -38,7 +38,7 @@ export default function TelecallerNavigator() {
             <Stack.Screen name="TelecallerTabs" component={TelecallerTabs} />
             <Stack.Screen name="LeadDetail" component={LeadDetailScreen} />
             <Stack.Screen name="LeadForm" component={LeadFormScreen} />
-            <Stack.Screen name="CreateInvoice" component={CreateInvoiceScreen} />
+            <Stack.Screen name="ManualInvoiceDetail" component={ManualInvoiceDetail} />
         </Stack.Navigator>
     );
 }

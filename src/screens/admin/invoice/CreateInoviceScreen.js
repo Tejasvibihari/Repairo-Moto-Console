@@ -11,7 +11,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import ScreenWrapper from '../../../components/common/ScreenWrapper';
 import axiosClient from '../../../services/axiosClient';
-import { leadEvents } from '../../../utils/leadEvents';
+import { leadService } from '../../../services/leadService';
+import LeadPickerModal from '../../../components/admin/invoice/LeadPickerModal';
 
 const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get('window');
 
@@ -527,6 +528,56 @@ const calcSubtotal = (parts, services) => {
 // ═════════════════════════════════════════════════════════════════════════════
 //  MAIN SCREEN
 // ═════════════════════════════════════════════════════════════════════════════
+// ─── Linked lead card ─────────────────────────────────────────────────────────
+const LinkedLeadCard = ({ lead, onPick, onRemove, theme }) => {
+    const C = theme.colors;
+    const bike = [lead?.vehicle?.brand, lead?.vehicle?.model].filter(Boolean).join(' ');
+    return (
+        <SectionCard title="Linked Lead" icon="link-outline" theme={theme}>
+            {lead ? (
+                <View style={[lkS.selected, { backgroundColor: C.primary + '12', borderColor: C.primary + '45' }]}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[lkS.name, { color: C.textPrimary }]} numberOfLines={1}>
+                            {lead.customer?.name || 'Linked lead'}
+                        </Text>
+                        {!!(lead.customer?.phone || bike) && (
+                            <Text style={[lkS.sub, { color: C.textMuted }]} numberOfLines={1}>
+                                {[lead.customer?.phone, bike].filter(Boolean).join('  ·  ')}
+                            </Text>
+                        )}
+                    </View>
+                    <TouchableOpacity onPress={onPick} style={lkS.action} activeOpacity={0.75}>
+                        <Text style={{ color: C.primary, fontWeight: '800', fontSize: 12.5 }}>Change</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={onRemove} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="close-circle" size={22} color={C.textMuted} />
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                <TouchableOpacity
+                    onPress={onPick}
+                    activeOpacity={0.8}
+                    style={[lkS.empty, { borderColor: C.border, backgroundColor: C.surfaceLow }]}
+                >
+                    <Ionicons name="add-circle-outline" size={18} color={C.primary} />
+                    <Text style={{ color: C.primary, fontWeight: '800', fontSize: 13.5 }}>Link this invoice to a lead</Text>
+                </TouchableOpacity>
+            )}
+            <Text style={[lkS.hint, { color: C.textMuted }]}>
+                Optional. Linking marks the lead as Booked and lets staff open this invoice from the lead.
+            </Text>
+        </SectionCard>
+    );
+};
+const lkS = StyleSheet.create({
+    selected: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12 },
+    name: { fontSize: 14.5, fontWeight: '800' },
+    sub: { fontSize: 12.5, marginTop: 2 },
+    action: { paddingHorizontal: 4, paddingVertical: 4 },
+    empty: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 14, paddingVertical: 14 },
+    hint: { fontSize: 11.5, marginTop: 10 },
+});
+
 export default function CreateInvoiceScreen({ navigation, route }) {
     const mode = useSelector(s => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
@@ -537,13 +588,13 @@ export default function CreateInvoiceScreen({ navigation, route }) {
     const existingInvoice = route?.params?.invoice || null;
     const isEditing = !!invoiceId && !!existingInvoice;
 
-    // Opened from a lead (telecaller flow): prefill the customer and vehicle,
-    // and send leadId so the backend links the invoice and marks the lead booked.
-    const lead = route?.params?.lead || null;
-    const leadId = !isEditing && lead?._id ? lead._id : null;
-
     const [gstEnabled, setGstEnabled] = useState(false);   // only controls business details visibility
     const [loading, setLoading] = useState(false);
+
+    // Lead this invoice is linked to (optional)
+    const [linkedLead, setLinkedLead] = useState(null);
+    const [leadTouched, setLeadTouched] = useState(false); // user changed the link on this screen
+    const [pickerOpen, setPickerOpen] = useState(false);
 
     const [customer, setCustomer] = useState({ name: '', email: '', contactNo: '', address: '', city: '' });
     const [business, setBusiness] = useState({ gstin: '', businessName: '', businessAddress: '', businessCity: '', businessState: '', businessPincode: '' });
@@ -631,21 +682,42 @@ export default function CreateInvoiceScreen({ navigation, route }) {
 
     }, [existingInvoice]);
 
+    // Editing an invoice that is already linked → show which lead it is
     useEffect(() => {
-        if (!lead || existingInvoice) return;
-        setCustomer(p => ({
+        const raw = existingInvoice?.leadId;
+        const lid = raw?._id || raw;
+        if (!lid) return;
+        if (raw?.customer) { setLinkedLead(raw); return; } // already populated by the API
+        let alive = true;
+        leadService.get(String(lid))
+            .then((r) => { if (alive) setLinkedLead(r.data); })
+            .catch(() => { if (alive) setLinkedLead({ _id: String(lid), customer: { name: 'Linked lead' } }); });
+        return () => { alive = false; };
+    }, [existingInvoice]);
+
+    const handleSelectLead = (lead) => {
+        setLinkedLead(lead);
+        setLeadTouched(true);
+        setPickerOpen(false);
+        // Save typing: only fill fields that are still empty
+        setCustomer((p) => ({
             ...p,
-            name: lead.customer?.name || '',
-            contactNo: lead.customer?.phone || '',
-            address: lead.location?.address || '',
-            city: lead.location?.city || '',
+            name: p.name || lead.customer?.name || '',
+            contactNo: p.contactNo || lead.customer?.phone || '',
+            address: p.address || lead.location?.address || '',
+            city: p.city || lead.location?.city || '',
         }));
-        setVehicle(p => ({
+        setVehicle((p) => ({
             ...p,
-            brand: lead.vehicle?.brand || '',
-            model: lead.vehicle?.model || '',
+            brand: p.brand || lead.vehicle?.brand || '',
+            model: p.model || lead.vehicle?.model || '',
         }));
-    }, [lead?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+    };
+
+    const handleRemoveLead = () => {
+        setLinkedLead(null);
+        setLeadTouched(true);
+    };
 
     const savePart = item => {
         if (editIdx !== null) setParts(p => p.map((x, i) => i === editIdx ? item : x));
@@ -699,6 +771,8 @@ export default function CreateInvoiceScreen({ navigation, route }) {
         setAmountPaid('');
         setRzpPayId('');
         setRzpOrdId('');
+        setLinkedLead(null);
+        setLeadTouched(false);
     };
 
     const handleSubmit = async () => {
@@ -798,8 +872,6 @@ export default function CreateInvoiceScreen({ navigation, route }) {
             // Remove discountType if discount is zero
             if (!payload.total.discountType) delete payload.total.discountType;
 
-            if (leadId) payload.leadId = leadId;
-
             // Business details sent ONLY if GST toggle is ON
             if (!gstEnabled) {
                 delete payload.businessDetails;
@@ -829,11 +901,18 @@ export default function CreateInvoiceScreen({ navigation, route }) {
 
 
 
+            // Lead link: on create send it when chosen; on edit only when the user changed it
+            // (null removes an existing link).
+            if (isEditing) {
+                if (leadTouched) payload.leadId = linkedLead?._id || null;
+            } else if (linkedLead?._id) {
+                payload.leadId = linkedLead._id;
+            }
+
             if (isEditing) {
                 await axiosClient.put(`/api/manual-invoices/${invoiceId}`, payload);
             } else {
                 await axiosClient.post('/api/manual-invoices', payload);
-                if (leadId) leadEvents.emit(); // lead is now booked + linked
             }
             if (isEditing) {
                 Alert.alert('Updated', 'Invoice has been updated.', [
@@ -849,7 +928,7 @@ export default function CreateInvoiceScreen({ navigation, route }) {
             console.error('Invoice creation error', error);
             const message = error.response?.data?.message || error.message || 'Network error';
             if (error.response?.status === 409) {
-                Alert.alert('Duplicate Invoice', message || 'Invoice number already exists. Please try again.');
+                Alert.alert('Conflict', message.includes('already') ? message : 'Invoice number already exists. Please try again.');
             } else if (error.response?.status === 400) {
                 Alert.alert('Validation Error', message);
             } else {
@@ -890,20 +969,13 @@ export default function CreateInvoiceScreen({ navigation, route }) {
                         trackColor={{ false: C.border, true: C.primary + '55' }} />
                 </View>
 
-                {/* Linked lead (telecaller flow) */}
-                {leadId && (
-                    <View style={{
-                        flexDirection: 'row', alignItems: 'center', gap: 10,
-                        padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 14,
-                        backgroundColor: C.primary + '12', borderColor: C.primary + '45',
-                    }}>
-                        <Ionicons name="link-outline" size={18} color={C.primary} />
-                        <Text style={{ flex: 1, fontSize: 13, color: C.textSecondary, lineHeight: 18 }}>
-                            Linked to lead <Text style={{ fontWeight: '800', color: C.textPrimary }}>{lead.customer?.name}</Text>.
-                            Saving this invoice marks the lead as booked.
-                        </Text>
-                    </View>
-                )}
+                {/* Linked lead (optional) */}
+                <LinkedLeadCard
+                    lead={linkedLead}
+                    onPick={() => setPickerOpen(true)}
+                    onRemove={handleRemoveLead}
+                    theme={theme}
+                />
 
                 {/* Customer */}
                 <SectionCard title="Customer" icon="person-outline" theme={theme}>
@@ -1109,6 +1181,12 @@ export default function CreateInvoiceScreen({ navigation, route }) {
                 type={drawerType}
                 editItem={editItem}
                 theme={theme}
+            />
+
+            <LeadPickerModal
+                visible={pickerOpen}
+                onClose={() => setPickerOpen(false)}
+                onSelect={handleSelectLead}
             />
         </ScreenWrapper>
     );

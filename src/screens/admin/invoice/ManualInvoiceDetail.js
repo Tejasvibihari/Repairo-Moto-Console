@@ -146,7 +146,7 @@ const LineItem = ({ item, type, C, isDark, isLast }) => {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ManualInvoiceDetail({ route, navigation }) {
-    const { invoiceId } = route.params || {};
+    const { invoiceId, readOnly = false } = route.params || {};
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const C = theme.colors;
@@ -427,17 +427,19 @@ export default function ManualInvoiceDetail({ route, navigation }) {
             rightSlot={
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                     {/* Edit */}
-                    <TouchableOpacity
-                        onPress={handleEdit}
-                        style={[
-                            topBtnS.btn,
-                            { backgroundColor: isDark ? C.surfaceHigh : C.surfaceLow, borderColor: C.border },
-                        ]}
-                        activeOpacity={0.75}
-                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                    >
-                        <Ionicons name="create-outline" size={17} color={C.primary} />
-                    </TouchableOpacity>
+                    {!readOnly && (
+                        <TouchableOpacity
+                            onPress={handleEdit}
+                            style={[
+                                topBtnS.btn,
+                                { backgroundColor: isDark ? C.surfaceHigh : C.surfaceLow, borderColor: C.border },
+                            ]}
+                            activeOpacity={0.75}
+                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                            <Ionicons name="create-outline" size={17} color={C.primary} />
+                        </TouchableOpacity>
+                    )}
                     {/* Share */}
                     <TouchableOpacity
                         onPress={handleShare}
@@ -459,6 +461,22 @@ export default function ManualInvoiceDetail({ route, navigation }) {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={detailS.scroll}
             >
+                {/* ── Linked lead (populated by the API) ─────────────────────── */}
+                {!!invoice.leadId?.customer && (
+                    <SectionCard C={C} isDark={isDark}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <Ionicons name="link-outline" size={17} color={C.primary} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ color: C.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.8 }}>LINKED LEAD</Text>
+                                <Text style={{ color: C.textPrimary, fontSize: 14.5, fontWeight: '800', marginTop: 2 }} numberOfLines={1}>
+                                    {invoice.leadId.customer?.name}
+                                    {invoice.leadId.customer?.phone ? `  ·  ${invoice.leadId.customer.phone}` : ''}
+                                </Text>
+                            </View>
+                        </View>
+                    </SectionCard>
+                )}
+
                 {/* ── Hero card: Invoice # + status ─────────────────────────── */}
                 <SectionCard C={C} isDark={isDark} style={detailS.heroCard}>
                     <View style={detailS.heroTop}>
@@ -697,6 +715,7 @@ export default function ManualInvoiceDetail({ route, navigation }) {
                 )}
 
                 {/* ── Edit button at bottom ──────────────────────────────────── */}
+                {!readOnly && (
                 <TouchableOpacity
                     onPress={handleEdit}
                     style={[detailS.editFullBtn, { backgroundColor: isDark ? C.surfaceHigh : C.surfaceLow, borderColor: C.border }]}
@@ -705,6 +724,7 @@ export default function ManualInvoiceDetail({ route, navigation }) {
                     <Ionicons name="create-outline" size={18} color={C.primary} />
                     <Text style={[detailS.editFullBtnText, { color: C.primary }]}>Edit Invoice</Text>
                 </TouchableOpacity>
+                )}
 
                 <View style={{ height: 40 }} />
             </Animated.ScrollView>

@@ -13,6 +13,8 @@ import axiosClient from '../../../services/axiosClient';
 import ManualInvoiceCard from '../../../components/admin/invoice/ManualInvoiceCard';
 import ManualInvoiceFilter from '../../../components/admin/invoice/ManualInvoiceFilter';
 
+const PAGE_SIZE = 20;
+
 // ─── Sort param mapper ────────────────────────────────────────────────────────
 const SORT_MAP = {
     newest: '-invoiceDate',
@@ -101,9 +103,16 @@ export default function InvoiceScreen({ navigation }) {
     const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [total, setTotal] = useState(0);
     const [search, setSearch] = useState('');
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
+
+    // Refs keep pagination race-free: onEndReached can fire several times
+    // before React re-renders, so state alone can't guard against it.
+    const invoicesRef = useRef([]);
+    const hasMoreRef = useRef(true);
+    const loadingMoreRef = useRef(false);
+    const requestSeq = useRef(0);
     const [filterVisible, setFilterVisible] = useState(false);
     const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
 
@@ -131,14 +140,27 @@ export default function InvoiceScreen({ navigation }) {
     const hasActiveFilters = activeFilterCount > 0 || debouncedSearch.length > 0;
 
     // ── Fetch ──────────────────────────────────────────────────────────────────
-    const fetchInvoices = useCallback(async (pg = 1, refresh = false) => {
-        if (pg === 1) {
-            refresh ? setRefreshing(true) : setLoading(true);
+    // mode: 'initial' (spinner) | 'refresh' (pull-to-refresh) |
+    //       'silent' (on screen focus, keeps the pages already loaded) |
+    //       'more' (next page)
+    const load = useCallback(async (mode = 'initial') => {
+        if (mode === 'more') {
+            if (loadingMoreRef.current || !hasMoreRef.current) return;
+            loadingMoreRef.current = true;
+            setLoadingMore(true);
+        } else {
+            requestSeq.current += 1; // invalidates anything still in flight
+            if (mode === 'initial') setLoading(true);
+            if (mode === 'refresh') setRefreshing(true);
         }
+        const seq = requestSeq.current;
 
         try {
-            const params = new URLSearchParams({ page: pg, limit: 20 });
+            const loaded = invoicesRef.current.length;
+            const page = mode === 'more' ? Math.floor(loaded / PAGE_SIZE) + 1 : 1;
+            const limit = mode === 'silent' ? Math.max(PAGE_SIZE, loaded) : PAGE_SIZE;
 
+            const params = new URLSearchParams({ page, limit });
             if (filters.status && filters.status !== 'all') params.append('status', filters.status);
             if (SORT_MAP[filters.sortBy]) params.append('sortBy', SORT_MAP[filters.sortBy]);
             if (debouncedSearch) params.append('search', debouncedSearch);
@@ -149,33 +171,55 @@ export default function InvoiceScreen({ navigation }) {
             if (filters.endDate) params.append('endDate', filters.endDate);
 
             const res = await axiosClient.get(`/api/manual-invoices?${params.toString()}`);
-            const data = res.data;
-            const items = data.data || data.invoices || [];
-            setInvoices((prev) => (pg === 1 ? items : [...prev, ...items]));
-            setHasMore(items.length === 20);
-            setPage(pg);
+            if (seq !== requestSeq.current) return; // a newer reset superseded this one
+
+            const items = res.data?.data || res.data?.invoices || [];
+            const serverTotal = res.data?.pagination?.total;
+
+            let next = items;
+            if (mode === 'more') {
+                const seen = new Set(invoicesRef.current.map((i) => i._id));
+                next = [...invoicesRef.current, ...items.filter((i) => !seen.has(i._id))];
+            }
+
+            let more = typeof serverTotal === 'number' ? next.length < serverTotal : items.length === limit;
+            if (mode === 'more' && next.length === loaded) more = false; // nothing new → stop
+
+            invoicesRef.current = next;
+            hasMoreRef.current = more;
+            setInvoices(next);
+            if (typeof serverTotal === 'number') setTotal(serverTotal);
         } catch (err) {
             console.error('Fetch invoices failed', err);
         } finally {
-            setLoading(false);
-            setRefreshing(false);
+            if (mode === 'more') {
+                loadingMoreRef.current = false;
+                setLoadingMore(false);
+            } else if (seq === requestSeq.current) {
+                setLoading(false);
+                setRefreshing(false);
+            }
         }
     }, [filters, debouncedSearch]);
 
-    // Refresh on screen focus
+    const loadRef = useRef(load);
+    loadRef.current = load;
+
+    // First load, and again whenever filters / search change
+    useEffect(() => { load('initial'); }, [load]);
+
+    // Coming back to this screen (e.g. after editing an invoice): refresh in
+    // place without losing the pages already scrolled through.
+    const hasFocusedOnce = useRef(false);
     useFocusEffect(
         useCallback(() => {
-            fetchInvoices(1);
-        }, [fetchInvoices])
+            if (hasFocusedOnce.current) loadRef.current('silent');
+            hasFocusedOnce.current = true;
+        }, [])
     );
 
-    // Re-fetch when filters or search change
-    useEffect(() => {
-        fetchInvoices(1);
-    }, [filters, debouncedSearch]);
-
-    const handleRefresh = () => fetchInvoices(1, true);
-    const handleLoadMore = () => { if (hasMore && !loading) fetchInvoices(page + 1); };
+    const handleRefresh = () => load('refresh');
+    const handleLoadMore = () => load('more');
 
     const handleApplyFilters = (newFilters) => {
         setFilters(newFilters);
@@ -289,8 +333,14 @@ export default function InvoiceScreen({ navigation }) {
                     </View>
                 )}
 
+                {!loading && total > 0 && (
+                    <Text style={{ color: C.textMuted, fontSize: 11.5, fontWeight: '600', marginBottom: 6 }}>
+                        Showing {invoices.length} of {total} invoices
+                    </Text>
+                )}
+
                 {/* ── Invoice list ──────────────────────────────────────────── */}
-                {loading && page === 1 ? (
+                {loading ? (
                     <View style={mainS.loadingWrap}>
                         <ActivityIndicator size="large" color={C.primary} />
                     </View>
@@ -318,7 +368,7 @@ export default function InvoiceScreen({ navigation }) {
                             />
                         }
                         ListFooterComponent={
-                            loading && page > 1
+                            loadingMore
                                 ? <ActivityIndicator size="small" color={C.primary} style={{ marginVertical: 16 }} />
                                 : null
                         }
