@@ -19,6 +19,7 @@ import { LightTheme, DarkTheme } from '../styles/Theme';
 import { logout, selectUserRole } from '../store/slices/authSlice';
 import { getImageUrl } from '../utils/imageUtils';
 import { ROLE_CATEGORY } from '../constants/roles';
+import { isTelecaller } from '../utils/leadUtils';
 
 import AdminBannerNavigator from './AdminBannerNavigator';
 
@@ -28,6 +29,7 @@ import PopUp from '../components/common/PopUp';
 // Screen imports (Role-specific Bottom Navigators)
 import AdminNavigator from './admin/AdminNavigator';
 import EmployeeNavigator from './employee/EmployeeNavigator';
+import TelecallerNavigator from './telecaller/TelecallerNavigator';
 import VendorNavigator from './vendor/VendorNavigator';
 import VendorTerms from '../screens/vendor/terms/VendorTerms';
 
@@ -67,8 +69,8 @@ const getDrawerConfig = (role, user) => {
             { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
         ];
     } else if (category === 'employee') {
-        // Employee default
-        HomeNav = EmployeeNavigator;
+        // Employee default — telecallers get their own lead-management section
+        HomeNav = isTelecaller(user) ? TelecallerNavigator : EmployeeNavigator;
         if (isAuthorizedChatEmployee) {
             group1.push({ name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' });
         }
