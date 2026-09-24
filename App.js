@@ -39,10 +39,10 @@ function ThemedApp() {
   );
 }
 export default function App() {
-  // const [updateInfo, setUpdateInfo] = useVersionCheck(
-  //   process.env.EXPO_PUBLIC_API_URL || "https://api.repairomoto.in",
-  //   "console"
-  // );
+  const [updateInfo, setUpdateInfo] = useVersionCheck(
+    process.env.EXPO_PUBLIC_API_URL || "https://api.repairomoto.in",
+    "console"
+  );
 
   return (
     <Provider store={store}>
@@ -52,13 +52,13 @@ export default function App() {
             <ThemedApp />
           </NavigationContainer>
 
-          {/* <UpdateModal
+          <UpdateModal
             visible={updateInfo.visible}
             force={updateInfo.force}
             message={updateInfo.message}
             storeUrl={updateInfo.storeUrl}
             onLater={() => setUpdateInfo((prev) => ({ ...prev, visible: false }))}
-          /> */}
+          />
         </SafeAreaProvider>
       </PersistGate>
     </Provider>
