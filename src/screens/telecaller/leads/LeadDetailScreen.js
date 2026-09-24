@@ -227,14 +227,26 @@ export default function LeadDetailScreen() {
                             </TouchableOpacity>
                         </View>
 
-                        <TouchableOpacity
-                            onPress={() => setSheet({ visible: true, title: 'Update status' })}
-                            activeOpacity={0.8}
-                            style={[styles.statusBtn, { borderColor: C.border, backgroundColor: C.surfaceLow }]}
-                        >
-                            <Ionicons name="swap-horizontal-outline" size={17} color={C.textPrimary} />
-                            <Text style={{ color: C.textPrimary, fontWeight: '700', fontSize: 13.5 }}>Update status</Text>
-                        </TouchableOpacity>
+                        <View style={styles.secondaryRow}>
+                            <TouchableOpacity
+                                onPress={() => setSheet({ visible: true, title: 'Update status' })}
+                                activeOpacity={0.8}
+                                style={[styles.statusBtn, { borderColor: C.border, backgroundColor: C.surfaceLow }]}
+                            >
+                                <Ionicons name="swap-horizontal-outline" size={17} color={C.textPrimary} />
+                                <Text style={{ color: C.textPrimary, fontWeight: '700', fontSize: 13.5 }}>Update status</Text>
+                            </TouchableOpacity>
+                            {!lead.invoice?.linked && (
+                                <TouchableOpacity
+                                    onPress={() => navigation.navigate('CreateInvoice', { lead })}
+                                    activeOpacity={0.8}
+                                    style={[styles.statusBtn, { borderColor: C.primary, backgroundColor: `${C.primary}18` }]}
+                                >
+                                    <Ionicons name="receipt-outline" size={17} color={C.primary} />
+                                    <Text style={{ color: C.primary, fontWeight: '800', fontSize: 13.5 }}>Create invoice</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
 
                     {/* Follow-up */}
@@ -366,7 +378,8 @@ const styles = StyleSheet.create({
     callBtn: { flex: 1, height: 48, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
     waBtn: { flex: 1, height: 48, borderRadius: 14, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
     callBtnText: { color: '#1a1a1a', fontWeight: '800', fontSize: 15 },
-    statusBtn: { height: 44, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    secondaryRow: { flexDirection: 'row', gap: 10 },
+    statusBtn: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
     followUp: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 16, padding: 14 },
     section: { borderRadius: 18, borderWidth: 1, padding: 14, gap: 10 },
     sectionHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

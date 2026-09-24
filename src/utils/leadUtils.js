@@ -14,40 +14,9 @@ export const getLeadByName = (user) => {
     return full || user?.email || '';
 };
 
-// ── Phone helpers ─────────────────────────────────────────────────────────────
-
-export const digitsOnly = (v = '') => String(v).replace(/\D/g, '');
-
-export const isValidPhone = (v = '') => {
-    const d = digitsOnly(v);
-    return d.length >= 10 && d.length <= 13;
-};
-
-const dialNumber = (phone) => String(phone || '').replace(/[^\d+]/g, '');
-
-export const callNumber = async (phone) => {
-    const n = dialNumber(phone);
-    if (!n) return false;
-    try {
-        await Linking.openURL(`tel:${n}`);
-        return true;
-    } catch (_) {
-        Alert.alert('Cannot start the call', 'This device could not open the dialer.');
-        return false;
-    }
-};
-
-export const openWhatsApp = async (phone, text) => {
-    let d = digitsOnly(phone);
-    if (d.length === 10) d = `91${d}`; // India default
-    if (!d) return;
-    const url = `https://wa.me/${d}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
-    try {
-        await Linking.openURL(url);
-    } catch (_) {
-        Alert.alert('Cannot open WhatsApp', 'WhatsApp does not seem to be installed.');
-    }
-};
+// Phone helpers live in phoneUtils (shared with the mechanic screens);
+// re-exported here so lead screens keep a single import.
+export { digitsOnly, isValidPhone, callNumber, openWhatsApp } from './phoneUtils';
 
 export const openMap = async (location = {}) => {
     let url = location.googleMapLink;

@@ -21,6 +21,7 @@ import axiosClient from '../../../services/axiosClient';
 import PopUp from '../../../components/common/PopUp';
 import { getImageUrl } from '../../../utils/imageUtils';
 import MechanicRatingsCard from '../../../components/common/MechanicRatingCard';
+import { callNumber, digitsOnly } from '../../../utils/phoneUtils';
 
 // ─── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -1940,6 +1941,27 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                         <InfoTile icon="mail-outline" label="Email" value={email} theme={theme} />
                         <InfoTile icon="location-outline" label="City" value={city} theme={theme} />
                         {coordStr && <InfoTile icon="navigate-outline" label="Coordinates" value={coordStr} theme={theme} />}
+                        {digitsOnly(contactNo).length >= 10 && (
+                            <TouchableOpacity
+                                onPress={() => callNumber(contactNo)}
+                                activeOpacity={0.85}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Call ${name}`}
+                                style={{
+                                    height: 46,
+                                    borderRadius: 14,
+                                    backgroundColor: theme.colors.primary,
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 8,
+                                    marginTop: 2,
+                                }}
+                            >
+                                <Ionicons name="call" size={18} color="#1a1a1a" />
+                                <Text style={{ color: '#1a1a1a', fontWeight: '800', fontSize: 14.5 }}>Call customer</Text>
+                            </TouchableOpacity>
+                        )}
                     </Card>
 
                     {/* Appointment */}

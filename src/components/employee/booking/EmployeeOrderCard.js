@@ -9,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { LightTheme, DarkTheme } from '../../../styles/Theme'; // adjust path as needed
+import { callNumber, digitsOnly } from '../../../utils/phoneUtils';
 
 // ── Status config ──────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -106,17 +107,32 @@ export default function EmployeeOrderCard({ order, onPress, index = 0 }) {
                 {/* ── Divider ── */}
                 <View style={[cardStyles.divider, { backgroundColor: theme.colors.border }]} />
 
-                {/* ── Customer info ── */}
-                <View style={cardStyles.infoRow}>
-                    <Ionicons name="person-outline" size={14} color={theme.colors.textMuted} />
-                    <Text style={[cardStyles.infoText, { color: theme.colors.textPrimary }]} numberOfLines={1}>
-                        {order.name}
-                    </Text>
-                    <Text style={[cardStyles.dot, { color: theme.colors.textMuted }]}>·</Text>
-                    <Ionicons name="call-outline" size={14} color={theme.colors.textMuted} />
-                    <Text style={[cardStyles.infoText, { color: theme.colors.textSecondary }]}>
-                        {order.contactNo}
-                    </Text>
+                {/* ── Customer info + call button ── */}
+                <View style={cardStyles.customerRow}>
+                    <View style={[cardStyles.infoRow, { flex: 1 }]}>
+                        <Ionicons name="person-outline" size={14} color={theme.colors.textMuted} />
+                        <Text style={[cardStyles.infoText, { color: theme.colors.textPrimary, flexShrink: 1 }]} numberOfLines={1}>
+                            {order.name}
+                        </Text>
+                        <Text style={[cardStyles.dot, { color: theme.colors.textMuted }]}>·</Text>
+                        <Text style={[cardStyles.infoText, { color: theme.colors.textSecondary }]}>
+                            {order.contactNo}
+                        </Text>
+                    </View>
+                    {digitsOnly(order.contactNo).length >= 10 && (
+                        // Its own touchable, so tapping it opens the dialer
+                        // and does not open the order.
+                        <TouchableOpacity
+                            onPress={() => callNumber(order.contactNo)}
+                            activeOpacity={0.8}
+                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Call ${order.name || 'customer'}`}
+                            style={[cardStyles.callBtn, { backgroundColor: theme.colors.primary }]}
+                        >
+                            <Ionicons name="call" size={16} color="#1a1a1a" />
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {/* ── Bike info ── */}
@@ -220,6 +236,18 @@ const cardStyles = StyleSheet.create({
     },
     divider: {
         height: StyleSheet.hairlineWidth,
+    },
+    customerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    callBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     infoRow: {
         flexDirection: 'row',
