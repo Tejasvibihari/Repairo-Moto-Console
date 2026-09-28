@@ -11,7 +11,7 @@ import {
     markAsRead, markAllAsRead, setNotifications,
 } from '../../store/slices/notificationSlice';
 import { selectUser } from '../../store/slices/authSlice';
-import { openOrderFromNotification, ORDER_NOTIFICATION_TYPES } from '../../navigation/navigationRef';
+import { openOrderFromNotification, openChatFromNotification, ORDER_NOTIFICATION_TYPES } from '../../navigation/navigationRef';
 import { notificationService } from '../../services/notificationService';
 import { LightTheme, DarkTheme } from '../../styles/Theme';
 import ScreenWrapper from '../../components/common/ScreenWrapper';
@@ -42,6 +42,7 @@ const TYPE_META = {
     work_complete_otp: { icon: 'key-outline', color: '#9E8E78' },
     order_confirmed_complete: { icon: 'checkmark-done-outline', color: '#2ECC9A' },
     payment_received: { icon: 'cash-outline', color: '#2ECC9A' },
+    chat: { icon: 'chatbubble-ellipses-outline', color: '#3498DB' },
     general: { icon: 'notifications-outline', color: '#9E8E78' },
 };
 
@@ -140,6 +141,15 @@ export default function NotificationsScreen({ navigation }) {
         // For order-related notifications, navigate to order detail
         const orderId = item.orderId || item.data?.orderId;
         if (!orderId) return;
+
+        if (item.type === 'chat') {
+            openChatFromNotification({
+                orderId,
+                screenOrderId: item.data?.screenOrderId,
+                customerName: item.data?.customerName,
+            });
+            return;
+        }
 
         if (ORDER_NOTIFICATION_TYPES.includes(item.type)) {
             openOrderFromNotification(user, { orderId, screenOrderId: item.data?.screenOrderId });

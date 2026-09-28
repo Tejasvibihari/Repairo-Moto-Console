@@ -52,3 +52,19 @@ export async function openOrderFromNotification(user, { orderId, screenOrderId }
     navigationRef.navigate('AdminHome', { screen: 'EmployeeOrderDetail', params: { orderId, screenOrderId } });
     return true;
 }
+
+/**
+ * Open the support-chat conversation for a "customer sent a message" notification.
+ * Chat Support is a drawer screen shared by admins, managers and telecallers.
+ * `initial: false` keeps the chat list underneath so Back returns to it.
+ * Returns true if navigation happened, false if the navigator is not ready yet.
+ */
+export function openChatFromNotification({ orderId, screenOrderId, customerName }) {
+    if (!orderId || !navigationRef.isReady()) return false;
+    navigationRef.navigate('AdminSupport', {
+        screen: 'AdminChatDetail',
+        params: { orderId, orderNumber: screenOrderId, customerName },
+        initial: false,
+    });
+    return true;
+}

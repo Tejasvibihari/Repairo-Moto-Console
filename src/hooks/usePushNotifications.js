@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { setExpoPushToken, addNotification } from '../store/slices/notificationSlice';
 import { selectIsAuthenticated, selectUser } from '../store/slices/authSlice';
-import { openOrderFromNotification, ORDER_NOTIFICATION_TYPES } from '../navigation/navigationRef';
+import { openOrderFromNotification, openChatFromNotification, ORDER_NOTIFICATION_TYPES } from '../navigation/navigationRef';
 import { notificationService } from '../services/notificationService';
 
 // How notifications appear when app is in foreground
@@ -50,7 +50,18 @@ export function usePushNotifications() {
         // Retries briefly because on a cold start the navigator may not be ready yet.
         const openFromResponse = async (response) => {
             const data = response?.notification?.request?.content?.data;
-            if (!data?.orderId || !ORDER_NOTIFICATION_TYPES.includes(data.type || 'general')) return;
+            if (!data?.orderId) return;
+
+            // Customer support chat → open that conversation
+            if (data.type === 'chat') {
+                for (let i = 0; i < 20; i++) {
+                    if (openChatFromNotification(data)) return;
+                    await new Promise(r => setTimeout(r, 250));
+                }
+                return;
+            }
+
+            if (!ORDER_NOTIFICATION_TYPES.includes(data.type || 'general')) return;
             for (let i = 0; i < 20; i++) {
                 if (await openOrderFromNotification(userRef.current, data)) return;
                 await new Promise(r => setTimeout(r, 250));

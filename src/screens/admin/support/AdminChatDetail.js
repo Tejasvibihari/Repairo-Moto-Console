@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
+import { useIsFocused } from '@react-navigation/native';
 import useAdminChat from '../../../hooks/useAdminChat';
 
 function formatTime(ts) {
@@ -97,7 +98,8 @@ export default function AdminChatDetail({ route, navigation }) {
     const isDark = mode === 'dark';
     const insets = useSafeAreaInsets();
 
-    const { messages, loading, sending, connected, userTyping, hasMore, sendMessage, sendTyping, loadMore } = useAdminChat(orderId);
+    const isFocused = useIsFocused();
+    const { messages, loading, sending, connected, userTyping, hasMore, sendMessage, sendTyping, loadMore } = useAdminChat(orderId, isFocused);
 
     const [inputText, setInputText] = useState('');
     const [inputHeight, setInputHeight] = useState(0);

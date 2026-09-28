@@ -1,6 +1,7 @@
 // hooks/useAdminChat.js
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { AppState } from 'react-native';
 import { io } from 'socket.io-client';
 import { useSelector } from 'react-redux';
 import axiosClient from '../services/axiosClient';
@@ -11,7 +12,7 @@ const SOCKET_URL =
     Constants.expoConfig?.extra?.apiUrl ||
     'https://api.repairomoto.in';
 
-export default function useAdminChat(orderId) {
+export default function useAdminChat(orderId, isFocused = true) {
     const token = useSelector((s) => s.auth.token);
     const userRole = useSelector((s) => s.auth.user?.role || s.auth.role);
 
@@ -25,6 +26,9 @@ export default function useAdminChat(orderId) {
     const [userTyping, setUserTyping] = useState(false);
 
     const socketRef = useRef(null);
+    const focusedRef = useRef(isFocused);
+    focusedRef.current = isFocused;
+    const announceRef = useRef(() => { });
     const joinedRef = useRef(false);
     const pendingTempIds = useRef(new Set());
     const userTypingTimer = useRef(null);
@@ -72,6 +76,17 @@ export default function useAdminChat(orderId) {
         });
         socketRef.current = socket;
 
+        // Tell the server whether this chat is really on screen. While it is, the server
+        // skips the push for this person; in the background (or on the chat list) it sends it.
+        // The drawer keeps this screen mounted after you navigate away, so "visible"
+        // means: app in foreground AND this screen focused.
+        const announceVisibility = () => {
+            if (!joinedRef.current) return;
+            const visible = AppState.currentState === 'active' && focusedRef.current;
+            socket.emit('chat-visibility', { orderId: orderId.toString(), visible });
+        };
+        announceRef.current = announceVisibility;
+
         socket.on('connect', () => {
             setConnected(true);
             setError(null);
@@ -81,10 +96,14 @@ export default function useAdminChat(orderId) {
                     if (ack?.error) {
                         setError(ack.error);
                         joinedRef.current = false;
+                    } else {
+                        announceVisibility();
                     }
                 });
             }
         });
+
+        const appStateSub = AppState.addEventListener('change', () => announceVisibility());
 
         socket.on('disconnect', () => {
             setConnected(false);
@@ -132,12 +151,18 @@ export default function useAdminChat(orderId) {
         });
 
         return () => {
+            appStateSub.remove();
             joinedRef.current = false;
             pendingTempIds.current.clear();
             socket.disconnect();
             socketRef.current = null;
         };
     }, [orderId, token]);
+
+    // Re-announce when the screen gains/loses focus
+    useEffect(() => {
+        announceRef.current();
+    }, [isFocused]);
 
     // ── Send message ─────────────────────────────────────────────────────────
     const sendMessage = useCallback(async (text, attachments = []) => {
