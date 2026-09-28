@@ -12,6 +12,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import axiosClient from '../../../services/axiosClient';
 import InvoiceModal from '../../../components/admin/order/InvoiceModal';
 import AssignmentPanel from '../../../components/admin/order/AssignmentPanel';
+import RescheduleModal, { canRescheduleStatus } from '../../../components/admin/order/RescheduleModal';
 import useEmployee from '../../../hooks/useEmployee';
 import useVendor from '../../../hooks/useVendor';
 import useOrder from '../../../hooks/useOrder';
@@ -777,6 +778,8 @@ export default function AdminOrderDetail({ route, navigation }) {
 
     const [forceModalVisible, setForceModalVisible] = useState(false);
     const [codModalVisible, setCodModalVisible] = useState(false);
+    const [rescheduleVisible, setRescheduleVisible] = useState(false);
+    const [rescheduling, setRescheduling] = useState(false);
     const [useGstInvoice, setUseGstInvoice] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -875,6 +878,22 @@ export default function AdminOrderDetail({ route, navigation }) {
             setCodModalVisible(false);
         }
     }, [order]);
+
+    const handleReschedule = useCallback(async ({ preferredDate, preferredTime, reason }) => {
+        if (!order?._id) return;
+        try {
+            setRescheduling(true);
+            await axiosClient.put(`/api/admin/order/reschedule/${order._id}`, { preferredDate, preferredTime, reason });
+            setRescheduleVisible(false);
+            await fetchOrder();
+            showAlert('Rescheduled', `Booking moved to ${preferredDate} at ${preferredTime}. The customer and assigned mechanic(s) have been notified.`);
+        } catch (err) {
+            setRescheduleVisible(false);
+            showAlert('Error', err.response?.data?.message || 'Failed to reschedule booking');
+        } finally {
+            setRescheduling(false);
+        }
+    }, [order, fetchOrder]);
 
     const handlePanelClose = useCallback(() => { setPanelVisible(false); fetchOrder(); }, [fetchOrder]);
 
@@ -1126,6 +1145,17 @@ export default function AdminOrderDetail({ route, navigation }) {
                                 </View>
                             ))}
                         </View>
+
+                        {canRescheduleStatus(order.status) && (
+                            <TouchableOpacity
+                                style={[styles.rescheduleBtn, { borderColor: theme.colors.primary + '66', backgroundColor: theme.colors.primary + '14' }]}
+                                onPress={() => setRescheduleVisible(true)}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="calendar-outline" size={16} color={theme.colors.primary} />
+                                <Text style={[styles.rescheduleLabel, { color: theme.colors.primary }]}>Reschedule Booking</Text>
+                            </TouchableOpacity>
+                        )}
                     </Card>
 
                     {/* Financial Breakdown */}
@@ -1301,6 +1331,18 @@ export default function AdminOrderDetail({ route, navigation }) {
                 onClose={() => setFullScreenImage({ visible: false, images: [], index: 0 })}
                 theme={theme}
             />
+            <RescheduleModal
+                visible={rescheduleVisible}
+                onClose={() => setRescheduleVisible(false)}
+                onSubmit={handleReschedule}
+                loading={rescheduling}
+                theme={theme}
+                isDark={mode === 'dark'}
+                currentDate={order?.preferredDate}
+                currentTime={order?.preferredTime}
+                subtitle="Assign a new date and time. The customer and mechanic(s) are notified."
+                reasonPlaceholder="e.g. Mechanic unavailable, customer requested change"
+            />
             <ForceStatusModal
                 visible={forceModalVisible}
                 onClose={() => setForceModalVisible(false)}
@@ -1375,6 +1417,8 @@ const styles = StyleSheet.create({
     serviceTypeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, marginTop: 8 },
     serviceTypeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
     logisticsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    rescheduleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, paddingVertical: 12, borderRadius: 14, borderWidth: 1 },
+    rescheduleLabel: { fontSize: 13, fontWeight: '800' },
     logisticsCell: { flex: 1, minWidth: 140 },
     logisticsCellInner: { borderRadius: 12, borderWidth: 1, padding: 12, gap: 4, alignItems: 'flex-start' },
     logisticsLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 1, marginTop: 4 },

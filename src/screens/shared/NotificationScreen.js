@@ -30,6 +30,7 @@ const TYPE_META = {
     order_assigned: { icon: 'person-add-outline', color: '#6C9EE5' },
     order_update: { icon: 'refresh-circle-outline', color: '#2ECC9A' },
     order_cancelled: { icon: 'close-circle-outline', color: '#FF6B6B' },
+    order_rescheduled: { icon: 'calendar-outline', color: '#E2A731' },
     invoice_generated: { icon: 'document-text-outline', color: '#9B59B6' },
     delivery_update: { icon: 'bicycle-outline', color: '#3498DB' },
     delivery_assigned: { icon: 'bicycle', color: '#2980B9' },
@@ -133,7 +134,7 @@ export default function NotificationsScreen({ navigation }) {
         const orderId = item.orderId || item.data?.orderId;
         if (!orderId) return;
 
-        if (['new_order', 'order_update', 'order_cancelled', 'order_assigned', 'mechanic_assigned', 'delivery_assigned', 'invoice_generated', 'delivery_update'].includes(item.type)) {
+        if (['new_order', 'order_update', 'order_cancelled', 'order_rescheduled', 'order_assigned', 'mechanic_assigned', 'delivery_assigned', 'invoice_generated', 'delivery_update'].includes(item.type)) {
             const isAdmin = role === 'admin' || role === 'Admin';
             navigation.navigate('AdminHome', {
                 screen: isAdmin ? 'AdminOrderDetail' : 'EmployeeOrderDetail',
