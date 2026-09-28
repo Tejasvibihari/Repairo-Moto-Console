@@ -3,7 +3,7 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSelector } from 'react-redux';
 import { LightTheme, DarkTheme } from '../../styles/Theme';
 
-export default function PopUp({ visible, title, message, primaryLabel, secondaryLabel, onPrimary, onSecondary, onClose }) {
+export default function PopUp({ visible, title, message, primaryLabel, secondaryLabel, onPrimary, onSecondary, onClose, primaryColor }) {
     const mode = useSelector((state) => state.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const colors = theme.colors;
@@ -17,10 +17,12 @@ export default function PopUp({ visible, title, message, primaryLabel, secondary
                     <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
                     <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
                     <View style={styles.actions}>
-                        <TouchableOpacity style={styles.secondaryBtn} onPress={onSecondary}>
-                            <Text style={{ color: colors.textPrimary }}>{secondaryLabel}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: colors.error }]} onPress={onPrimary}>
+                        {!!secondaryLabel && (
+                            <TouchableOpacity style={styles.secondaryBtn} onPress={onSecondary}>
+                                <Text style={{ color: colors.textPrimary }}>{secondaryLabel}</Text>
+                            </TouchableOpacity>
+                        )}
+                        <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: primaryColor || colors.error }]} onPress={onPrimary}>
                             <Text style={styles.primaryText}>{primaryLabel}</Text>
                         </TouchableOpacity>
                     </View>

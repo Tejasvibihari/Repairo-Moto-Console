@@ -22,6 +22,7 @@ import { ROLE_CATEGORY } from '../constants/roles';
 import { isTelecaller } from '../utils/leadUtils';
 
 import AdminBannerNavigator from './AdminBannerNavigator';
+import AdminNotificationNavigator from './AdminNotificationNavigator';
 
 // Import our common PopUp (or create a dummy one if it doesn't exist)
 import PopUp from '../components/common/PopUp';
@@ -65,6 +66,7 @@ const getDrawerConfig = (role, user) => {
             { name: 'Invoices', label: 'Invoices', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
             { name: 'Coupons', label: 'Coupons', icon: 'pricetag-outline', iconActive: 'pricetag', lib: 'ion' },
             { name: 'Banners', label: 'Banners', icon: 'images-outline', iconActive: 'images', lib: 'ion' },   // ← add this
+            { name: 'AdminNotifications', label: 'Send Notifications', icon: 'megaphone-outline', iconActive: 'megaphone', lib: 'ion' },
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
             { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
         ];
@@ -400,6 +402,7 @@ export default function DrawerNavigator() {
             <Drawer.Screen name="Invoices" component={InvoiceScreen} />
             <Drawer.Screen name="Coupons" component={AdminCouponNavigator} />
             <Drawer.Screen name="Banners" component={AdminBannerNavigator} />
+            <Drawer.Screen name="AdminNotifications" component={AdminNotificationNavigator} />
         </Drawer.Navigator>
     );
 }

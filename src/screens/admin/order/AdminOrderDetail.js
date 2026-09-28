@@ -13,6 +13,7 @@ import axiosClient from '../../../services/axiosClient';
 import InvoiceModal from '../../../components/admin/order/InvoiceModal';
 import AssignmentPanel from '../../../components/admin/order/AssignmentPanel';
 import RescheduleModal, { canRescheduleStatus } from '../../../components/admin/order/RescheduleModal';
+import FollowUpReminderCard from '../../../components/admin/order/FollowUpReminderCard';
 import CancelOrderModal from '../../../components/admin/order/CancelOrderModal';
 import useEmployee from '../../../hooks/useEmployee';
 import useVendor from '../../../hooks/useVendor';
@@ -1212,6 +1213,8 @@ export default function AdminOrderDetail({ route, navigation }) {
                                 <Text style={[styles.rescheduleLabel, { color: theme.colors.primary }]}>Reschedule Booking</Text>
                             </TouchableOpacity>
                         )}
+
+                        <FollowUpReminderCard order={order} theme={theme} onChanged={fetchOrder} showAlert={showAlert} />
 
                         {['Pending', 'Mechanic Assigned'].includes(order.status) && (
                             <TouchableOpacity
