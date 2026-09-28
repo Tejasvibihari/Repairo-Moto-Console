@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:736259594301:android:f46bfd0f63aa3417e4f254",
+        "android_client_info": {
+          "package_name": "com.roottechnology.repairoMotoApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDnLfJ5gARdfFpjFG7DldpNEXUfSItehXo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:736259594301:android:45d58e1044c3eb50e4f254",
         "android_client_info": {
           "package_name": "com.roottechnology.repairomotoconsole"
