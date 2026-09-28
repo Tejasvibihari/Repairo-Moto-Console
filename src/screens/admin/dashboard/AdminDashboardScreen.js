@@ -337,6 +337,165 @@ const payStyles = StyleSheet.create({
     note: { fontSize: 11, marginTop: 8, textAlign: 'center' },
 });
 
+// ── Manual Invoices card ──────────────────────────────────────────────────────
+const INVOICE_META = [
+    { key: 'paid', label: 'Paid', color: '#10B981' },
+    { key: 'unpaid', label: 'Unpaid', color: '#EF4444' },
+    { key: 'draft', label: 'Draft', color: '#F59E0B' },
+    { key: 'cancelled', label: 'Cancelled', color: '#9CA3AF' },
+];
+
+const ManualInvoicesCard = ({ invoices, theme, onSeeAll }) => {
+    const inv = invoices || {};
+    return (
+        <View>
+            <SectionHeader title="Manual Invoices" theme={theme} action="See All" onAction={onSeeAll} />
+            <View style={[miStyles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                <View style={miStyles.topRow}>
+                    <View style={[miStyles.iconBox, { backgroundColor: `${theme.colors.primary}22` }]}>
+                        <Ionicons name="document-text-outline" size={22} color={theme.colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={[miStyles.total, { color: theme.colors.textPrimary }]}>{formatNum(inv.total ?? 0)}</Text>
+                        <Text style={[miStyles.totalLabel, { color: theme.colors.textMuted }]}>Total manual invoices</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={[miStyles.amount, { color: theme.colors.textPrimary }]}>{formatCurrency(inv.billedAmount ?? 0)}</Text>
+                        <Text style={[miStyles.totalLabel, { color: theme.colors.textMuted }]}>Billed</Text>
+                    </View>
+                </View>
+
+                <View style={miStyles.statRow}>
+                    {INVOICE_META.map((m) => (
+                        <View key={m.key} style={[miStyles.stat, { backgroundColor: theme.colors.surfaceLow }]}>
+                            <View style={[miStyles.dot, { backgroundColor: m.color }]} />
+                            <Text style={[miStyles.statCount, { color: theme.colors.textPrimary }]}>{inv[m.key] ?? 0}</Text>
+                            <Text style={[miStyles.statLabel, { color: theme.colors.textMuted }]}>{m.label}</Text>
+                        </View>
+                    ))}
+                </View>
+
+                {(inv.unpaidAmount > 0 || inv.paidAmount > 0) && (
+                    <Text style={[miStyles.note, { color: theme.colors.textMuted }]}>
+                        <Text style={{ color: '#10B981', fontWeight: '700' }}>{formatCurrency(inv.paidAmount)}</Text> paid
+                        {inv.unpaidAmount > 0 && (
+                            <Text> · <Text style={{ color: '#EF4444', fontWeight: '700' }}>{formatCurrency(inv.unpaidAmount)}</Text> unpaid</Text>
+                        )}
+                    </Text>
+                )}
+            </View>
+        </View>
+    );
+};
+
+const miStyles = StyleSheet.create({
+    card: { borderRadius: 20, borderWidth: 1, padding: 16, gap: 14 },
+    topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    iconBox: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    total: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, lineHeight: 30 },
+    totalLabel: { fontSize: 11.5, fontWeight: '500', letterSpacing: 0.2 },
+    amount: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+    statRow: { flexDirection: 'row', gap: 8 },
+    stat: { flex: 1, borderRadius: 14, paddingVertical: 10, alignItems: 'center', gap: 3 },
+    dot: { width: 7, height: 7, borderRadius: 4 },
+    statCount: { fontSize: 17, fontWeight: '800' },
+    statLabel: { fontSize: 10.5, fontWeight: '500' },
+    note: { fontSize: 11.5, textAlign: 'center' },
+});
+
+// ── Upcoming Orders ───────────────────────────────────────────────────────────
+const istDayKey = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+const upcomingDayLabel = (date) => {
+    const key = istDayKey(date);
+    const now = Date.now();
+    if (key === istDayKey(now)) return 'Today';
+    if (key === istDayKey(now + 24 * 60 * 60 * 1000)) return 'Tomorrow';
+    return new Date(date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+};
+
+const UpcomingOrders = ({ upcoming, theme, onSeeAll, onOpen }) => {
+    const list = upcoming?.orders || [];
+    const pills = [
+        { label: 'Today', value: upcoming?.today ?? 0, color: '#F59E0B' },
+        { label: 'Next 7 days', value: upcoming?.next7Days ?? 0, color: '#3B82F6' },
+        { label: 'All upcoming', value: upcoming?.total ?? 0, color: '#8B5CF6' },
+    ];
+
+    return (
+        <View>
+            <SectionHeader title="Upcoming Orders" theme={theme} action="See All" onAction={onSeeAll} />
+            <View style={upStyles.pillRow}>
+                {pills.map((p) => (
+                    <View key={p.label} style={[upStyles.pill, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                        <Text style={[upStyles.pillValue, { color: p.color }]}>{p.value}</Text>
+                        <Text style={[upStyles.pillLabel, { color: theme.colors.textMuted }]} numberOfLines={1}>{p.label}</Text>
+                    </View>
+                ))}
+            </View>
+
+            {list.length === 0 ? (
+                <View style={[upStyles.empty, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
+                    <Ionicons name="calendar-outline" size={22} color={theme.colors.textMuted} />
+                    <Text style={{ color: theme.colors.textMuted, fontSize: 12.5 }}>No upcoming orders scheduled</Text>
+                </View>
+            ) : (
+                list.map((o) => {
+                    const badge = STATUS_BADGE[o.status] || { bg: 'rgba(150,150,150,0.15)', text: '#999' };
+                    const isToday = upcomingDayLabel(o.preferredDate) === 'Today';
+                    return (
+                        <TouchableOpacity
+                            key={o._id}
+                            activeOpacity={0.8}
+                            onPress={() => onOpen(o)}
+                            style={[upStyles.row, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
+                        >
+                            <View style={[upStyles.dateBox, { backgroundColor: isToday ? `${theme.colors.primary}22` : theme.colors.surfaceLow }]}>
+                                <Text style={[upStyles.dateDay, { color: isToday ? theme.colors.primary : theme.colors.textPrimary }]} numberOfLines={1}>
+                                    {upcomingDayLabel(o.preferredDate)}
+                                </Text>
+                                {!!o.preferredTime && (
+                                    <Text style={[upStyles.dateTime, { color: theme.colors.textMuted }]} numberOfLines={1}>{o.preferredTime}</Text>
+                                )}
+                            </View>
+                            <View style={{ flex: 1, gap: 2 }}>
+                                <View style={upStyles.rowTop}>
+                                    <Text style={[upStyles.orderId, { color: theme.colors.primary }]} numberOfLines={1}>{o.orderId}</Text>
+                                    <View style={[upStyles.badge, { backgroundColor: badge.bg }]}>
+                                        <Text style={[upStyles.badgeText, { color: badge.text }]}>{o.status}</Text>
+                                    </View>
+                                </View>
+                                <Text style={[upStyles.name, { color: theme.colors.textPrimary }]} numberOfLines={1}>{o.name}</Text>
+                                <Text style={[upStyles.meta, { color: theme.colors.textMuted }]} numberOfLines={1}>
+                                    {o.serviceType}{o.city ? ` · ${o.city}` : ''}
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    );
+                })
+            )}
+        </View>
+    );
+};
+
+const upStyles = StyleSheet.create({
+    pillRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+    pill: { flex: 1, borderRadius: 16, borderWidth: 1, paddingVertical: 12, alignItems: 'center', gap: 2 },
+    pillValue: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+    pillLabel: { fontSize: 10.5, fontWeight: '500' },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1, padding: 12, marginBottom: 8 },
+    dateBox: { width: 74, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center', gap: 2 },
+    dateDay: { fontSize: 12, fontWeight: '800' },
+    dateTime: { fontSize: 10, fontWeight: '500' },
+    rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+    orderId: { fontSize: 12.5, fontWeight: '800', letterSpacing: 0.2, flexShrink: 1 },
+    badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 14 },
+    badgeText: { fontSize: 10, fontWeight: '700' },
+    name: { fontSize: 13.5, fontWeight: '600' },
+    meta: { fontSize: 11 },
+    empty: { borderRadius: 16, borderWidth: 1, paddingVertical: 22, alignItems: 'center', gap: 6 },
+});
+
 // ── Top Services ──────────────────────────────────────────────────────────────
 const TopServices = ({ services, theme }) => {
     const maxCount = Math.max(...services.map((s) => s.count), 1);
@@ -444,11 +603,21 @@ const orStyles = StyleSheet.create({
 });
 
 // ── Filter bar: period chips + Filters button + active filter chips ───────────
-const QUICK_PERIODS = PERIOD_OPTIONS.filter((p) => p.key !== 'custom');
+// The four main filters. Yesterday / 7 / 30 days live in the filter sheet; when one of
+// those is active an extra chip is shown so the current selection is always visible.
+const QUICK_PERIODS = [
+    { key: 'today', label: 'Today' },
+    { key: 'week', label: 'Week' },
+    { key: 'month', label: 'Month' },
+    { key: 'year', label: 'Year' },
+];
 
 const FilterBar = ({ filters, options, rangeLabel, onPeriod, onOpenSheet, onClear, onClearAll, theme }) => {
     const extra = countActiveFilters(filters);
     const isCustom = filters.period === 'custom';
+    const extraPeriod = !isCustom && !QUICK_PERIODS.some((p) => p.key === filters.period)
+        ? PERIOD_OPTIONS.find((p) => p.key === filters.period)
+        : null;
     const mechanicName = options?.mechanics?.find((m) => m._id === filters.mechanicId)?.name;
 
     const active = [
@@ -487,6 +656,15 @@ const FilterBar = ({ filters, options, rangeLabel, onPeriod, onOpenSheet, onClea
                             </TouchableOpacity>
                         );
                     })}
+                    {extraPeriod && (
+                        <TouchableOpacity
+                            onPress={onOpenSheet}
+                            activeOpacity={0.75}
+                            style={[fbStyles.chip, { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
+                        >
+                            <Text style={{ fontSize: 12.5, color: '#1a1a1a', fontWeight: '700' }}>{extraPeriod.label}</Text>
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                         onPress={onOpenSheet}
                         activeOpacity={0.75}
@@ -654,7 +832,7 @@ export default function AdminDashboardScreen() {
         );
     }
 
-    const { kpi, orderStatus, payments, topServices, recentOrders, revenueChart } = data || {};
+    const { kpi, orderStatus, payments, manualInvoices, upcoming, topServices, recentOrders, revenueChart } = data || {};
     const totalInRange = kpi?.periodOrders ?? 0;
 
     return (
@@ -705,25 +883,48 @@ export default function AdminDashboardScreen() {
                     <View style={styles.kpiGrid}>
                         <View style={styles.kpiRow}>
                             <KpiCard
+                                icon="receipt-outline"
+                                label="Total Orders"
+                                value={formatNum(kpi?.periodOrders)}
+                                accent={theme.colors.primary}
+                                theme={theme}
+                                delay={60}
+                                footer={
+                                    <>
+                                        <Delta change={kpi?.ordersChange} theme={theme} />
+                                        <Text style={[kpiStyles.subText, { color: theme.colors.textMuted }]}>
+                                            {formatNum(kpi?.totalOrders)} all time
+                                        </Text>
+                                    </>
+                                }
+                            />
+                            <KpiCard
+                                icon="document-text-outline"
+                                label="Manual Invoices"
+                                value={formatNum(manualInvoices?.total)}
+                                accent="#8B5CF6"
+                                theme={theme}
+                                delay={100}
+                                footer={
+                                    <>
+                                        <Delta change={manualInvoices?.change} theme={theme} />
+                                        <Text style={[kpiStyles.subText, { color: theme.colors.textMuted }]}>
+                                            {formatCurrency(manualInvoices?.billedAmount ?? 0)} billed
+                                        </Text>
+                                    </>
+                                }
+                            />
+                        </View>
+                        <View style={styles.kpiRow}>
+                            <KpiCard
                                 icon="cash-outline"
                                 label="Revenue Collected"
                                 value={formatCurrency(kpi?.periodRevenue)}
                                 accent="#10B981"
                                 theme={theme}
-                                delay={60}
+                                delay={140}
                                 footer={<Delta change={kpi?.revenueChange} theme={theme} />}
                             />
-                            <KpiCard
-                                icon="receipt-outline"
-                                label="Orders"
-                                value={formatNum(kpi?.periodOrders)}
-                                accent={theme.colors.primary}
-                                theme={theme}
-                                delay={100}
-                                footer={<Delta change={kpi?.ordersChange} theme={theme} />}
-                            />
-                        </View>
-                        <View style={styles.kpiRow}>
                             <KpiCard
                                 icon="alert-circle-outline"
                                 label="Outstanding"
@@ -731,15 +932,30 @@ export default function AdminDashboardScreen() {
                                 valueColor={kpi?.outstandingAmount > 0 ? '#EF4444' : undefined}
                                 accent="#EF4444"
                                 theme={theme}
-                                delay={140}
+                                delay={180}
+                            />
+                        </View>
+                        <View style={styles.kpiRow}>
+                            <KpiCard
+                                icon="calendar-outline"
+                                label="Upcoming Orders"
+                                value={formatNum(upcoming?.total)}
+                                accent="#F59E0B"
+                                theme={theme}
+                                delay={220}
+                                footer={
+                                    <Text style={[kpiStyles.subText, { color: theme.colors.textMuted }]}>
+                                        <Text style={{ color: '#F59E0B', fontWeight: '700' }}>{formatNum(upcoming?.today ?? 0)}</Text> today
+                                    </Text>
+                                }
                             />
                             <KpiCard
                                 icon="pricetag-outline"
                                 label="Avg. Paid Order"
                                 value={formatCurrency(kpi?.avgOrderValue)}
-                                accent="#8B5CF6"
+                                accent="#06B6D4"
                                 theme={theme}
-                                delay={180}
+                                delay={260}
                             />
                         </View>
                         <View style={styles.kpiRow}>
@@ -749,7 +965,7 @@ export default function AdminDashboardScreen() {
                                 value={formatNum(kpi?.totalUsers)}
                                 accent="#3B82F6"
                                 theme={theme}
-                                delay={220}
+                                delay={300}
                                 footer={
                                     <Text style={[kpiStyles.subText, { color: theme.colors.textMuted }]}>
                                         <Text style={{ color: '#10B981', fontWeight: '700' }}>+{formatNum(kpi?.newUsers)}</Text> new in range
@@ -760,9 +976,9 @@ export default function AdminDashboardScreen() {
                                 icon="build-outline"
                                 label="Mechanics"
                                 value={formatNum(kpi?.totalMechanics)}
-                                accent="#06B6D4"
+                                accent="#14B8A6"
                                 theme={theme}
-                                delay={260}
+                                delay={340}
                             />
                         </View>
                     </View>
@@ -771,6 +987,16 @@ export default function AdminDashboardScreen() {
                     <FadeCard delay={200} style={[styles.sectionCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                         <SectionHeader title="Revenue Trend" theme={theme} />
                         <RevenueChart chart={revenueChart} theme={theme} />
+                    </FadeCard>
+
+                    {/* ── Upcoming Orders (look-ahead, ignores the period filter) ── */}
+                    <FadeCard delay={210}>
+                        <UpcomingOrders
+                            upcoming={upcoming}
+                            theme={theme}
+                            onSeeAll={() => navigation.navigate('Orders')}
+                            onOpen={(o) => navigation.navigate('Orders', { orderId: o._id })}
+                        />
                     </FadeCard>
 
                     {/* ── Order Status ── */}
@@ -785,8 +1011,25 @@ export default function AdminDashboardScreen() {
 
                     {/* ── Payment Status ── */}
                     <FadeCard delay={250}>
-                        <SectionHeader title="Payment Status" theme={theme} />
+                        <SectionHeader
+                            title="Payment Status"
+                            theme={theme}
+                            right={
+                                <Text style={{ color: theme.colors.textMuted, fontSize: 12 }}>
+                                    {(payments?.paid ?? 0) + (payments?.partial ?? 0) + (payments?.unpaid ?? 0)} billed orders
+                                </Text>
+                            }
+                        />
                         <PaymentStatus payments={payments || {}} outstanding={kpi?.outstandingAmount} theme={theme} />
+                    </FadeCard>
+
+                    {/* ── Manual Invoices ── */}
+                    <FadeCard delay={270}>
+                        <ManualInvoicesCard
+                            invoices={manualInvoices}
+                            theme={theme}
+                            onSeeAll={() => navigation.navigate('Invoices')}
+                        />
                     </FadeCard>
 
                     {/* ── Top Services ── */}

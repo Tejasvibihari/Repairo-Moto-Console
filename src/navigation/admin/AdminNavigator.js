@@ -6,7 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 import CustomTabBar from '../../components/common/CustomTabBar';
 import AdminDashboardScreen from '../../screens/admin/dashboard/AdminDashboardScreen';
 import AdminOrderScreen from '../../screens/admin/order/AdminOrderScreen';
-import AdminManualOrder from '../../screens/admin/order/AdminManualOrder';
 import AdminBrandCatalog from '../../screens/admin/brand/AdminBrandCatalog';
 import AdminOrderDetail from '../../screens/admin/order/AdminOrderDetail';
 import AdminAddModelScreen from '../../screens/admin/brand/AdminAddModelsScreen';
@@ -29,7 +28,6 @@ function AdminTabs() {
                     let iconName = 'pulse-outline';
                     if (route.name === 'Dashboard') iconName = 'pulse-outline';
                     else if (route.name === 'Orders') iconName = 'receipt-outline';
-                    else if (route.name === 'ManualOrder') iconName = 'add-circle-outline';
                     else if (route.name === 'Brands') iconName = 'bicycle';
                     return <Ionicons name={iconName} size={size} color={color} />;
                 },
@@ -37,7 +35,6 @@ function AdminTabs() {
         >
             <Tab.Screen name="Dashboard" component={AdminDashboardScreen} />
             <Tab.Screen name="Orders" component={AdminOrderScreen} />
-            <Tab.Screen name="ManualOrder" component={AdminManualOrder} />
             <Tab.Screen name="Brands" component={AdminBrandCatalog} />
 
         </Tab.Navigator>

@@ -31,8 +31,9 @@ import { LightTheme, DarkTheme } from '../../../styles/Theme';
 export const PERIOD_OPTIONS = [
     { key: 'today', label: 'Today' },
     { key: 'yesterday', label: 'Yesterday' },
-    { key: 'week', label: '7 Days' },
-    { key: 'last30', label: '30 Days' },
+    { key: 'week', label: 'This Week' },
+    { key: 'last7', label: 'Last 7 Days' },
+    { key: 'last30', label: 'Last 30 Days' },
     { key: 'month', label: 'This Month' },
     { key: 'year', label: 'This Year' },
     { key: 'custom', label: 'Custom' },

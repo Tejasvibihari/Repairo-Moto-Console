@@ -62,7 +62,7 @@ const getDrawerConfig = (role, user) => {
         group1 = [
             { name: 'Dashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
             { name: 'Orders', label: 'Orders', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' },
-            { name: 'CreateInvoice', label: 'Create Invoice', icon: 'add-outline', iconActive: 'add', lib: 'ion' },
+            { name: 'CreateInvoice', label: 'Create Invoice', icon: 'add-circle-outline', iconActive: 'add-circle', lib: 'ion' },
             { name: 'Invoices', label: 'Invoices', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
             { name: 'Coupons', label: 'Coupons', icon: 'pricetag-outline', iconActive: 'pricetag', lib: 'ion' },
             { name: 'Banners', label: 'Banners', icon: 'images-outline', iconActive: 'images', lib: 'ion' },   // ← add this
@@ -202,7 +202,7 @@ function CustomDrawerContent(props) {
 
     const navigate = (name) => {
         navigation.closeDrawer();
-        if (['Dashboard', 'Orders', 'ManualOrder', 'Brands'].includes(name)) {
+        if (['Dashboard', 'Orders', 'Brands'].includes(name)) {
             navigation.navigate('AdminHome', { screen: name });
         } else {
             navigation.navigate(name);
