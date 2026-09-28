@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { Provider, useSelector, useDispatch } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { NavigationContainer } from '@react-navigation/native';
+import { navigationRef } from './src/navigation/navigationRef';
 import { useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -39,26 +40,26 @@ function ThemedApp() {
   );
 }
 export default function App() {
-  const [updateInfo, setUpdateInfo] = useVersionCheck(
-    process.env.EXPO_PUBLIC_API_URL || "https://api.repairomoto.in",
-    "console"
-  );
+  // const [updateInfo, setUpdateInfo] = useVersionCheck(
+  //   process.env.EXPO_PUBLIC_API_URL || "https://api.repairomoto.in",
+  //   "console"
+  // );
 
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <SafeAreaProvider>
-          <NavigationContainer>
+          <NavigationContainer ref={navigationRef}>
             <ThemedApp />
           </NavigationContainer>
 
-          <UpdateModal
-            visible={updateInfo.visible}
+          {/* <UpdateModal
+           visible={updateInfo.visible}
             force={updateInfo.force}
             message={updateInfo.message}
             storeUrl={updateInfo.storeUrl}
             onLater={() => setUpdateInfo((prev) => ({ ...prev, visible: false }))}
-          />
+          /> */}
         </SafeAreaProvider>
       </PersistGate>
     </Provider>

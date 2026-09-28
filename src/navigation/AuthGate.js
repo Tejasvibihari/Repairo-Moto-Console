@@ -7,14 +7,12 @@ import { authService } from '../services/authService';
 import { loginSuccess } from '../store/slices/authSlice';
 import { LightTheme, DarkTheme } from '../styles/Theme';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import { useNavigationContainerRef } from '@react-navigation/native';
 
 import AuthNavigator from './AuthNavigator';
 import DrawerNavigator from './DrawerNavigator';
 
 export default function AuthGate() {
-    const navigationRef = useNavigationContainerRef();
-    usePushNotifications(navigationRef);
+    usePushNotifications();
     const { isAuthenticated } = useAuth();
     const dispatch = useDispatch();
     const [isBootstrapping, setIsBootstrapping] = useState(true);

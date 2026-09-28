@@ -13,6 +13,7 @@ import axiosClient from '../../../services/axiosClient';
 import InvoiceModal from '../../../components/admin/order/InvoiceModal';
 import AssignmentPanel from '../../../components/admin/order/AssignmentPanel';
 import RescheduleModal, { canRescheduleStatus } from '../../../components/admin/order/RescheduleModal';
+import CancelOrderModal from '../../../components/admin/order/CancelOrderModal';
 import useEmployee from '../../../hooks/useEmployee';
 import useVendor from '../../../hooks/useVendor';
 import useOrder from '../../../hooks/useOrder';
@@ -106,8 +107,13 @@ const ForceStatusModal = ({ visible, onClose, onConfirm, theme, currentStatus })
         'Work Completed', 'Invoice Generated', 'Completed', 'Cancelled',
     ];
     const [selected, setSelected] = useState(currentStatus);
+    const [reason, setReason] = useState('');
+    const [touched, setTouched] = useState(false);
 
-    useEffect(() => { if (visible) setSelected(currentStatus); }, [visible, currentStatus]);
+    useEffect(() => { if (visible) { setSelected(currentStatus); setReason(''); setTouched(false); } }, [visible, currentStatus]);
+
+    const needsReason = selected === 'Cancelled';
+    const reasonInvalid = needsReason && reason.trim().length < 5;
 
     return (
         <Modal transparent visible={visible} animationType="fade">
@@ -136,13 +142,39 @@ const ForceStatusModal = ({ visible, onClose, onConfirm, theme, currentStatus })
                         ))}
                     </ScrollView>
 
+                    {needsReason && (
+                        <>
+                            <Text style={[modalStyles.label, { color: theme.colors.textSecondary }]}>Cancellation reason *</Text>
+                            <TextInput
+                                style={[modalStyles.input, {
+                                    backgroundColor: theme.colors.surfaceLow,
+                                    borderColor: touched && reasonInvalid ? '#FF6B6B' : theme.colors.border,
+                                    color: theme.colors.textPrimary,
+                                    height: 80,
+                                    paddingTop: 10,
+                                }]}
+                                value={reason}
+                                onChangeText={setReason}
+                                placeholder="Why is this order being cancelled? (min 5 characters)"
+                                placeholderTextColor={theme.colors.textMuted}
+                                maxLength={300}
+                                multiline
+                                textAlignVertical="top"
+                            />
+                        </>
+                    )}
+
                     <View style={modalStyles.buttonRow}>
                         <TouchableOpacity style={[modalStyles.cancelBtn, { borderColor: theme.colors.border }]} onPress={onClose}>
                             <Text style={{ color: theme.colors.textSecondary }}>Cancel</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[modalStyles.confirmBtn, { backgroundColor: theme.colors.error }]}
-                            onPress={() => onConfirm(selected)}
+                            onPress={() => {
+                                setTouched(true);
+                                if (reasonInvalid) return;
+                                onConfirm(selected, needsReason ? reason.trim() : undefined);
+                            }}
                         >
                             <Text style={{ color: '#fff', fontWeight: '700' }}>Force Update</Text>
                         </TouchableOpacity>
@@ -410,8 +442,15 @@ const OrderTimeline = ({ order, theme }) => {
                     <Ionicons name="close-circle" size={20} color="#FF6B6B" />
                     <Text style={[timelineStyles.cancelledText, { color: theme.colors.textSecondary }]}>
                         This order was cancelled on {formatDateTime(order.cancelledAt)}
+                        {order.cancelledBy?.role ? ` by ${order.cancelledBy.role === 'user' ? 'the customer' : (order.cancelledBy.name || order.cancelledBy.role)}` : ''}
                     </Text>
                 </View>
+                {!!order.cancellationReason && (
+                    <View style={{ marginTop: 6, padding: 10, borderRadius: 10, backgroundColor: 'rgba(255,107,107,0.10)', borderWidth: 1, borderColor: 'rgba(255,107,107,0.25)' }}>
+                        <Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 1, color: '#FF6B6B', marginBottom: 2 }}>CANCELLATION REASON</Text>
+                        <Text style={{ fontSize: 13, color: theme.colors.textPrimary }}>{order.cancellationReason}</Text>
+                    </View>
+                )}
             </Card>
         );
     }
@@ -780,6 +819,8 @@ export default function AdminOrderDetail({ route, navigation }) {
     const [codModalVisible, setCodModalVisible] = useState(false);
     const [rescheduleVisible, setRescheduleVisible] = useState(false);
     const [rescheduling, setRescheduling] = useState(false);
+    const [cancelVisible, setCancelVisible] = useState(false);
+    const [cancelling, setCancelling] = useState(false);
     const [useGstInvoice, setUseGstInvoice] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -852,9 +893,24 @@ export default function AdminOrderDetail({ route, navigation }) {
         ]).start();
     }, []);
 
-    const handleForceStatus = useCallback(async (newStatus) => {
+    const handleCancelOrder = useCallback(async (reason) => {
+        if (!order?._id) return;
         try {
-            const res = await axiosClient.put(`/api/admin/order/force-update-status/${order._id}`, { status: newStatus });
+            setCancelling(true);
+            await axiosClient.put(`/api/admin/order/cancel/${order._id}`, { reason });
+            setCancelVisible(false);
+            await fetchOrder();
+            showAlert('Order Cancelled', 'The customer and assigned staff have been notified with the cancellation reason.');
+        } catch (err) {
+            showAlert('Error', err.response?.data?.message || 'Failed to cancel order');
+        } finally {
+            setCancelling(false);
+        }
+    }, [order, fetchOrder]);
+
+    const handleForceStatus = useCallback(async (newStatus, reason) => {
+        try {
+            const res = await axiosClient.put(`/api/admin/order/force-update-status/${order._id}`, { status: newStatus, reason });
             setOrder(res.data.data);
             showAlert('Success', `Status forcefully updated to ${newStatus}`);
         } catch (err) {
@@ -1156,6 +1212,17 @@ export default function AdminOrderDetail({ route, navigation }) {
                                 <Text style={[styles.rescheduleLabel, { color: theme.colors.primary }]}>Reschedule Booking</Text>
                             </TouchableOpacity>
                         )}
+
+                        {['Pending', 'Mechanic Assigned'].includes(order.status) && (
+                            <TouchableOpacity
+                                style={[styles.rescheduleBtn, { borderColor: 'rgba(255,107,107,0.4)', backgroundColor: 'rgba(255,107,107,0.10)' }]}
+                                onPress={() => setCancelVisible(true)}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="close-circle-outline" size={16} color="#FF6B6B" />
+                                <Text style={[styles.rescheduleLabel, { color: '#FF6B6B' }]}>Cancel Order</Text>
+                            </TouchableOpacity>
+                        )}
                     </Card>
 
                     {/* Financial Breakdown */}
@@ -1331,6 +1398,15 @@ export default function AdminOrderDetail({ route, navigation }) {
                 onClose={() => setFullScreenImage({ visible: false, images: [], index: 0 })}
                 theme={theme}
             />
+            <CancelOrderModal
+                visible={cancelVisible}
+                onClose={() => setCancelVisible(false)}
+                onSubmit={handleCancelOrder}
+                loading={cancelling}
+                orderLabel={order?.orderId}
+                theme={theme}
+            />
+
             <RescheduleModal
                 visible={rescheduleVisible}
                 onClose={() => setRescheduleVisible(false)}

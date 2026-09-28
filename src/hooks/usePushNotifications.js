@@ -5,7 +5,8 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { setExpoPushToken, addNotification } from '../store/slices/notificationSlice';
-import { selectIsAuthenticated } from '../store/slices/authSlice';
+import { selectIsAuthenticated, selectUser } from '../store/slices/authSlice';
+import { openOrderFromNotification, ORDER_NOTIFICATION_TYPES } from '../navigation/navigationRef';
 import { notificationService } from '../services/notificationService';
 
 // How notifications appear when app is in foreground
@@ -17,9 +18,12 @@ Notifications.setNotificationHandler({
     }),
 });
 
-export function usePushNotifications(navigation) {
+export function usePushNotifications() {
     const dispatch = useDispatch();
     const isAuthenticated = useSelector(selectIsAuthenticated);
+    const user = useSelector(selectUser);
+    const userRef = useRef(user);
+    userRef.current = user;
     const notificationListener = useRef();
     const responseListener = useRef();
 
@@ -42,14 +46,21 @@ export function usePushNotifications(navigation) {
             }));
         });
 
-        // Background/killed: user taps notification
-        responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-            const data = response.notification.request.content.data;
-            if (data?.type === 'new_order' && data?.orderId && navigation) {
-                // Navigate to the order detail screen
-                navigation.navigate('Orders', { orderId: data.orderId });
+        // User taps a notification (app in background, or foreground banner).
+        // Retries briefly because on a cold start the navigator may not be ready yet.
+        const openFromResponse = async (response) => {
+            const data = response?.notification?.request?.content?.data;
+            if (!data?.orderId || !ORDER_NOTIFICATION_TYPES.includes(data.type || 'general')) return;
+            for (let i = 0; i < 20; i++) {
+                if (await openOrderFromNotification(userRef.current, data)) return;
+                await new Promise(r => setTimeout(r, 250));
             }
-        });
+        };
+
+        responseListener.current = Notifications.addNotificationResponseReceivedListener(openFromResponse);
+
+        // App was killed and opened by tapping a notification
+        Notifications.getLastNotificationResponseAsync().then(r => { if (r) openFromResponse(r); });
 
         return () => {
             notificationListener.current?.remove();
@@ -78,7 +89,7 @@ export function usePushNotifications(navigation) {
 
         if (Platform.OS === 'android') {
             await Notifications.setNotificationChannelAsync('orders', {
-                name: 'New Orders',
+                name: 'Order Updates',
                 importance: Notifications.AndroidImportance.MAX,
                 vibrationPattern: [0, 250, 250, 250],
                 lightColor: '#e2a731',

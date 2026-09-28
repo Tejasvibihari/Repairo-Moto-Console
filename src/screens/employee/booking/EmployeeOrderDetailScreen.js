@@ -1888,6 +1888,18 @@ export default function EmployeeOrderDetail({ route, navigation }) {
                         </View>
                     </View>
 
+                    {/* Cancellation reason (visible to every assigned employee) */}
+                    {order?.status === 'Cancelled' && (
+                        <View style={{ marginBottom: 12, padding: 12, borderRadius: 12, backgroundColor: 'rgba(255,107,107,0.10)', borderWidth: 1, borderColor: 'rgba(255,107,107,0.28)' }}>
+                            <Text style={{ fontSize: 10, fontWeight: '800', letterSpacing: 1, color: '#FF6B6B', marginBottom: 3 }}>
+                                ORDER CANCELLED{order.cancelledBy?.role ? ` BY ${order.cancelledBy.role === 'user' ? 'CUSTOMER' : String(order.cancelledBy.name || order.cancelledBy.role).toUpperCase()}` : ''}
+                            </Text>
+                            <Text style={{ fontSize: 13, color: theme.colors.textPrimary }}>
+                                {order.cancellationReason || 'No reason was provided.'}
+                            </Text>
+                        </View>
+                    )}
+
                     {/* Workflow Timeline */}
                     <WorkflowTimeline status={status} theme={theme} />
 
