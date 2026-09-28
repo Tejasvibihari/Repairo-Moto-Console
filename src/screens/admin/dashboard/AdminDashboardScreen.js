@@ -900,7 +900,7 @@ export default function AdminDashboardScreen() {
                             />
                             <KpiCard
                                 icon="document-text-outline"
-                                label="Manual Invoices"
+                                label="Total Manual Invoices"
                                 value={formatNum(manualInvoices?.total)}
                                 accent="#8B5CF6"
                                 theme={theme}
@@ -909,7 +909,7 @@ export default function AdminDashboardScreen() {
                                     <>
                                         <Delta change={manualInvoices?.change} theme={theme} />
                                         <Text style={[kpiStyles.subText, { color: theme.colors.textMuted }]}>
-                                            {formatCurrency(manualInvoices?.billedAmount ?? 0)} billed
+                                            {manualInvoices?.paid ?? 0} paid · {manualInvoices?.unpaid ?? 0} unpaid
                                         </Text>
                                     </>
                                 }
@@ -917,13 +917,17 @@ export default function AdminDashboardScreen() {
                         </View>
                         <View style={styles.kpiRow}>
                             <KpiCard
-                                icon="cash-outline"
-                                label="Revenue Collected"
-                                value={formatCurrency(kpi?.periodRevenue)}
+                                icon="wallet-outline"
+                                label="Manual Invoice Amount"
+                                value={formatCurrency(manualInvoices?.billedAmount ?? 0)}
                                 accent="#10B981"
                                 theme={theme}
                                 delay={140}
-                                footer={<Delta change={kpi?.revenueChange} theme={theme} />}
+                                footer={
+                                    <Text style={[kpiStyles.subText, { color: theme.colors.textMuted }]}>
+                                        <Text style={{ color: '#10B981', fontWeight: '700' }}>{formatCurrency(manualInvoices?.paidAmount ?? 0)}</Text> paid
+                                    </Text>
+                                }
                             />
                             <KpiCard
                                 icon="alert-circle-outline"

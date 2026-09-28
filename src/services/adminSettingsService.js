@@ -13,3 +13,16 @@ export const adminSettingsService = {
         return response.data;
     },
 };
+
+// Shop status — the customer-app kill switch (closed message) and the daily
+// service hours that gate Emergency Repair bookings.
+export const shopStatusService = {
+    get: async () => {
+        const response = await axiosClient.get('/api/admin-settings/shop-status');
+        return response.data.status;
+    },
+    update: async (payload) => {
+        const response = await axiosClient.put('/api/admin-settings/shop-status', payload);
+        return response.data.status;
+    },
+};

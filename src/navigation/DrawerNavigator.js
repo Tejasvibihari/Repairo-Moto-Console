@@ -41,6 +41,7 @@ import EmployeeTermsScreen from '../screens/employee/terms/EmployeeTermsScreen';
 
 import CreateInoviceScreen from '../screens/admin/invoice/CreateInoviceScreen';
 import InvoiceScreen from '../screens/admin/invoice/InvoiceScreen';
+import ShopStatusScreen from '../screens/admin/settings/ShopStatusScreen';
 import AdminCouponNavigator from './AdminCouponNavigator';
 
 const Drawer = createDrawerNavigator();
@@ -68,6 +69,7 @@ const getDrawerConfig = (role, user) => {
             { name: 'Banners', label: 'Banners', icon: 'images-outline', iconActive: 'images', lib: 'ion' },   // ← add this
             { name: 'AdminNotifications', label: 'Send Notifications', icon: 'megaphone-outline', iconActive: 'megaphone', lib: 'ion' },
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
+            { name: 'ShopStatus', label: 'Shop Status', icon: 'storefront-outline', iconActive: 'storefront', lib: 'ion' },
             { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
         ];
     } else if (category === 'employee') {
@@ -245,7 +247,8 @@ function CustomDrawerContent(props) {
 
             <DrawerContentScrollView
                 {...props}
-                scrollEnabled={false}
+                scrollEnabled
+                showsVerticalScrollIndicator={false}
                 contentContainerStyle={s.navContainer}
             >
                 <View style={s.navGroup}>
@@ -394,6 +397,7 @@ export default function DrawerNavigator() {
             <Drawer.Screen name="AdminSupport" component={AdminSupportNavigator} />
 
             <Drawer.Screen name="AdminSettings" component={AdminSettingsScreen} />
+            <Drawer.Screen name="ShopStatus" component={ShopStatusScreen} />
             <Drawer.Screen name="Notifications" component={NotificationsScreen} />
             <Drawer.Screen name="EmployeeTerms" component={EmployeeTermsScreen} />
             <Drawer.Screen name="VendorTerms" component={VendorTerms} />
