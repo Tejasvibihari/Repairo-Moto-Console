@@ -68,3 +68,14 @@ export function openChatFromNotification({ orderId, screenOrderId, customerName 
     });
     return true;
 }
+
+
+/**
+ * Push tap on "🟢 Ramesh turned ON the app…" → open the live map.
+ * Live Mechanics is a drawer screen for admins.
+ */
+export function openLiveMechanicsFromNotification() {
+    if (!navigationRef.isReady()) return false;
+    navigationRef.navigate('LiveMechanics');
+    return true;
+}

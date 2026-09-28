@@ -42,6 +42,7 @@ import EmployeeTermsScreen from '../screens/employee/terms/EmployeeTermsScreen';
 import CreateInoviceScreen from '../screens/admin/invoice/CreateInoviceScreen';
 import InvoiceScreen from '../screens/admin/invoice/InvoiceScreen';
 import ShopStatusScreen from '../screens/admin/settings/ShopStatusScreen';
+import LiveMechanicsScreen from '../screens/admin/tracking/LiveMechanicsScreen';
 import AdminCouponNavigator from './AdminCouponNavigator';
 
 const Drawer = createDrawerNavigator();
@@ -69,6 +70,7 @@ const getDrawerConfig = (role, user) => {
             { name: 'Banners', label: 'Banners', icon: 'images-outline', iconActive: 'images', lib: 'ion' },   // ← add this
             { name: 'AdminNotifications', label: 'Send Notifications', icon: 'megaphone-outline', iconActive: 'megaphone', lib: 'ion' },
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
+            { name: 'LiveMechanics', label: 'Live Mechanics', icon: 'locate-outline', iconActive: 'locate', lib: 'ion' },
             { name: 'ShopStatus', label: 'Shop Status', icon: 'storefront-outline', iconActive: 'storefront', lib: 'ion' },
             { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
         ];
@@ -302,6 +304,13 @@ function CustomDrawerContent(props) {
                 primaryVariant="danger"
                 onPrimary={async () => {
                     setShowLogoutConfirm(false);
+                    // A mechanic who logs out must not stay "Online" or keep sharing GPS
+                    try {
+                        const { goOfflineForLogout } = require('../tracking/logoutCleanup');
+                        await goOfflineForLogout();
+                    } catch (e) {
+                        console.error('Failed to go offline on logout:', e);
+                    }
                     try {
                         const { notificationService } = require('../services/notificationService');
                         await notificationService.unregisterToken();
@@ -398,6 +407,7 @@ export default function DrawerNavigator() {
 
             <Drawer.Screen name="AdminSettings" component={AdminSettingsScreen} />
             <Drawer.Screen name="ShopStatus" component={ShopStatusScreen} />
+            <Drawer.Screen name="LiveMechanics" component={LiveMechanicsScreen} />
             <Drawer.Screen name="Notifications" component={NotificationsScreen} />
             <Drawer.Screen name="EmployeeTerms" component={EmployeeTermsScreen} />
             <Drawer.Screen name="VendorTerms" component={VendorTerms} />

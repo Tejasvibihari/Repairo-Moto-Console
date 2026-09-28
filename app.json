@@ -20,12 +20,26 @@
           "color": "#e2a731",
           "defaultChannel": "orders"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "locationAlwaysAndWhenInUsePermission": "Repairo Moto shares your live location with dispatch only while you are Online.",
+          "locationWhenInUsePermission": "Repairo Moto shares your live location with dispatch while you are Online."
+        }
       ]
     ],
     "ios": {
       "supportsTablet": true,
       "config": {
         "googleMapsApiKey": "AIzaSyC-RRm-8NLc8XCOz89NbdpTdQvIr1if76c"
+      },
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -41,7 +55,15 @@
         "googleMaps": {
           "apiKey": "AIzaSyC-RRm-8NLc8XCOz89NbdpTdQvIr1if76c"
         }
-      }
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

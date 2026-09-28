@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { setExpoPushToken, addNotification } from '../store/slices/notificationSlice';
 import { selectIsAuthenticated, selectUser } from '../store/slices/authSlice';
-import { openOrderFromNotification, openChatFromNotification, ORDER_NOTIFICATION_TYPES } from '../navigation/navigationRef';
+import { openOrderFromNotification, openChatFromNotification, openLiveMechanicsFromNotification, ORDER_NOTIFICATION_TYPES } from '../navigation/navigationRef';
 import { notificationService } from '../services/notificationService';
 
 // How notifications appear when app is in foreground
@@ -50,6 +50,16 @@ export function usePushNotifications() {
         // Retries briefly because on a cold start the navigator may not be ready yet.
         const openFromResponse = async (response) => {
             const data = response?.notification?.request?.content?.data;
+
+            // Mechanic went online/offline → open the live map (no orderId on these)
+            if (data?.type === 'mechanic_status') {
+                for (let i = 0; i < 20; i++) {
+                    if (openLiveMechanicsFromNotification()) return;
+                    await new Promise(r => setTimeout(r, 250));
+                }
+                return;
+            }
+
             if (!data?.orderId) return;
 
             // Customer support chat → open that conversation
@@ -112,15 +122,17 @@ export function usePushNotifications() {
             ?? Constants.easConfig?.projectId
             ?? 'cf007c76-9360-4e3c-b663-403dc0f884c7';
 
-        const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-
-        dispatch(setExpoPushToken(token));
-
-        // Send token to your backend so it can push to this device
         try {
+            const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+            console.log('[push] Expo token:', token);
+
+            dispatch(setExpoPushToken(token));
+
+            // Send token to your backend so it can push to this device
             await notificationService.registerToken(token);
+            console.log('[push] token registered with backend');
         } catch (e) {
-            console.error('Failed to register push token:', e);
+            console.error('[push] token registration failed:', e?.message || e);
         }
     }
 }

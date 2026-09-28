@@ -1,6 +1,8 @@
 import { registerRootComponent } from 'expo';
 
 import App from './App';
+// Registers the mechanic background-location task (must run at app start, before the UI)
+import './src/tracking/locationTask';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,

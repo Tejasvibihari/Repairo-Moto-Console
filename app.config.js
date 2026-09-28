@@ -27,9 +27,23 @@ export default ({ config }) => {
           defaultChannel: "orders",
         },
       ],
+      [
+        "expo-location",
+        {
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
+          locationAlwaysAndWhenInUsePermission:
+            "Repairo Moto shares your live location with dispatch only while you are Online.",
+          locationWhenInUsePermission:
+            "Repairo Moto shares your live location with dispatch while you are Online.",
+        },
+      ],
     ],
     ios: {
       supportsTablet: true,
+      infoPlist: {
+        UIBackgroundModes: ["location"],
+      },
       config: {
         googleMapsApiKey: "AIzaSyC-RRm-8NLc8XCOz89NbdpTdQvIr1if76c",
       },
@@ -41,6 +55,14 @@ export default ({ config }) => {
       },
       edgeToEdgeEnabled: true,
       package: "com.roottechnology.repairomotoconsole",
+      permissions: [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS",
+      ],
       versionCode: 4,
       googleServicesFile: "./google-services.json",
       config: {

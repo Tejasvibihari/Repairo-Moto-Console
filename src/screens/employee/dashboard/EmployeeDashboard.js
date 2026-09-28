@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import axiosClient from '../../../services/axiosClient';
 import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
+import DutySwitch from '../../../components/employee/DutySwitch';
 
 // ── Stat card config ───────────────────────────────────────────────────────────
 const STAT_CARDS = [
@@ -342,6 +343,9 @@ export default function EmployeeDashboardScreen() {
                 }
             >
 
+
+                {/* ── Online / Offline duty switch (mechanics only) ── */}
+                {user?.position === 'mechanic' && <DutySwitch theme={theme} />}
 
                 {/* ── Stats section ── */}
                 <SectionHeader title="Overview" theme={theme} />
