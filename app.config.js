@@ -35,7 +35,7 @@ export default ({ config }) => {
           locationAlwaysAndWhenInUsePermission:
             "Repairo Moto shares your live location with dispatch only while you are Online.",
           locationWhenInUsePermission:
-            "Repairo Moto shares your live location with dispatch while you are Online.",
+            "Repairo Moto records your location when you mark attendance, and shares it with dispatch while you are Online.",
         },
       ],
     ],

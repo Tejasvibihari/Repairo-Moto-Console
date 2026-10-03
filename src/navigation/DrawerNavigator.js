@@ -45,6 +45,8 @@ import ShopStatusScreen from '../screens/admin/settings/ShopStatusScreen';
 import LiveMechanicsScreen from '../screens/admin/tracking/LiveMechanicsScreen';
 import AdminCouponNavigator from './AdminCouponNavigator';
 import AdminLeadNavigator from './AdminLeadNavigator';
+import AttendanceScreen from '../screens/employee/attendance/AttendanceScreen';
+import AttendanceSettingsScreen from '../screens/admin/settings/AttendanceSettingsScreen';
 
 const Drawer = createDrawerNavigator();
 
@@ -74,11 +76,14 @@ const getDrawerConfig = (role, user) => {
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
             { name: 'LiveMechanics', label: 'Live Mechanics', icon: 'locate-outline', iconActive: 'locate', lib: 'ion' },
             { name: 'ShopStatus', label: 'Shop Status', icon: 'storefront-outline', iconActive: 'storefront', lib: 'ion' },
+            { name: 'AttendanceSettings', label: 'Attendance Alerts', icon: 'finger-print-outline', iconActive: 'finger-print', lib: 'ion' },
             { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
         ];
     } else if (category === 'employee') {
         // Employee default — telecallers get their own lead-management section
         HomeNav = isTelecaller(user) ? TelecallerNavigator : EmployeeNavigator;
+        // Every employee marks attendance from here
+        group1.push({ name: 'Attendance', label: 'Attendance', icon: 'finger-print-outline', iconActive: 'finger-print', lib: 'ion' });
         if (isTelecaller(user)) {
             group1.push({ name: 'CreateInvoice', label: 'Create Invoice', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' },
                 { name: 'Invoices', label: 'Invoices', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
@@ -409,6 +414,8 @@ export default function DrawerNavigator() {
 
             <Drawer.Screen name="AdminSettings" component={AdminSettingsScreen} />
             <Drawer.Screen name="ShopStatus" component={ShopStatusScreen} />
+            <Drawer.Screen name="AttendanceSettings" component={AttendanceSettingsScreen} />
+            <Drawer.Screen name="Attendance" component={AttendanceScreen} />
             <Drawer.Screen name="LiveMechanics" component={LiveMechanicsScreen} />
             <Drawer.Screen name="Notifications" component={NotificationsScreen} />
             <Drawer.Screen name="EmployeeTerms" component={EmployeeTermsScreen} />

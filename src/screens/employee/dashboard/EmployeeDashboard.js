@@ -16,6 +16,7 @@ import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import axiosClient from '../../../services/axiosClient';
 import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
 import DutySwitch from '../../../components/employee/DutySwitch';
+import AttendanceCard from '../../../components/employee/AttendanceCard';
 
 // ── Stat card config ───────────────────────────────────────────────────────────
 const STAT_CARDS = [
@@ -343,6 +344,9 @@ export default function EmployeeDashboardScreen() {
                 }
             >
 
+
+                {/* ── Mark attendance (only until today's attendance is marked) ── */}
+                <AttendanceCard theme={theme} />
 
                 {/* ── Online / Offline duty switch (mechanics only) ── */}
                 {user?.position === 'mechanic' && <DutySwitch theme={theme} />}

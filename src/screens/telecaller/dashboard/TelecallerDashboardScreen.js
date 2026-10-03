@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
 import StatusBadge from '../../../components/telecaller/StatusBadge';
+import AttendanceCard from '../../../components/employee/AttendanceCard';
 import { leadService, getErrorMessage } from '../../../services/leadService';
 import { leadEvents } from '../../../utils/leadEvents';
 import { LEAD_STATUS, FILTER_STATUSES } from '../../../constants/leadConstants';
@@ -92,6 +93,8 @@ export default function TelecallerDashboardScreen() {
                             ? `You have ${data.followUpsToday} follow-up${data.followUpsToday === 1 ? '' : 's'} today.`
                             : 'No follow-ups scheduled for today.'}
                     </Text>
+
+                    <AttendanceCard theme={theme} style={{ marginBottom: 0 }} />
 
                     <View style={styles.grid}>
                         {stats.map((s) => (

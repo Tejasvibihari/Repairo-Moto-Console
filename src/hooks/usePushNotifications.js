@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { setExpoPushToken, addNotification } from '../store/slices/notificationSlice';
 import { selectIsAuthenticated, selectUser } from '../store/slices/authSlice';
@@ -57,6 +57,12 @@ export function usePushNotifications() {
                     if (openLiveMechanicsFromNotification()) return;
                     await new Promise(r => setTimeout(r, 250));
                 }
+                return;
+            }
+
+            // Employee marked attendance → open the map at the spot they marked it
+            if (data?.type === 'attendance') {
+                if (data.mapUrl) Linking.openURL(data.mapUrl).catch(() => { });
                 return;
             }
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback } from 'react';
 import {
     View, Text, FlatList, TouchableOpacity,
-    StyleSheet, RefreshControl, ActivityIndicator
+    StyleSheet, RefreshControl, ActivityIndicator, Linking
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,6 +43,7 @@ const TYPE_META = {
     order_confirmed_complete: { icon: 'checkmark-done-outline', color: '#2ECC9A' },
     payment_received: { icon: 'cash-outline', color: '#2ECC9A' },
     chat: { icon: 'chatbubble-ellipses-outline', color: '#3498DB' },
+    attendance: { icon: 'finger-print-outline', color: '#2ECC9A' },
     general: { icon: 'notifications-outline', color: '#9E8E78' },
 };
 
@@ -136,6 +137,12 @@ export default function NotificationsScreen({ navigation }) {
             } catch (e) {
                 console.error('[NotificationScreen] Failed to mark as read:', e);
             }
+        }
+
+        // Attendance → open where the employee marked it
+        if (item.type === 'attendance') {
+            if (item.data?.mapUrl) Linking.openURL(item.data.mapUrl).catch(() => { });
+            return;
         }
 
         // For order-related notifications, navigate to order detail
