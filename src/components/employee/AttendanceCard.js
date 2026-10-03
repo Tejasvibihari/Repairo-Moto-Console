@@ -6,11 +6,12 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTodayAttendance } from '../../hooks/useAttendance';
+import { useTodayAttendance, useLocationWarm } from '../../hooks/useAttendance';
 import { fmtTime } from '../../utils/attendanceUtils';
 
 export default function AttendanceCard({ theme, style }) {
     const { state, error, busy, refresh, checkIn } = useTodayAttendance();
+    useLocationWarm(state === 'not_marked');     // location is ready before the employee taps
     const c = theme.colors;
 
     if (state === 'loading' || state === 'checked_in' || state === 'checked_out') return null;

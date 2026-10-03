@@ -6,9 +6,21 @@
 // foreground (so a new day never shows yesterday's state).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { attendanceService } from '../services/attendanceService';
-import { captureLocation, showAttendanceError } from '../utils/attendanceUtils';
+import { getAttendanceLocation, holdLocationWarm } from '../utils/attendanceLocation';
+import { showAttendanceError } from '../utils/attendanceUtils';
+
+/**
+ * Keep the phone's location warm while `wanted` is true AND this screen is in front, so that
+ * tapping "Mark Attendance" / "Sign Out" is instant. Stops automatically when the screen is
+ * left, the app goes to the background, or `wanted` turns false (e.g. attendance is done).
+ */
+export function useLocationWarm(wanted) {
+    const focused = useIsFocused();
+    const active = !!wanted && focused;
+    useEffect(() => (active ? holdLocationWarm() : undefined), [active]);
+}
 
 export function useTodayAttendance() {
     const [state, setState] = useState('loading');
@@ -51,9 +63,16 @@ export function useTodayAttendance() {
         busyRef.current = true;
         setBusy(true);
         try {
-            const loc = await captureLocation();
-            const data = kind === 'in' ? await attendanceService.checkIn(loc) : await attendanceService.checkOut(loc);
+            const { payload, pendingAddress } = await getAttendanceLocation();
+            const data = kind === 'in' ? await attendanceService.checkIn(payload) : await attendanceService.checkOut(payload);
             apply(data);
+            // Street address wasn't ready → it was NOT waited for; add it now in the background
+            if (pendingAddress) {
+                pendingAddress
+                    .then((address) => (address ? attendanceService.setAddress({ kind, address }) : null))
+                    .then((res) => { if (res?.updated && aliveRef.current) refresh(); })
+                    .catch(() => { });
+            }
             return { ok: true, attendance: data.attendance };
         } catch (e) {
             // Server already has a record (double tap / other device) → just sync to it
@@ -64,7 +83,7 @@ export function useTodayAttendance() {
             busyRef.current = false;
             if (aliveRef.current) setBusy(false);
         }
-    }, [apply]);
+    }, [apply, refresh]);
 
     const checkIn = useCallback(() => submit('in'), [submit]);
     const checkOut = useCallback(() => submit('out'), [submit]);

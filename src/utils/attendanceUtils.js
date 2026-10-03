@@ -1,83 +1,9 @@
 // src/utils/attendanceUtils.js
 //
-// Attendance helpers: capture the employee's location (+ readable address) and
-// format IST dates/times. Times are formatted by hand (like ShopStatusScreen) so
-// nothing depends on Intl/timezone support of the JS engine.
+// Attendance helpers: error alerts, map link and IST date/time formatting. Times are
+// formatted by hand (like ShopStatusScreen) so nothing depends on Intl/timezone support of
+// the JS engine. (Getting the location lives in ./attendanceLocation.)
 import { Alert, Linking } from 'react-native';
-
-// Load defensively: a build made before expo-location was added must not crash the app.
-let Location = null;
-try {
-    Location = require('expo-location');
-} catch (e) {
-    console.warn('[attendance] expo-location missing — rebuild the app:', e?.message);
-}
-
-const codedError = (code, message) => {
-    const e = new Error(message);
-    e.code = code;
-    return e;
-};
-
-const withTimeout = (promise, ms) =>
-    new Promise((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error('timeout')), ms);
-        promise.then(
-            (v) => { clearTimeout(t); resolve(v); },
-            (e) => { clearTimeout(t); reject(e); }
-        );
-    });
-
-async function reverseAddress(latitude, longitude) {
-    try {
-        const [a] = await withTimeout(Location.reverseGeocodeAsync({ latitude, longitude }), 6000);
-        if (!a) return '';
-        const parts = [a.name, a.street, a.district || a.subregion, a.city, a.region, a.postalCode]
-            .map((p) => (p ? String(p).trim() : ''))
-            .filter(Boolean);
-        return [...new Set(parts)].join(', ');
-    } catch {
-        return ''; // the address is a nice-to-have; coordinates are what count
-    }
-}
-
-/**
- * Ask permission, read GPS and (best effort) turn it into an address.
- * Throws an Error with `.code`: NATIVE_MISSING | LOCATION_DENIED | LOCATION_DISABLED | LOCATION_UNAVAILABLE
- * @returns {Promise<{lat:number,lng:number,accuracy?:number,mocked:boolean,address:string}>}
- */
-export async function captureLocation() {
-    if (!Location) {
-        throw codedError('NATIVE_MISSING', 'Please install the latest version of the app to mark attendance.');
-    }
-    const perm = await Location.requestForegroundPermissionsAsync();
-    if (perm.status !== 'granted') {
-        throw codedError('LOCATION_DENIED', 'Location permission is needed to record where you are marking attendance.');
-    }
-    if (!(await Location.hasServicesEnabledAsync())) {
-        throw codedError('LOCATION_DISABLED', 'Please turn on Location (GPS) on your phone and try again.');
-    }
-
-    let pos = null;
-    try {
-        pos = await withTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }), 20000);
-    } catch {
-        // Weak signal indoors → accept a recent, reasonably accurate fix
-        pos = await Location.getLastKnownPositionAsync({ maxAge: 2 * 60 * 1000, requiredAccuracy: 200 }).catch(() => null);
-    }
-    if (!pos?.coords) {
-        throw codedError('LOCATION_UNAVAILABLE', "Couldn't get your location. Move to an open area and try again.");
-    }
-
-    const { latitude, longitude, accuracy } = pos.coords;
-    return {
-        lat: latitude,
-        lng: longitude,
-        accuracy: accuracy ?? undefined,
-        mocked: pos.mocked === true,
-        address: await reverseAddress(latitude, longitude),
-    };
-}
 
 export function showAttendanceError(e, title = 'Attendance') {
     const denied = e?.code === 'LOCATION_DENIED';

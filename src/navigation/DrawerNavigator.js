@@ -47,6 +47,8 @@ import AdminCouponNavigator from './AdminCouponNavigator';
 import AdminLeadNavigator from './AdminLeadNavigator';
 import AttendanceScreen from '../screens/employee/attendance/AttendanceScreen';
 import AttendanceSettingsScreen from '../screens/admin/settings/AttendanceSettingsScreen';
+import AdminAttendanceScreen from '../screens/admin/attendance/AdminAttendanceScreen';
+import { prewarmLocation, resetLocationCache } from '../utils/attendanceLocation';
 
 const Drawer = createDrawerNavigator();
 
@@ -75,6 +77,7 @@ const getDrawerConfig = (role, user) => {
             { name: 'AdminNotifications', label: 'Send Notifications', icon: 'megaphone-outline', iconActive: 'megaphone', lib: 'ion' },
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
             { name: 'LiveMechanics', label: 'Live Mechanics', icon: 'locate-outline', iconActive: 'locate', lib: 'ion' },
+            { name: 'AttendanceReport', label: 'Employee Attendance', icon: 'calendar-outline', iconActive: 'calendar', lib: 'ion' },
             { name: 'ShopStatus', label: 'Shop Status', icon: 'storefront-outline', iconActive: 'storefront', lib: 'ion' },
             { name: 'AttendanceSettings', label: 'Attendance Alerts', icon: 'finger-print-outline', iconActive: 'finger-print', lib: 'ion' },
             { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
@@ -318,6 +321,7 @@ function CustomDrawerContent(props) {
                     } catch (e) {
                         console.error('Failed to go offline on logout:', e);
                     }
+                    resetLocationCache();   // the next person to log in must not inherit this location
                     try {
                         const { notificationService } = require('../services/notificationService');
                         await notificationService.unregisterToken();
@@ -382,6 +386,14 @@ export default function DrawerNavigator() {
 
     const user = useSelector((s) => s.auth.user);
     const roleConfig = getDrawerConfig(role, user);
+
+    // Employees: get the phone's location ready as soon as the app opens, so marking
+    // attendance later is instant (permission is asked here too, not at tap time).
+    const roleName = role ? role.toLowerCase() : '';
+    const isEmployee = (ROLE_CATEGORY[roleName] || roleName) === 'employee';
+    useEffect(() => {
+        if (isEmployee) prewarmLocation();
+    }, [isEmployee]);
     const HomeNavComponent = roleConfig.HomeNav;
 
     return (
@@ -415,6 +427,7 @@ export default function DrawerNavigator() {
             <Drawer.Screen name="AdminSettings" component={AdminSettingsScreen} />
             <Drawer.Screen name="ShopStatus" component={ShopStatusScreen} />
             <Drawer.Screen name="AttendanceSettings" component={AttendanceSettingsScreen} />
+            <Drawer.Screen name="AttendanceReport" component={AdminAttendanceScreen} />
             <Drawer.Screen name="Attendance" component={AttendanceScreen} />
             <Drawer.Screen name="LiveMechanics" component={LiveMechanicsScreen} />
             <Drawer.Screen name="Notifications" component={NotificationsScreen} />

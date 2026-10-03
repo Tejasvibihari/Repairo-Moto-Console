@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
 import PopUp from '../../../components/common/PopUp';
-import { useTodayAttendance } from '../../../hooks/useAttendance';
+import { useTodayAttendance, useLocationWarm } from '../../../hooks/useAttendance';
 import { attendanceService } from '../../../services/attendanceService';
 import {
     currentMonthKey,
@@ -74,6 +74,7 @@ export default function AttendanceScreen() {
     const c = theme.colors;
 
     const { state, attendance, error, busy, refresh, checkIn, checkOut } = useTodayAttendance();
+    useLocationWarm(state === 'not_marked' || state === 'checked_in');     // instant Mark / Sign Out
     const [confirmOut, setConfirmOut] = useState(false);
 
     const [month, setMonth] = useState(currentMonthKey());
