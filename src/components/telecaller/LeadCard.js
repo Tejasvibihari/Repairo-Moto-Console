@@ -8,7 +8,7 @@ import { sourceLabel } from '../../constants/leadConstants';
 const FOLLOW_UP_COLOR = { overdue: '#FF6B6B', today: '#e2a731', upcoming: '#2ECC9A' };
 const FOLLOW_UP_TEXT = { overdue: 'Overdue', today: 'Due', upcoming: 'Scheduled' };
 
-export default function LeadCard({ lead, theme, onPress }) {
+export default function LeadCard({ lead, theme, onPress, showOwner = false }) {
     const C = theme.colors;
     const vehicle = [lead.vehicle?.brand, lead.vehicle?.model].filter(Boolean).join(' ');
     const fuState = lead.status === 'follow_up' || lead.followUp?.date ? followUpState(lead.followUp) : null;
@@ -29,6 +29,15 @@ export default function LeadCard({ lead, theme, onPress }) {
                 </View>
                 <StatusBadge status={lead.status} />
             </View>
+
+            {showOwner && !!lead.leadBy && (
+                <View style={styles.metaRow}>
+                    <Ionicons name="person-circle-outline" size={15} color={C.primary} />
+                    <Text style={[styles.meta, { color: C.textSecondary }]} numberOfLines={1}>
+                        Lead by <Text style={{ color: C.textPrimary, fontWeight: '700' }}>{lead.leadBy}</Text>
+                    </Text>
+                </View>
+            )}
 
             {(vehicle || lead.vehicle?.registrationNumber) && (
                 <View style={styles.metaRow}>

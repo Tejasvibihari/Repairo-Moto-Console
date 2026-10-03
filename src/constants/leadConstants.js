@@ -57,3 +57,19 @@ export const LEAD_SOURCES = [
 
 export const sourceLabel = (s = '') =>
     s.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+
+// Date ranges for the admin leads overview / list (mirrors RANGES in
+// server/Utils/leadHelpers.js).
+export const RANGE_OPTIONS = [
+    { key: 'today', label: 'Today' },
+    { key: '7d', label: '7 days' },
+    { key: '30d', label: '30 days' },
+    { key: 'all', label: 'All time' },
+];
+
+export const RANGE_LABEL = {
+    today: 'Today',
+    '7d': 'Last 7 days',
+    '30d': 'Last 30 days',
+    all: 'All time',
+};

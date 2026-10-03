@@ -5,11 +5,14 @@ import { useNavigation, DrawerActions } from '@react-navigation/native';
 import TopBar from './TopBar';
 import { getImageUrl } from '../../utils/imageUtils';
 import { selectUserRole } from '../../store/slices/authSlice';
+import { LightTheme, DarkTheme } from '../../styles/Theme';
 
 const TabScreenWrapper = ({ children, showMenuIcon = false, showBookingIcon = false, greeting }) => {
     const navigation = useNavigation();
     const user = useSelector((state) => state.auth.user);
     const role = useSelector(selectUserRole);
+    const mode = useSelector((state) => state.theme?.mode || 'light');
+    const theme = mode === 'dark' ? DarkTheme : LightTheme;
 
     const getAvatarSource = () => {
         if (user?.profileImage) return { uri: getImageUrl(user.profileImage) };
@@ -27,7 +30,7 @@ const TabScreenWrapper = ({ children, showMenuIcon = false, showBookingIcon = fa
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <TopBar
                 userName={userName}
                 greeting={greeting}

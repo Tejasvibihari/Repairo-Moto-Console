@@ -98,7 +98,7 @@ export default function ServiceReminderSettingsScreen({ navigation }) {
                             </Text>
                         </View>
                         <Switch value={cfg.enabled} onValueChange={(v) => set({ enabled: v })}
-                            trackColor={{ true: c.primary }} />
+                            trackColor={{ false: c.border, true: c.primary }} />
                     </View>
                 </View>
 
@@ -154,7 +154,7 @@ export default function ServiceReminderSettingsScreen({ navigation }) {
 
                 <View style={[styles.rowBetween, { marginTop: 16 }]}>
                     <Text style={[styles.cardTitle, { color: c.textPrimary, flex: 1 }]}>Skip if customer already booked again</Text>
-                    <Switch value={cfg.skipIfRebooked} onValueChange={(v) => set({ skipIfRebooked: v })} trackColor={{ true: c.primary }} />
+                    <Switch value={cfg.skipIfRebooked} onValueChange={(v) => set({ skipIfRebooked: v })} trackColor={{ false: c.border, true: c.primary }} />
                 </View>
 
                 <TouchableOpacity onPress={save} disabled={saving} activeOpacity={0.85}

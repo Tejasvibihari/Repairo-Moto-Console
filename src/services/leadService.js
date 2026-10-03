@@ -14,6 +14,9 @@ export const leadService = {
     get: async (id) => (await axiosClient.get(`/api/lead/${id}`)).data,
     create: async (payload) => (await axiosClient.post('/api/lead/new', payload)).data,
     update: async (id, payload) => (await axiosClient.put(`/api/lead/${id}`, payload)).data,
+    // Admin only: per-telecaller overview. range = today | 7d | 30d | all
+    overview: async (range = 'all') =>
+        (await axiosClient.get('/api/lead/overview', { params: { range } })).data,
     dashboard: async () => (await axiosClient.get('/api/employee/dashboard')).data,
 };
 

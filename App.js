@@ -1,9 +1,13 @@
 // App.js
 import 'react-native-gesture-handler';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Provider, useSelector, useDispatch } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
-import { NavigationContainer } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  DefaultTheme as NavDefaultTheme,
+  DarkTheme as NavDarkTheme,
+} from '@react-navigation/native';
 import { navigationRef } from './src/navigation/navigationRef';
 import { useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -32,11 +36,31 @@ function ThemedApp() {
 
   const activeTheme = themeMode === 'dark' ? DarkTheme : LightTheme;
 
+  // React Navigation paints every screen/scene with its own theme background
+  // (light grey by default). Feed it the app theme so screens that don't set
+  // their own background - and slide transitions - follow dark mode.
+  const navTheme = useMemo(() => {
+    const base = themeMode === 'dark' ? NavDarkTheme : NavDefaultTheme;
+    const c = activeTheme.colors;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: c.primary,
+        background: c.background,
+        card: c.surface,
+        text: c.textPrimary,
+        border: c.border,
+        notification: c.error,
+      },
+    };
+  }, [themeMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       <StatusBar />
       <AuthGate />
-    </>
+    </NavigationContainer>
   );
 }
 export default function App() {
@@ -49,9 +73,7 @@ export default function App() {
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <SafeAreaProvider>
-          <NavigationContainer ref={navigationRef}>
-            <ThemedApp />
-          </NavigationContainer>
+          <ThemedApp />
 
           {/* <UpdateModal
            visible={updateInfo.visible}

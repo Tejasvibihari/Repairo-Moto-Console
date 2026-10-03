@@ -44,6 +44,7 @@ import InvoiceScreen from '../screens/admin/invoice/InvoiceScreen';
 import ShopStatusScreen from '../screens/admin/settings/ShopStatusScreen';
 import LiveMechanicsScreen from '../screens/admin/tracking/LiveMechanicsScreen';
 import AdminCouponNavigator from './AdminCouponNavigator';
+import AdminLeadNavigator from './AdminLeadNavigator';
 
 const Drawer = createDrawerNavigator();
 
@@ -66,6 +67,7 @@ const getDrawerConfig = (role, user) => {
             { name: 'Orders', label: 'Orders', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' },
             { name: 'CreateInvoice', label: 'Create Invoice', icon: 'add-circle-outline', iconActive: 'add-circle', lib: 'ion' },
             { name: 'Invoices', label: 'Invoices', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
+            { name: 'AdminLeads', label: 'Leads', icon: 'people-outline', iconActive: 'people', lib: 'ion' },
             { name: 'Coupons', label: 'Coupons', icon: 'pricetag-outline', iconActive: 'pricetag', lib: 'ion' },
             { name: 'Banners', label: 'Banners', icon: 'images-outline', iconActive: 'images', lib: 'ion' },   // ← add this
             { name: 'AdminNotifications', label: 'Send Notifications', icon: 'megaphone-outline', iconActive: 'megaphone', lib: 'ion' },
@@ -414,6 +416,7 @@ export default function DrawerNavigator() {
 
             <Drawer.Screen name="CreateInvoice" component={CreateInoviceScreen} />
             <Drawer.Screen name="Invoices" component={InvoiceScreen} />
+            <Drawer.Screen name="AdminLeads" component={AdminLeadNavigator} />
             <Drawer.Screen name="Coupons" component={AdminCouponNavigator} />
             <Drawer.Screen name="Banners" component={AdminBannerNavigator} />
             <Drawer.Screen name="AdminNotifications" component={AdminNotificationNavigator} />

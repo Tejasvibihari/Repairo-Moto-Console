@@ -7,9 +7,9 @@ const PAGE_SIZE = 20;
 
 /**
  * Paginated lead list. Re-fetches from page 1 whenever `status`, `search` or
- * `leadBy` change, and whenever another screen calls leadEvents.emit().
+ * `leadBy` / `range` (admin) change, and whenever another screen calls leadEvents.emit().
  */
-export function useLeads({ leadBy, status, search }) {
+export function useLeads({ leadBy, status, search, range }) {
     const [items, setItems] = useState([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -26,7 +26,7 @@ export function useLeads({ leadBy, status, search }) {
         async (page) => {
             const req = ++reqRef.current;
             try {
-                const res = await leadService.list({ page, limit: PAGE_SIZE, leadBy, status, search });
+                const res = await leadService.list({ page, limit: PAGE_SIZE, leadBy, status, search, range });
                 if (req !== reqRef.current) return;
 
                 const rows = res.data || [];
@@ -51,7 +51,7 @@ export function useLeads({ leadBy, status, search }) {
                 }
             }
         },
-        [leadBy, status, search]
+        [leadBy, status, search, range]
     );
 
     // Filter change → back to page 1 with a spinner.
