@@ -85,6 +85,16 @@ const getDrawerConfig = (role, user) => {
     } else if (category === 'employee') {
         // Employee default — telecallers get their own lead-management section
         HomeNav = isTelecaller(user) ? TelecallerNavigator : EmployeeNavigator;
+        // Home → straight to the dashboard, even from a deep screen (an order, a lead, Attendance...).
+        // Mechanics/delivery/managers land on EmployeeTabs → Dashboard, telecallers on TelecallerTabs → Dashboard.
+        // `pop: true` (React Navigation v7) returns to the existing tabs instead of stacking a second copy
+        // on top of e.g. an open order detail.
+        const homeTabs = isTelecaller(user) ? 'TelecallerTabs' : 'EmployeeTabs';
+        group1.push({
+            name: 'Home', label: 'Home', icon: 'home-outline', iconActive: 'home', lib: 'ion',
+            activeRoute: 'AdminHome',      // highlighted whenever the user is anywhere inside the home navigator
+            target: { route: 'AdminHome', params: { screen: homeTabs, pop: true, params: { screen: 'Dashboard' } } },
+        });
         // Every employee marks attendance from here
         group1.push({ name: 'Attendance', label: 'Attendance', icon: 'finger-print-outline', iconActive: 'finger-print', lib: 'ion' });
         if (isTelecaller(user)) {
@@ -214,12 +224,15 @@ function CustomDrawerContent(props) {
         setShowLogoutConfirm(true);
     };
 
-    const navigate = (name) => {
+    const navigate = (item) => {
         navigation.closeDrawer();
-        if (['Dashboard', 'Orders', 'Brands'].includes(name)) {
-            navigation.navigate('AdminHome', { screen: name });
+        if (item.target) {
+            // explicit destination (e.g. employee "Home" → their dashboard tab)
+            navigation.navigate(item.target.route, item.target.params);
+        } else if (['Dashboard', 'Orders', 'Brands'].includes(item.name)) {
+            navigation.navigate('AdminHome', { screen: item.name });
         } else {
-            navigation.navigate(name);
+            navigation.navigate(item.name);
         }
     };
 
@@ -268,10 +281,10 @@ function CustomDrawerContent(props) {
                         <NavItem
                             key={item.name}
                             item={item}
-                            isActive={activeRouteName === item.name}
+                            isActive={activeRouteName === (item.activeRoute || item.name)}
                             theme={theme}
                             isDark={isDark}
-                            onPress={() => navigate(item.name)}
+                            onPress={() => navigate(item)}
                             delay={100 + i * 50}
                         />
                     ))}
@@ -284,10 +297,10 @@ function CustomDrawerContent(props) {
                         <NavItem
                             key={item.name}
                             item={item}
-                            isActive={activeRouteName === item.name}
+                            isActive={activeRouteName === (item.activeRoute || item.name)}
                             theme={theme}
                             isDark={isDark}
-                            onPress={() => navigate(item.name)}
+                            onPress={() => navigate(item)}
                             delay={320 + i * 50}
                         />
                     ))}

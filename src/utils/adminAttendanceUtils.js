@@ -55,6 +55,7 @@ export function periodLabel(mode, anchor, today) {
 // ── rows ─────────────────────────────────────────────────────────────────────
 export const STATUS_META = {
     working: { label: 'Working', icon: 'time-outline' },
+    on_break: { label: 'On break', icon: 'cafe-outline' },
     completed: { label: 'Completed', icon: 'checkmark-done-outline' },
     missed_signout: { label: 'No sign-out', icon: 'alert-circle-outline' },
     absent: { label: 'Absent', icon: 'close-circle-outline' },
@@ -64,6 +65,7 @@ export const STATUS_FILTERS = [
     { key: 'all', label: 'All' },
     { key: 'present', label: 'Present' },
     { key: 'working', label: 'Working' },
+    { key: 'on_break', label: 'On break' },
     { key: 'completed', label: 'Completed' },
     { key: 'missed_signout', label: 'No sign-out' },
     { key: 'absent', label: 'Absent' },
@@ -91,11 +93,22 @@ export const EMPLOYEE_SORTS = [
     { key: 'avg_asc', label: 'Avg hours/day: least first' },
 ];
 
-/** Hours for a row; a "working" row keeps growing until they sign out. */
+/**
+ * Working hours for a row (breaks are NOT counted).
+ *  - "working"  keeps growing until they sign out: time since check-in minus finished breaks
+ *  - "on_break" is paused — the server already froze it at the moment the break began
+ */
 export const rowMinutes = (row, nowMs = Date.now()) =>
     row.status === 'working' && row.checkIn?.at
-        ? Math.max(0, Math.floor((nowMs - new Date(row.checkIn.at).getTime()) / 60000))
+        ? Math.max(0, Math.floor((nowMs - new Date(row.checkIn.at).getTime()) / 60000) - (row.breakMinutes || 0))
         : row.minutes || 0;
+
+/** Total break time for a row; a running break keeps counting. */
+export const rowBreakMinutes = (row, nowMs = Date.now()) =>
+    (row.breakMinutes || 0) +
+    (row.status === 'on_break' && row.onBreakSince
+        ? Math.max(0, Math.floor((nowMs - new Date(row.onBreakSince).getTime()) / 60000))
+        : 0);
 
 export const positionsOf = (rows) =>
     [...new Set(rows.map((r) => r.position).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -166,7 +179,7 @@ export function groupByEmployee(rows, nowMs = Date.now()) {
         if (!g) {
             g = {
                 employeeId: r.employeeId, name: r.name, position: r.position, phone: r.phone, profileImage: r.profileImage,
-                days: 0, totalMinutes: 0, completedDays: 0, completedMinutes: 0, missedSignOut: 0, working: false, lastDate: null, rows: [],
+                days: 0, totalMinutes: 0, completedDays: 0, completedMinutes: 0, missedSignOut: 0, working: false, onBreak: false, lastDate: null, rows: [],
             };
             map.set(r.employeeId, g);
         }
@@ -178,12 +191,13 @@ export function groupByEmployee(rows, nowMs = Date.now()) {
         if (r.status === 'completed') { g.completedDays += 1; g.completedMinutes += m; }
         if (r.status === 'missed_signout') g.missedSignOut += 1;
         if (r.status === 'working') g.working = true;
+        if (r.status === 'on_break') g.onBreak = true;
         if (!g.lastDate || r.date > g.lastDate) g.lastDate = r.date;
     }
     return [...map.values()].map((g) => ({
         ...g,
         avgMinutes: g.completedDays ? Math.round(g.completedMinutes / g.completedDays) : 0,
-        status: g.days === 0 ? 'absent' : g.working ? 'working' : 'present',
+        status: g.days === 0 ? 'absent' : g.working ? 'working' : g.onBreak ? 'on_break' : 'present',
         rows: sortRows(g.rows, 'date_desc', nowMs),
     }));
 }

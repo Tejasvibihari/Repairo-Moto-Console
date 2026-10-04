@@ -53,6 +53,26 @@ export const fmtDuration = (mins) => {
     return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
 };
 
+// ── breaks ───────────────────────────────────────────────────────────────────
+// A break is { start, end? } — `end` is missing while the employee is still on it.
+
+/** The break the employee is on right now, or null. */
+export const openBreak = (breaks) => (breaks || []).find((b) => b?.start && !b.end) || null;
+
+/** Minutes on break; a running break counts up to `nowMs`. */
+export const totalBreakMinutes = (breaks, nowMs = Date.now()) => {
+    let ms = 0;
+    for (const b of breaks || []) {
+        if (!b?.start) continue;
+        const end = b.end ? new Date(b.end).getTime() : nowMs;
+        ms += Math.max(0, end - new Date(b.start).getTime());
+    }
+    return Math.round(ms / 60000);
+};
+
+/** Only finished breaks (history rows: a break left open on a past day must not keep growing). */
+export const closedBreakMinutes = (breaks) => totalBreakMinutes((breaks || []).filter((b) => b?.end));
+
 export const todayKey = () => ist(new Date()).toISOString().slice(0, 10);
 export const currentMonthKey = () => todayKey().slice(0, 7);
 

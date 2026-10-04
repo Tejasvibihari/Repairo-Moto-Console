@@ -1,20 +1,55 @@
 // src/components/employee/AttendanceCard.js
 //
 // Dashboard card with the "Mark Attendance" button.
-// Shows ONLY while today's attendance is not marked — once marked it disappears
-// (the Attendance screen in the drawer has the status + Sign Out).
+// Shows while today's attendance is not marked, and while the employee is on a break
+// (so "Resume Work" is one tap away). Otherwise it stays hidden — the Attendance
+// screen in the drawer has the full status, Take a Break and Sign Out.
 import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTodayAttendance, useLocationWarm } from '../../hooks/useAttendance';
-import { fmtTime } from '../../utils/attendanceUtils';
+import { useTodayAttendance, useLocationWarm, useNow } from '../../hooks/useAttendance';
+import { fmtDuration, fmtTime, openBreak, totalBreakMinutes } from '../../utils/attendanceUtils';
 
 export default function AttendanceCard({ theme, style }) {
-    const { state, error, busy, refresh, checkIn } = useTodayAttendance();
+    const { state, attendance, error, busy, refresh, checkIn, endBreak } = useTodayAttendance();
     useLocationWarm(state === 'not_marked');     // location is ready before the employee taps
+    const nowMs = useNow(state === 'on_break');
     const c = theme.colors;
 
     if (state === 'loading' || state === 'checked_in' || state === 'checked_out') return null;
+
+    if (state === 'on_break') {
+        const current = openBreak(attendance?.breaks);
+        return (
+            <View style={[s.card, { backgroundColor: c.surface, borderColor: c.border, ...theme.shadow.soft }, style]}>
+                <View style={s.row}>
+                    <View style={[s.iconWrap, { backgroundColor: `${c.warning}22` }]}>
+                        <Ionicons name="cafe-outline" size={24} color={c.warning} />
+                    </View>
+                    <View style={s.textWrap}>
+                        <Text style={[s.title, { color: c.textPrimary }]}>You&apos;re on a break</Text>
+                        <Text style={[s.sub, { color: c.textMuted }]}>
+                            Since {fmtTime(current?.start)} · {fmtDuration(totalBreakMinutes(current ? [current] : [], nowMs))}. Resume when you&apos;re back at work.
+                        </Text>
+                    </View>
+                </View>
+
+                <TouchableOpacity
+                    onPress={endBreak}
+                    disabled={busy}
+                    activeOpacity={0.85}
+                    style={[s.btn, { backgroundColor: c.primary, opacity: busy ? 0.75 : 1 }]}
+                >
+                    {busy ? (
+                        <ActivityIndicator size="small" color="#1a1a1a" />
+                    ) : (
+                        <Ionicons name="play-circle-outline" size={20} color="#1a1a1a" />
+                    )}
+                    <Text style={s.btnText}>Resume Work</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     if (state === 'error') {
         return (

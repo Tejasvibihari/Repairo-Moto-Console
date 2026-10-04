@@ -39,6 +39,7 @@ import {
     periodLabel,
     periodRange,
     positionsOf,
+    rowBreakMinutes,
     rowMinutes,
     shiftAnchor,
     sortEmployees,
@@ -55,7 +56,7 @@ const PERIODS = [
 const titleCase = (s) => String(s || '').replace(/\b\w/g, (ch) => ch.toUpperCase());
 
 const statusColor = (status, c) =>
-    status === 'working' ? c.success : status === 'completed' ? '#3B82F6' : status === 'missed_signout' ? c.warning : status === 'absent' ? c.error : c.textMuted;
+    status === 'working' ? c.success : status === 'on_break' ? c.warning : status === 'completed' ? '#3B82F6' : status === 'missed_signout' ? c.warning : status === 'absent' ? c.error : c.textMuted;
 
 // ─── small pieces (module level so they never remount) ───────────────────────
 
@@ -140,6 +141,7 @@ function RecordCard({ row, theme, nowMs, showDate, onPress }) {
     const c = theme.colors;
     const absent = row.status === 'absent';
     const minutes = rowMinutes(row, nowMs);
+    const breakMins = rowBreakMinutes(row, nowMs);
     return (
         <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={[s.card, { backgroundColor: c.surface, borderColor: c.border }]}>
             <View style={s.cardTop}>
@@ -165,6 +167,15 @@ function RecordCard({ row, theme, nowMs, showDate, onPress }) {
                             {row.status === 'missed_signout' ? 'No sign-out' : fmtDuration(minutes)}
                         </Text>
                     </View>
+                    {breakMins > 0 && (
+                        <View style={s.timeRow}>
+                            <Ionicons name="cafe-outline" size={15} color={c.textMuted} />
+                            <Text style={[s.line, { color: row.status === 'on_break' ? c.warning : c.textSecondary, flex: 1 }]} numberOfLines={1}>
+                                {row.status === 'on_break' ? `On break since ${fmtTime(row.onBreakSince)}  •  ` : ''}
+                                Breaks {fmtDuration(breakMins)}
+                            </Text>
+                        </View>
+                    )}
                     {!!row.checkIn?.address && (
                         <View style={s.timeRow}>
                             <Ionicons name="location-outline" size={15} color={c.textMuted} />
@@ -187,7 +198,7 @@ function EmployeeCard({ group, theme, onPress, showAbsent }) {
                     <Text style={[s.name, { color: c.textPrimary }]} numberOfLines={1}>{group.name}</Text>
                     <Text style={[s.sub, { color: c.textMuted }]} numberOfLines={1}>{titleCase(group.position)}</Text>
                 </View>
-                {group.working ? <Pill status="working" theme={theme} /> : group.days === 0 && showAbsent ? <Pill status="absent" theme={theme} /> : null}
+                {group.working ? <Pill status="working" theme={theme} /> : group.onBreak ? <Pill status="on_break" theme={theme} /> : group.days === 0 && showAbsent ? <Pill status="absent" theme={theme} /> : null}
             </View>
             <View style={s.stats}>
                 <View style={s.stat}>
@@ -252,9 +263,25 @@ function DetailSheet({ item, theme, nowMs, onClose }) {
                                     <>
                                         <Stamp label="Checked in" stamp={person.checkIn} theme={theme} />
                                         <Stamp label="Signed out" stamp={person.checkOut} theme={theme} />
+                                        {person.breaks?.length > 0 && (
+                                            <View style={[s.worked, { backgroundColor: c.surface, borderColor: c.border, flexDirection: 'column', alignItems: 'stretch', gap: 8 }]}>
+                                                <View style={s.timeRow}>
+                                                    <Text style={[s.sub, { color: c.textMuted, flex: 1 }]}>Breaks</Text>
+                                                    <Text style={[s.hours, { color: c.textPrimary }]}>{fmtDuration(rowBreakMinutes(person, nowMs))}</Text>
+                                                </View>
+                                                {person.breaks.map((b, i) => (
+                                                    <View key={`${b.start}-${i}`} style={s.timeRow}>
+                                                        <Ionicons name="cafe-outline" size={14} color={c.textMuted} />
+                                                        <Text style={[s.line, { color: c.textSecondary }]}>
+                                                            {fmtTime(b.start)}  →  {b.end ? fmtTime(b.end) : 'now'}
+                                                        </Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
                                         <View style={[s.worked, { backgroundColor: c.surface, borderColor: c.border }]}>
                                             <Text style={[s.sub, { color: c.textMuted }]}>
-                                                {person.status === 'working' ? 'Working so far' : 'Working hours'}
+                                                {person.status === 'working' || person.status === 'on_break' ? 'Working so far' : 'Working hours'}
                                             </Text>
                                             <Text style={[s.sheetName, { color: person.status === 'missed_signout' ? c.warning : c.textPrimary }]}>
                                                 {person.status === 'missed_signout' ? 'No sign-out' : fmtDuration(rowMinutes(person, nowMs))}
@@ -276,6 +303,9 @@ function DetailSheet({ item, theme, nowMs, onClose }) {
                                             <Text style={[s.line, { color: c.textSecondary }]}>
                                                 {fmtTime(r.checkIn?.at)}  →  {r.checkOut?.at ? fmtTime(r.checkOut.at) : '--'}
                                             </Text>
+                                            {rowBreakMinutes(r, nowMs) > 0 && (
+                                                <Text style={[s.line, { color: c.textMuted }]}>Breaks {fmtDuration(rowBreakMinutes(r, nowMs))}</Text>
+                                            )}
                                             {!!r.checkIn?.address && <Text style={[s.line, { color: c.textMuted }]} numberOfLines={1}>{r.checkIn.address}</Text>}
                                         </View>
                                         <View style={{ alignItems: 'flex-end', gap: 6 }}>
@@ -379,7 +409,7 @@ export default function AdminAttendanceScreen() {
     const ready = !!data && data.from === range.from && data.to === range.to;
     const rows = ready ? data.rows : EMPTY;
     const singleDay = ready ? data.singleDay : range.from === range.to;
-    const hasWorking = useMemo(() => rows.some((r) => r.status === 'working'), [rows]);
+    const hasWorking = useMemo(() => rows.some((r) => r.status === 'working' || r.status === 'on_break'), [rows]);
 
     // keep "working so far" hours ticking
     useEffect(() => {
@@ -422,6 +452,7 @@ export default function AdminAttendanceScreen() {
             totalEmployees: new Set(rows.map((r) => r.employeeId)).size,
             absent: rows.filter((r) => r.status === 'absent').length,
             working: rows.filter((r) => r.status === 'working').length,
+            onBreak: rows.filter((r) => r.status === 'on_break').length,
             missed: rows.filter((r) => r.status === 'missed_signout').length,
             totalMinutes: total,
             avgMinutes: completed.length ? Math.round(completed.reduce((sum, r) => sum + r.minutes, 0) / completed.length) : 0,
@@ -475,7 +506,7 @@ export default function AdminAttendanceScreen() {
                             <>
                                 <Tile theme={theme} label="Present" value={summary.presentEmployees} sub={`of ${summary.totalEmployees}`} />
                                 <Tile theme={theme} label="Absent" value={summary.absent} />
-                                <Tile theme={theme} label="Working now" value={summary.working} />
+                                <Tile theme={theme} label="Working now" value={summary.working} sub={summary.onBreak > 0 ? `${summary.onBreak} on break` : undefined} />
                                 <Tile theme={theme} label="Total hours" value={fmtDuration(summary.totalMinutes)} />
                             </>
                         ) : (

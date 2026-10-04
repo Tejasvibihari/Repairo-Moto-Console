@@ -17,23 +17,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
 import PopUp from '../../../components/common/PopUp';
-import { useTodayAttendance, useLocationWarm } from '../../../hooks/useAttendance';
+import { useTodayAttendance, useLocationWarm, useNow } from '../../../hooks/useAttendance';
 import { attendanceService } from '../../../services/attendanceService';
 import {
+    closedBreakMinutes,
     currentMonthKey,
     dayParts,
     fmtDate,
     fmtDuration,
     fmtTime,
     monthLabel,
+    openBreak,
     openMap,
     shiftMonth,
     todayKey,
+    totalBreakMinutes,
 } from '../../../utils/attendanceUtils';
 
 const STATUS = {
     not_marked: { label: 'Not marked', icon: 'time-outline' },
     checked_in: { label: 'Checked in', icon: 'checkmark-circle-outline' },
+    on_break: { label: 'On break', icon: 'cafe-outline' },
     checked_out: { label: 'Day complete', icon: 'checkmark-done-outline' },
 };
 
@@ -68,13 +72,39 @@ function StampRow({ icon, label, stamp, theme }) {
     );
 }
 
+// Today's breaks: one line each + the total. A running break shows "now" and keeps counting.
+function BreaksSection({ breaks, nowMs, theme }) {
+    const c = theme.colors;
+    if (!breaks?.length) return null;
+    return (
+        <View style={[s.breakBox, { backgroundColor: c.surfaceLow, borderColor: c.border }]}>
+            <View style={s.breakHead}>
+                <Text style={[s.stampLabel, { color: c.textMuted }]}>Breaks today</Text>
+                <Text style={[s.breakTotal, { color: c.textPrimary }]}>{fmtDuration(totalBreakMinutes(breaks, nowMs))}</Text>
+            </View>
+            {breaks.map((b, i) => (
+                <View key={`${b.start}-${i}`} style={s.breakLine}>
+                    <Ionicons name="cafe-outline" size={14} color={c.textMuted} />
+                    <Text style={[s.breakText, { color: c.textSecondary }]}>
+                        {fmtTime(b.start)}  →  {b.end ? fmtTime(b.end) : 'now'}
+                    </Text>
+                    <Text style={[s.breakDur, { color: c.textPrimary }]}>{fmtDuration(totalBreakMinutes([b], nowMs))}</Text>
+                </View>
+            ))}
+        </View>
+    );
+}
+
 export default function AttendanceScreen() {
     const mode = useSelector((st) => st.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const c = theme.colors;
 
-    const { state, attendance, error, busy, refresh, checkIn, checkOut } = useTodayAttendance();
-    useLocationWarm(state === 'not_marked' || state === 'checked_in');     // instant Mark / Sign Out
+    const { state, attendance, error, busy, busyKind, refresh, checkIn, checkOut, startBreak, endBreak } = useTodayAttendance();
+    useLocationWarm(state === 'not_marked' || state === 'checked_in' || state === 'on_break');     // instant Mark / Sign Out
+    const nowMs = useNow(state === 'on_break');                              // running break timer
+    const breaks = attendance?.breaks || [];
+    const currentBreak = state === 'on_break' ? openBreak(breaks) : null;
     const [confirmOut, setConfirmOut] = useState(false);
 
     const [month, setMonth] = useState(currentMonthKey());
@@ -108,7 +138,7 @@ export default function AttendanceScreen() {
     };
 
     const meta = STATUS[state];
-    const pillColor = state === 'checked_in' ? c.success : state === 'checked_out' ? '#3B82F6' : c.warning;
+    const pillColor = state === 'checked_in' ? c.success : state === 'checked_out' ? '#3B82F6' : c.warning;   // on_break / not_marked → amber
     const isCurrentMonth = month === currentMonthKey();
 
     return (
@@ -174,39 +204,92 @@ export default function AttendanceScreen() {
                         </>
                     )}
 
-                    {(state === 'checked_in' || state === 'checked_out') && (
+                    {(state === 'checked_in' || state === 'on_break' || state === 'checked_out') && (
                         <>
                             <StampRow icon="log-in-outline" label="Checked in" stamp={attendance?.checkIn} theme={theme} />
                             <StampRow icon="log-out-outline" label="Signed out" stamp={attendance?.checkOut} theme={theme} />
 
+                            <BreaksSection breaks={breaks} nowMs={nowMs} theme={theme} />
+
                             {state === 'checked_out' && (
                                 <View style={[s.worked, { backgroundColor: c.surfaceLow, borderColor: c.border }]}>
-                                    <Text style={[s.workedLabel, { color: c.textMuted }]}>Total time today</Text>
+                                    <View>
+                                        <Text style={[s.workedLabel, { color: c.textMuted }]}>Time worked today</Text>
+                                        {breaks.length > 0 && (
+                                            <Text style={[s.workedNote, { color: c.textMuted }]}>Breaks not counted</Text>
+                                        )}
+                                    </View>
                                     <Text style={[s.workedValue, { color: c.textPrimary }]}>{fmtDuration(attendance?.workedMinutes)}</Text>
                                 </View>
                             )}
 
-                            {state === 'checked_in' ? (
-                                <TouchableOpacity
-                                    onPress={() => setConfirmOut(true)}
-                                    disabled={busy}
-                                    activeOpacity={0.85}
-                                    style={[s.btn, { backgroundColor: c.error, opacity: busy ? 0.75 : 1 }]}
-                                >
-                                    {busy ? (
-                                        <>
-                                            <ActivityIndicator size="small" color="#1a1a1a" />
-                                            <Text style={s.btnText}>Getting your location…</Text>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Ionicons name="log-out-outline" size={20} color="#1a1a1a" />
-                                            <Text style={s.btnText}>Sign Out</Text>
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-                            ) : (
+                            {state === 'on_break' && (
+                                <View style={[s.onBreak, { backgroundColor: `${c.warning}1A`, borderColor: `${c.warning}40` }]}>
+                                    <Ionicons name="cafe-outline" size={20} color={c.warning} />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[s.onBreakTitle, { color: c.textPrimary }]}>
+                                            On break · {fmtDuration(totalBreakMinutes(currentBreak ? [currentBreak] : [], nowMs))}
+                                        </Text>
+                                        <Text style={[s.onBreakSub, { color: c.textSecondary }]}>
+                                            Since {fmtTime(currentBreak?.start)}. This time isn&apos;t counted as work.
+                                        </Text>
+                                    </View>
+                                </View>
+                            )}
+
+                            {state === 'checked_out' ? (
                                 <Text style={[s.hint, { color: c.textSecondary }]}>You&apos;re all done for today. See you tomorrow!</Text>
+                            ) : (
+                                <>
+                                    {state === 'on_break' ? (
+                                        <TouchableOpacity
+                                            onPress={endBreak}
+                                            disabled={busy}
+                                            activeOpacity={0.85}
+                                            style={[s.btn, { backgroundColor: c.primary, opacity: busy ? 0.75 : 1 }]}
+                                        >
+                                            {busyKind === 'resume' ? (
+                                                <ActivityIndicator size="small" color="#1a1a1a" />
+                                            ) : (
+                                                <Ionicons name="play-circle-outline" size={20} color="#1a1a1a" />
+                                            )}
+                                            <Text style={s.btnText}>Resume Work</Text>
+                                        </TouchableOpacity>
+                                    ) : (
+                                        <TouchableOpacity
+                                            onPress={startBreak}
+                                            disabled={busy}
+                                            activeOpacity={0.85}
+                                            style={[s.btn, s.btnOutline, { borderColor: c.primary, opacity: busy ? 0.6 : 1 }]}
+                                        >
+                                            {busyKind === 'break' ? (
+                                                <ActivityIndicator size="small" color={c.primary} />
+                                            ) : (
+                                                <Ionicons name="cafe-outline" size={20} color={c.primary} />
+                                            )}
+                                            <Text style={[s.btnText, { color: c.primary }]}>Take a Break</Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    <TouchableOpacity
+                                        onPress={() => setConfirmOut(true)}
+                                        disabled={busy}
+                                        activeOpacity={0.85}
+                                        style={[s.btn, { backgroundColor: c.error, opacity: busy ? 0.75 : 1 }]}
+                                    >
+                                        {busyKind === 'out' ? (
+                                            <>
+                                                <ActivityIndicator size="small" color="#1a1a1a" />
+                                                <Text style={s.btnText}>Getting your location…</Text>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Ionicons name="log-out-outline" size={20} color="#1a1a1a" />
+                                                <Text style={s.btnText}>Sign Out</Text>
+                                            </>
+                                        )}
+                                    </TouchableOpacity>
+                                </>
                             )}
                         </>
                     )}
@@ -264,9 +347,11 @@ export default function AttendanceScreen() {
                             history.records.map((r) => {
                                 const { day, weekday } = dayParts(r.date);
                                 const open = !r.checkOut?.at;
+                                const isToday = r.date === todayKey();
                                 const right = open
-                                    ? (r.date === todayKey() ? 'Working' : 'No sign-out')
+                                    ? (isToday ? (openBreak(r.breaks) ? 'On break' : 'Working') : 'No sign-out')
                                     : fmtDuration(r.workedMinutes);
+                                const breakMins = closedBreakMinutes(r.breaks);
                                 return (
                                     <View key={r._id} style={[s.item, { backgroundColor: c.surface, borderColor: c.border }]}>
                                         <View style={[s.dateBox, { backgroundColor: `${c.primary}1F` }]}>
@@ -277,6 +362,11 @@ export default function AttendanceScreen() {
                                             <Text style={[s.itemTime, { color: c.textPrimary }]}>
                                                 {fmtTime(r.checkIn?.at)}  →  {open ? '--' : fmtTime(r.checkOut.at)}
                                             </Text>
+                                            {breakMins > 0 && (
+                                                <Text style={[s.itemAddr, { color: c.textMuted }]} numberOfLines={1}>
+                                                    Break {fmtDuration(breakMins)}
+                                                </Text>
+                                            )}
                                             {!!r.checkIn?.address && (
                                                 <Text style={[s.itemAddr, { color: c.textMuted }]} numberOfLines={1}>{r.checkIn.address}</Text>
                                             )}
@@ -302,7 +392,10 @@ export default function AttendanceScreen() {
             <PopUp
                 visible={confirmOut}
                 title="Sign out for today?"
-                message="Your sign-out time and current location will be recorded. You can't mark attendance again today."
+                message={
+                    (state === 'on_break' ? 'Your break will end now. ' : '') +
+                    "Your sign-out time and current location will be recorded. You can't mark attendance again today."
+                }
                 primaryLabel="Sign Out"
                 secondaryLabel="Cancel"
                 primaryColor={c.error}
@@ -337,6 +430,17 @@ const s = StyleSheet.create({
     worked: { borderRadius: 14, borderWidth: 1, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     workedLabel: { fontSize: 12.5, fontWeight: '600' },
     workedValue: { fontSize: 16, fontWeight: '800' },
+    workedNote: { fontSize: 11, fontWeight: '600', marginTop: 1 },
+    btnOutline: { backgroundColor: 'transparent', borderWidth: 1.5 },
+    onBreak: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1, padding: 12 },
+    onBreakTitle: { fontSize: 15, fontWeight: '800' },
+    onBreakSub: { fontSize: 12.5, fontWeight: '500', marginTop: 2 },
+    breakBox: { borderRadius: 14, borderWidth: 1, padding: 12, gap: 8 },
+    breakHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    breakTotal: { fontSize: 15, fontWeight: '800' },
+    breakLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    breakText: { flex: 1, fontSize: 13, fontWeight: '600' },
+    breakDur: { fontSize: 13, fontWeight: '700' },
     monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
     monthBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
     monthLabel: { fontSize: 16, fontWeight: '800' },

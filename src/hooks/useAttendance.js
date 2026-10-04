@@ -1,7 +1,8 @@
 // src/hooks/useAttendance.js
 //
 // Today's attendance state for the signed-in employee.
-//   state: 'loading' | 'not_marked' | 'checked_in' | 'checked_out' | 'error'
+//   state: 'loading' | 'not_marked' | 'checked_in' | 'on_break' | 'checked_out' | 'error'
+// A day can hold several breaks: checked_in → on_break → checked_in → ... → checked_out.
 // Re-syncs with the server whenever the screen gains focus or the app returns to the
 // foreground (so a new day never shows yesterday's state).
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -22,11 +23,24 @@ export function useLocationWarm(wanted) {
     useEffect(() => (active ? holdLocationWarm() : undefined), [active]);
 }
 
+/** Current time in ms, re-read every `ms` while `active` (drives the running break timer). */
+export function useNow(active, ms = 30000) {
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+        if (!active) return undefined;
+        setNow(Date.now());
+        const t = setInterval(() => setNow(Date.now()), ms);
+        return () => clearInterval(t);
+    }, [active, ms]);
+    return now;
+}
+
 export function useTodayAttendance() {
     const [state, setState] = useState('loading');
     const [attendance, setAttendance] = useState(null);
     const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
+    const [busyKind, setBusyKind] = useState(null);    // 'in' | 'out' | 'break' | 'resume' — which button is working
     const busyRef = useRef(false);
     const aliveRef = useRef(true);
 
@@ -62,6 +76,7 @@ export function useTodayAttendance() {
         if (busyRef.current) return { ok: false };
         busyRef.current = true;
         setBusy(true);
+        setBusyKind(kind);
         try {
             const { payload, pendingAddress } = await getAttendanceLocation();
             const data = kind === 'in' ? await attendanceService.checkIn(payload) : await attendanceService.checkOut(payload);
@@ -81,12 +96,35 @@ export function useTodayAttendance() {
             return { ok: false };
         } finally {
             busyRef.current = false;
-            if (aliveRef.current) setBusy(false);
+            if (aliveRef.current) { setBusy(false); setBusyKind(null); }
         }
     }, [apply, refresh]);
 
+    // kind: 'start' | 'end'  →  resolves { ok, attendance? }. No location needed, so it is quick.
+    const breakAction = useCallback(async (kind) => {
+        if (busyRef.current) return { ok: false };
+        busyRef.current = true;
+        setBusy(true);
+        setBusyKind(kind === 'start' ? 'break' : 'resume');
+        try {
+            const data = kind === 'start' ? await attendanceService.startBreak() : await attendanceService.endBreak();
+            apply(data);
+            return { ok: true, attendance: data.attendance };
+        } catch (e) {
+            // Already in that state (double tap / other device) → just sync to the server
+            if (e?.response?.status === 409 && e.response.data?.state) apply(e.response.data);
+            showAttendanceError(e, kind === 'start' ? 'Could not start your break' : 'Could not resume work');
+            return { ok: false };
+        } finally {
+            busyRef.current = false;
+            if (aliveRef.current) { setBusy(false); setBusyKind(null); }
+        }
+    }, [apply]);
+
     const checkIn = useCallback(() => submit('in'), [submit]);
     const checkOut = useCallback(() => submit('out'), [submit]);
+    const startBreak = useCallback(() => breakAction('start'), [breakAction]);
+    const endBreak = useCallback(() => breakAction('end'), [breakAction]);
 
-    return { state, attendance, error, busy, refresh, checkIn, checkOut };
+    return { state, attendance, error, busy, busyKind, refresh, checkIn, checkOut, startBreak, endBreak };
 }
