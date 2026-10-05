@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { useAuth } from '../../../hooks/useAuth';
+import WhatsAppOtpLogin, { LoginModeTabs } from '../../../components/auth/WhatsAppOtpLogin';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 
 export default function VendorLoginScreen({ navigation }) {
@@ -25,6 +26,7 @@ export default function VendorLoginScreen({ navigation }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [mode, setMode] = useState('otp'); // 'password' | 'otp' (WhatsApp)
 
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
@@ -277,56 +279,64 @@ export default function VendorLoginScreen({ navigation }) {
                     <View style={s.titleBlock}>
                         <Text style={s.title}>AUTHENTICATION</Text>
                         <Text style={s.subtitle}>
-                            Enter your credentials to continue to the dashboard.
+                            Sign in with your email and password, or get a code on WhatsApp.
                         </Text>
                     </View>
 
-                    {/* ── Email ── */}
-                    <Text style={s.fieldLabel}>EMAIL ADDRESS</Text>
-                    <TextInput
-                        style={s.input}
-                        placeholder="mechanic@repairo.moto"
-                        placeholderTextColor={C.textMuted}
-                        value={email}
-                        onChangeText={setEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                    />
+                    <LoginModeTabs mode={mode} onChange={setMode} C={C} />
 
-                    {/* ── Password ── */}
-                    <View style={s.passwordRow}>
-                        <Text style={s.fieldLabel}>PASSWORD</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { userType: 'Vendor' })}>
-                            <Text style={s.forgotBtn}>FORGOT PASSWORD?</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <TextInput
-                        style={s.input}
-                        placeholder="••••••••••••"
-                        placeholderTextColor={C.textMuted}
-                        value={password}
-                        onChangeText={setPassword}
-                        secureTextEntry={!showPassword}
-                    />
+                    {mode === 'password' ? (
+                        <>
+                            {/* ── Email ── */}
+                            <Text style={s.fieldLabel}>EMAIL ADDRESS</Text>
+                            <TextInput
+                                style={s.input}
+                                placeholder="mechanic@repairo.moto"
+                                placeholderTextColor={C.textMuted}
+                                value={email}
+                                onChangeText={setEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
 
-                    {/* ── Login Button ── */}
-                    <TouchableOpacity
-                        style={[s.loginBtn, loading && { opacity: 0.7 }]}
-                        activeOpacity={0.85}
-                        onPress={handleLogin}
-                        disabled={loading}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color={C.secondary} />
-                        ) : (
-                            <>
-                                <Text style={s.loginBtnText}>IGNITE SESSION</Text>
-                                <Text style={s.loginBtnArrow}>→</Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
+                            {/* ── Password ── */}
+                            <View style={s.passwordRow}>
+                                <Text style={s.fieldLabel}>PASSWORD</Text>
+                                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { userType: 'Vendor' })}>
+                                    <Text style={s.forgotBtn}>FORGOT PASSWORD?</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <TextInput
+                                style={s.input}
+                                placeholder="••••••••••••"
+                                placeholderTextColor={C.textMuted}
+                                value={password}
+                                onChangeText={setPassword}
+                                secureTextEntry={!showPassword}
+                            />
 
-                    {error && !loading && <Text style={{ marginTop: 12, fontSize: 12, color: '#E54D4D', textAlign: 'center' }}>{error}</Text>}
+                            {/* ── Login Button ── */}
+                            <TouchableOpacity
+                                style={[s.loginBtn, loading && { opacity: 0.7 }]}
+                                activeOpacity={0.85}
+                                onPress={handleLogin}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color={C.secondary} />
+                                ) : (
+                                    <>
+                                        <Text style={s.loginBtnText}>IGNITE SESSION</Text>
+                                        <Text style={s.loginBtnArrow}>→</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+
+                            {error && !loading && <Text style={{ marginTop: 12, fontSize: 12, color: '#E54D4D', textAlign: 'center' }}>{error}</Text>}
+                        </>
+                    ) : (
+                        <WhatsAppOtpLogin role="vendor" C={C} />
+                    )}
 
                     {/* ── Divider ── */}
                     {/* <View style={s.dividerRow}>

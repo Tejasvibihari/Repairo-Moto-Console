@@ -16,6 +16,27 @@ export function useAuth() {
     const loading = useSelector((state) => state.auth.loading);
     const error = useSelector((state) => state.auth.error);
 
+    // Same user-shaping for every way of signing in (password or WhatsApp OTP).
+    const completeLogin = (data, userKey) => {
+        const { token } = data;
+        const userData = data[userKey]; // extract user from correct key
+
+        // If userData is undefined, throw an error
+        if (!userData) {
+            throw new Error(`User data not found in response under key "${userKey}"`);
+        }
+
+        // The backend already returns _id (MongoDB); fall back to id if it is missing
+        const mappedUser = {
+            ...userData,
+            _id: userData._id || userData.id,
+        };
+        delete mappedUser.id;
+
+        dispatch(loginSuccess({ token, user: mappedUser }));
+    };
+
+    // `email` may also be a phone number for employees (the server accepts either).
     const login = async (email, password, role) => {
         dispatch(loginStart());
 
@@ -40,32 +61,53 @@ export function useAuth() {
 
 
         try {
-            const response = await axiosClient.post(url, { email, password });
-            const { token } = response.data;
-            let userData = response.data[userKey]; // extract user from correct key
-
-            // If userData is undefined, throw an error
-            if (!userData) {
-                throw new Error(`User data not found in response under key "${userKey}"`);
-            }
-
-            // The backend already returns _id (MongoDB), no need to map
-            // But ensure _id exists; if not, keep as is
-            const mappedUser = {
-                ...userData,
-                _id: userData._id || userData.id, // fallback to id if _id missing
-            };
-            // Remove id if it existed and we used it
-            if (mappedUser.id && !mappedUser._id) {
-                mappedUser._id = mappedUser.id;
-            }
-            delete mappedUser.id;
-
-            dispatch(loginSuccess({ token, user: mappedUser }));
+            const body = role === 'admin'
+                ? { email, password }
+                : { identifier: String(email).trim(), email: String(email).trim(), password };
+            const response = await axiosClient.post(url, body);
+            completeLogin(response.data, userKey);
             return { success: true };
         } catch (err) {
 
             const errorMessage = err.response?.data?.message || err.message || 'Login failed. Please try again.';
+            dispatch(loginFailure(errorMessage));
+            return { success: false, error: errorMessage };
+        }
+    };
+
+    // ── WhatsApp OTP (employee + vendor only — never admin) ──
+    const OTP_BASE = { employee: '/api/employee/auth', vendor: '/api/vendor/auth' };
+
+    /**
+     * Ask the server to WhatsApp a code.
+     * @returns {{success:true, resendIn:number} | {success:false, error:string, retryAfter?:number}}
+     * `retryAfter` (seconds) is set when the number is still cooling down — start the countdown from it.
+     */
+    const sendOtp = async (phone, role) => {
+        if (!OTP_BASE[role]) return { success: false, error: 'WhatsApp login is not available for this role.' };
+        try {
+            const { data } = await axiosClient.post(`${OTP_BASE[role]}/send-otp`, { phone });
+            return { success: true, resendIn: data?.resendIn || 60 };
+        } catch (err) {
+            const d = err.response?.data;
+            return {
+                success: false,
+                error: d?.message || err.message || 'Could not send the code. Please try again.',
+                retryAfter: d?.retryAfter,
+                status: err.response?.status,
+            };
+        }
+    };
+
+    const loginWithOtp = async (phone, otp, role) => {
+        if (!OTP_BASE[role]) return { success: false, error: 'WhatsApp login is not available for this role.' };
+        dispatch(loginStart());
+        try {
+            const { data } = await axiosClient.post(`${OTP_BASE[role]}/verify-otp`, { phone, otp });
+            completeLogin(data, role === 'employee' ? 'employee' : 'vendor');
+            return { success: true };
+        } catch (err) {
+            const errorMessage = err.response?.data?.message || err.message || 'Verification failed. Please try again.';
             dispatch(loginFailure(errorMessage));
             return { success: false, error: errorMessage };
         }
@@ -81,6 +123,8 @@ export function useAuth() {
         loading,
         error,
         login,
+        sendOtp,
+        loginWithOtp,
         logout: performLogout,
     };
 }

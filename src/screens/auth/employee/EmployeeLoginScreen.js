@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../hooks/useAuth';
+import WhatsAppOtpLogin, { LoginModeTabs } from '../../../components/auth/WhatsAppOtpLogin';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import PopUp from '../../../components/common/PopUp';
 
@@ -26,6 +27,7 @@ export default function EmployeeLoginScreen({ navigation }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [mode, setMode] = useState('otp'); // 'password' | 'otp' (WhatsApp)
 
     // Popup state
     const [popupVisible, setPopupVisible] = useState(false);
@@ -46,7 +48,7 @@ export default function EmployeeLoginScreen({ navigation }) {
 
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
-            showAlert('Error', 'Please enter both email and password.');
+            showAlert('Error', 'Please enter your email or phone number and password.');
             return;
         }
 
@@ -282,71 +284,79 @@ export default function EmployeeLoginScreen({ navigation }) {
                     <View style={s.titleBlock}>
                         <Text style={s.title}>AUTHENTICATION</Text>
                         <Text style={s.subtitle}>
-                            Enter your credentials to continue to the dashboard.
+                            Sign in with your email or phone number and password, or get a code on WhatsApp.
                         </Text>
                     </View>
 
-                    {/* ── Email ── */}
-                    <Text style={s.fieldLabel}>EMAIL ADDRESS</Text>
-                    <TextInput
-                        style={s.input}
-                        placeholder="mechanic@repairo.moto"
-                        placeholderTextColor={C.textMuted}
-                        value={email}
-                        onChangeText={setEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        returnKeyType="next"
-                        autoCorrect={false}
-                    />
+                    <LoginModeTabs mode={mode} onChange={setMode} C={C} />
 
-                    {/* ── Password ── */}
-                    <View style={s.passwordRow}>
-                        <Text style={s.fieldLabel}>PASSWORD</Text>
-                        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { userType: 'Employee' })}>
-                            <Text style={s.forgotBtn}>FORGOT PASSWORD?</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <View style={s.passwordInputWrapper}>
-                        <TextInput
-                            style={s.input}
-                            placeholder="••••••••••••"
-                            placeholderTextColor={C.textMuted}
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry={!showPassword}
-                            returnKeyType="done"
-                            onSubmitEditing={handleLogin}
-                        />
-                        <TouchableOpacity
-                            style={s.passwordIcon}
-                            onPress={() => setShowPassword(!showPassword)}
-                            activeOpacity={0.7}
-                        >
-                            <Ionicons  // ✅ Changed from Icon to Ionicons
-                                name={showPassword ? 'eye-off' : 'eye'}
-                                size={22}
-                                color={C.textMuted}
+                    {mode === 'password' ? (
+                        <>
+                            {/* ── Email ── */}
+                            <Text style={s.fieldLabel}>EMAIL OR PHONE NUMBER</Text>
+                            <TextInput
+                                style={s.input}
+                                placeholder="email or 10-digit phone number"
+                                placeholderTextColor={C.textMuted}
+                                value={email}
+                                onChangeText={setEmail}
+                                keyboardType="default"
+                                autoCapitalize="none"
+                                returnKeyType="next"
+                                autoCorrect={false}
                             />
-                        </TouchableOpacity>
-                    </View>
 
-                    {/* ── Login Button ── */}
-                    <TouchableOpacity
-                        style={[s.loginBtn, loading && { opacity: 0.7 }]}
-                        activeOpacity={0.85}
-                        onPress={handleLogin}
-                        disabled={loading}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color={C.secondary} />
-                        ) : (
-                            <>
-                                <Text style={s.loginBtnText}>IGNITE SESSION</Text>
-                                <Text style={s.loginBtnArrow}>→</Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
+                            {/* ── Password ── */}
+                            <View style={s.passwordRow}>
+                                <Text style={s.fieldLabel}>PASSWORD</Text>
+                                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { userType: 'Employee' })}>
+                                    <Text style={s.forgotBtn}>FORGOT PASSWORD?</Text>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={s.passwordInputWrapper}>
+                                <TextInput
+                                    style={s.input}
+                                    placeholder="••••••••••••"
+                                    placeholderTextColor={C.textMuted}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry={!showPassword}
+                                    returnKeyType="done"
+                                    onSubmitEditing={handleLogin}
+                                />
+                                <TouchableOpacity
+                                    style={s.passwordIcon}
+                                    onPress={() => setShowPassword(!showPassword)}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons  // ✅ Changed from Icon to Ionicons
+                                        name={showPassword ? 'eye-off' : 'eye'}
+                                        size={22}
+                                        color={C.textMuted}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* ── Login Button ── */}
+                            <TouchableOpacity
+                                style={[s.loginBtn, loading && { opacity: 0.7 }]}
+                                activeOpacity={0.85}
+                                onPress={handleLogin}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color={C.secondary} />
+                                ) : (
+                                    <>
+                                        <Text style={s.loginBtnText}>IGNITE SESSION</Text>
+                                        <Text style={s.loginBtnArrow}>→</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <WhatsAppOtpLogin role="employee" C={C} />
+                    )}
 
                     {/* ── Footer ── */}
                     <View style={s.footer}>
