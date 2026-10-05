@@ -76,7 +76,7 @@ const getDrawerConfig = (role, user) => {
             { name: 'Banners', label: 'Banners', icon: 'images-outline', iconActive: 'images', lib: 'ion' },   // ← add this
             { name: 'AdminNotifications', label: 'Send Notifications', icon: 'megaphone-outline', iconActive: 'megaphone', lib: 'ion' },
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
-            { name: 'LiveMechanics', label: 'Live Mechanics', icon: 'locate-outline', iconActive: 'locate', lib: 'ion' },
+            { name: 'LiveMechanics', label: 'Live Tracking', icon: 'locate-outline', iconActive: 'locate', lib: 'ion' },
             { name: 'AttendanceReport', label: 'Employee Attendance', icon: 'calendar-outline', iconActive: 'calendar', lib: 'ion' },
             { name: 'ShopStatus', label: 'Shop Status', icon: 'storefront-outline', iconActive: 'storefront', lib: 'ion' },
             { name: 'AttendanceSettings', label: 'Attendance Alerts', icon: 'finger-print-outline', iconActive: 'finger-print', lib: 'ion' },

@@ -1,5 +1,6 @@
 // src/screens/admin/tracking/LiveMechanicsScreen.js
-// Admin "Live Mechanics" map — shows every mechanic who is currently Online.
+// Admin "Live Tracking" map — shows every mechanic and delivery partner who is currently Online
+// (= checked in; people on a break or signed out are not shown).
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Linking, ActivityIndicator } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
@@ -10,6 +11,11 @@ import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
 import useLiveMechanics from '../../../hooks/useLiveMechanics';
 
 const PATNA = { latitude: 25.5941, longitude: 85.1376, latitudeDelta: 0.25, longitudeDelta: 0.25 };
+
+const ROLE = {
+    mechanic: { label: 'Mechanic', pin: '#2ECC9A' },
+    delivery: { label: 'Delivery', pin: '#3B82F6' },
+};
 
 const ago = (iso, now) => {
     if (!iso) return '—';
@@ -58,7 +64,7 @@ export default function LiveMechanicsScreen() {
     };
 
     return (
-        <TabScreenWrapper greeting="Live Mechanics" showBookingIcon={false} showMenuIcon={true}>
+        <TabScreenWrapper greeting="Live Tracking" showBookingIcon={false} showMenuIcon={true}>
             <View style={styles.root}>
                 <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={PATNA} showsCompass>
                     {located.map((m) => (
@@ -66,8 +72,8 @@ export default function LiveMechanicsScreen() {
                             key={m.id}
                             coordinate={{ latitude: m.lat, longitude: m.lng }}
                             title={m.name}
-                            description={`Updated ${ago(m.at, now)}`}
-                            pinColor={selectedId === m.id ? '#e2a731' : '#2ECC9A'}
+                            description={`${ROLE[m.position]?.label || 'Staff'} · Updated ${ago(m.at, now)}`}
+                            pinColor={selectedId === m.id ? '#e2a731' : (ROLE[m.position]?.pin || '#2ECC9A')}
                             onPress={() => setSelectedId(m.id)}
                         />
                     ))}
@@ -88,7 +94,7 @@ export default function LiveMechanicsScreen() {
                     ) : mechanics.length === 0 ? (
                         <View style={[styles.empty, { backgroundColor: c.surface, borderColor: c.border }]}>
                             <Ionicons name="moon-outline" size={20} color={c.textMuted} />
-                            <Text style={{ color: c.textSecondary, fontWeight: '600' }}>No mechanics are online right now</Text>
+                            <Text style={{ color: c.textSecondary, fontWeight: '600' }}>No mechanics or delivery partners are online right now</Text>
                         </View>
                     ) : (
                         <FlatList
@@ -110,6 +116,9 @@ export default function LiveMechanicsScreen() {
                                         <View style={[styles.dot, { backgroundColor: c.success }]} />
                                         <Text style={[styles.name, { color: c.textPrimary }]} numberOfLines={1}>{m.name}</Text>
                                     </View>
+                                    {!!ROLE[m.position] && (
+                                        <Text style={[styles.meta, { color: ROLE[m.position].pin, fontWeight: '700' }]}>{ROLE[m.position].label}</Text>
+                                    )}
                                     <Text style={[styles.meta, { color: c.textMuted }]}>
                                         {m.lat == null ? 'Waiting for GPS…' : `Updated ${ago(m.at, now)}`}
                                     </Text>

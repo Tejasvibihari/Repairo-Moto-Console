@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import axiosClient from '../../../services/axiosClient';
 import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
-import DutySwitch from '../../../components/employee/DutySwitch';
+import DutyStatusCard from '../../../components/employee/DutyStatusCard';
 import AttendanceCard from '../../../components/employee/AttendanceCard';
 
 // ── Stat card config ───────────────────────────────────────────────────────────
@@ -348,8 +348,8 @@ export default function EmployeeDashboardScreen() {
                 {/* ── Mark attendance (only until today's attendance is marked) ── */}
                 <AttendanceCard theme={theme} />
 
-                {/* ── Online / Offline duty switch (mechanics only) ── */}
-                {user?.position === 'mechanic' && <DutySwitch theme={theme} />}
+                {/* ── Online / Offline status — mechanics + delivery partners; follows attendance ── */}
+                {['mechanic', 'delivery'].includes(user?.position) && <DutyStatusCard theme={theme} />}
 
                 {/* ── Stats section ── */}
                 <SectionHeader title="Overview" theme={theme} />

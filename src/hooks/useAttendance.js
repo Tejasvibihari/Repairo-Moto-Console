@@ -11,6 +11,7 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { attendanceService } from '../services/attendanceService';
 import { getAttendanceLocation, holdLocationWarm } from '../utils/attendanceLocation';
 import { showAttendanceError } from '../utils/attendanceUtils';
+import { syncDutyTracking } from '../tracking/dutyTracking';
 
 /**
  * Keep the phone's location warm while `wanted` is true AND this screen is in front, so that
@@ -47,6 +48,9 @@ export function useTodayAttendance() {
     useEffect(() => () => { aliveRef.current = false; }, []);
 
     const apply = useCallback((data) => {
+        // Mechanics / delivery partners: attendance decides if location sharing is ON (checked in)
+        // or OFF (break, signed out). Runs even if this screen has gone — it must not be skipped.
+        syncDutyTracking(data?.state || 'not_marked').catch(() => { });
         if (!aliveRef.current) return;
         setAttendance(data?.attendance || null);
         setState(data?.state || 'not_marked');
