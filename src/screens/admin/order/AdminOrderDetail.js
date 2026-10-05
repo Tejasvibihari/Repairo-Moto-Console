@@ -994,20 +994,13 @@ export default function AdminOrderDetail({ route, navigation }) {
         navigation.navigate('AdminGenerateInvoice', { order });
     }, [navigation, order]);
 
-    const handleViewInvoice = useCallback(async () => {
-        try {
-            setInvoiceLoading(true);
-            setInvoiceModalVisible(true);
-            const res = await axiosClient.get(`/api/admin/order/${order._id}/invoice`);
-            setInvoiceData(res.data?.invoice || null);
-        } catch (err) {
-            setInvoiceModalVisible(false);
-            const msg = err.response?.data?.message || 'Failed to fetch invoice';
-            showAlert('Error', msg);
-        } finally {
-            setInvoiceLoading(false);
-        }
-    }, [order]);
+    const handleViewInvoice = useCallback(() => {
+        navigation.navigate('ManualInvoiceDetail', {
+            orderId: order._id,
+            orderData: order,
+            readOnly: true,
+        });
+    }, [navigation, order]);
 
     const openFullScreenImage = (images, index) => {
         setFullScreenImage({ visible: true, images, index });

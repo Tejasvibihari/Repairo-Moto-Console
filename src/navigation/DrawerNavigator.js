@@ -52,6 +52,13 @@ import { prewarmLocation, resetLocationCache } from '../utils/attendanceLocation
 
 const Drawer = createDrawerNavigator();
 
+const normalizeRoleValue = (value) => String(value || '').trim().toLowerCase().replace(/_/g, ' ');
+
+const hasManagerAdminAccess = (role, user) => {
+    const roleValues = [role, user?.position].map(normalizeRoleValue);
+    return roleValues.some((value) => ['manager', 'operational manager', 'ops manager'].includes(value));
+};
+
 // ─── Role conditional data ──────────────────────────────────────────────────────────
 const getDrawerConfig = (role, user) => {
     let HomeNav = AdminNavigator;
@@ -60,11 +67,12 @@ const getDrawerConfig = (role, user) => {
 
     const normalizedRole = role ? role.toLowerCase() : '';
     const category = ROLE_CATEGORY[normalizedRole] || normalizedRole;
+    const isManager = hasManagerAdminAccess(role, user);
 
     const isAuthorizedChatEmployee = category === 'employee' ?
         ['manager', 'operational manager', 'telecaller'].includes(user?.position?.toLowerCase()) : false;
 
-    if (category === 'admin') {
+    if (category === 'admin' || isManager) {
         HomeNav = AdminNavigator;
         group1 = [
             { name: 'Dashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
@@ -77,7 +85,7 @@ const getDrawerConfig = (role, user) => {
             { name: 'AdminNotifications', label: 'Send Notifications', icon: 'megaphone-outline', iconActive: 'megaphone', lib: 'ion' },
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
             { name: 'LiveMechanics', label: 'Live Tracking', icon: 'locate-outline', iconActive: 'locate', lib: 'ion' },
-            { name: 'AttendanceReport', label: 'Employee Attendance', icon: 'calendar-outline', iconActive: 'calendar', lib: 'ion' },
+            ...(isManager ? [] : [{ name: 'AttendanceReport', label: 'Employee Attendance', icon: 'calendar-outline', iconActive: 'calendar', lib: 'ion' }]),
             { name: 'ShopStatus', label: 'Shop Status', icon: 'storefront-outline', iconActive: 'storefront', lib: 'ion' },
             { name: 'AttendanceSettings', label: 'Attendance Alerts', icon: 'finger-print-outline', iconActive: 'finger-print', lib: 'ion' },
             { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
@@ -403,7 +411,7 @@ export default function DrawerNavigator() {
     // Employees: get the phone's location ready as soon as the app opens, so marking
     // attendance later is instant (permission is asked here too, not at tap time).
     const roleName = role ? role.toLowerCase() : '';
-    const isEmployee = (ROLE_CATEGORY[roleName] || roleName) === 'employee';
+    const isEmployee = (ROLE_CATEGORY[roleName] || roleName) === 'employee' && !hasManagerAdminAccess(role, user);
     useEffect(() => {
         if (isEmployee) prewarmLocation();
     }, [isEmployee]);

@@ -8,8 +8,8 @@ import { useSelector } from 'react-redux';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
-import { StorageAccessFramework } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import { StorageAccessFramework } from 'expo-file-system/legacy';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import ScreenWrapper from '../../../components/common/ScreenWrapper';
 import axiosClient from '../../../services/axiosClient';
@@ -31,6 +31,42 @@ const fmt = (n) =>
 
 const fmtDate = (d) =>
     d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+const invoiceFileName = (invoiceNumber) => {
+    const cleanNumber = String(invoiceNumber || 'invoice').replace(/[^a-zA-Z0-9._-]+/g, '-');
+    return `Invoice-${cleanNumber}.pdf`;
+};
+
+const invoiceFromOrder = (order) => {
+    if (!order) return null;
+    const businessDetails = order.businessDetails || order.gstInvoice?.businessDetails;
+    return {
+        ...order,
+        invoiceNumber: order.invoiceNumber || order.invoiceNo || order.orderId || order._id,
+        invoiceDate: order.invoiceDate || order.updatedAt || order.createdAt,
+        status: order.paymentStatus === 'paid' ? 'paid' : String(order.status || 'draft').toLowerCase(),
+        customerDetails: order.customerDetails || {
+            name: order.name,
+            email: order.email,
+            contactNo: order.contactNo,
+            address: order.address,
+            city: order.city,
+        },
+        vehicleDetails: order.vehicleDetails || {
+            brand: order.selectedBrand,
+            model: order.selectedModel,
+            cc: order.cc,
+            bs: order.bs,
+        },
+        businessDetails,
+        serviceProvided: order.serviceProvided || [],
+        partsUsed: order.partsUsed || [],
+        paymentDetails: order.paymentDetails || {
+            method: order.paymentMethod,
+            amountPaid: order.amountPaid,
+        },
+    };
+};
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -146,7 +182,7 @@ const LineItem = ({ item, type, C, isDark, isLast }) => {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ManualInvoiceDetail({ route, navigation }) {
-    const { invoiceId, readOnly = false } = route.params || {};
+    const { invoiceId, orderId, orderData, readOnly = false } = route.params || {};
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const C = theme.colors;
@@ -155,6 +191,7 @@ export default function ManualInvoiceDetail({ route, navigation }) {
     const [invoice, setInvoice] = useState(null);
     const [loading, setLoading] = useState(true);
     const [sharing, setSharing] = useState(false);
+    const [downloading, setDownloading] = useState(false);
     const [paymentSettings, setPaymentSettings] = useState(null);
 
     // Entrance animation
@@ -163,8 +200,15 @@ export default function ManualInvoiceDetail({ route, navigation }) {
     const fetchInvoice = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await axiosClient.get(`/api/manual-invoices/${invoiceId}`);
-            setInvoice(res.data?.data || res.data);
+            if (orderData) {
+                setInvoice(invoiceFromOrder(orderData));
+            } else {
+                const endpoint = invoiceId
+                    ? `/api/manual-invoices/${invoiceId}`
+                    : `/api/admin/order/${orderId}/invoice`;
+                const res = await axiosClient.get(endpoint);
+                setInvoice(res.data?.invoice || res.data?.data || res.data);
+            }
             Animated.timing(fadeAnim, { toValue: 1, duration: 380, useNativeDriver: true }).start();
         } catch (err) {
             Alert.alert('Error', err?.response?.data?.message || 'Failed to load invoice');
@@ -172,7 +216,7 @@ export default function ManualInvoiceDetail({ route, navigation }) {
         } finally {
             setLoading(false);
         }
-    }, [invoiceId]);
+    }, [invoiceId, orderId, orderData]);
 
     // Fetched once — powers the "Scan & Pay" QR code and bank-details block
     // on the shared PDF. Failure here is non-fatal: the invoice still shares
@@ -385,8 +429,10 @@ export default function ManualInvoiceDetail({ route, navigation }) {
         setSharing(true);
         try {
             const html = buildHTML();
-            const { uri } = await Print.printToFileAsync({ html, base64: false });
-            await Sharing.shareAsync(uri, {
+            const { uri: temporaryUri } = await Print.printToFileAsync({ html, base64: false });
+            const namedUri = `${FileSystem.cacheDirectory}${invoiceFileName(invoice.invoiceNumber)}`;
+            await FileSystem.copyAsync({ from: temporaryUri, to: namedUri });
+            await Sharing.shareAsync(namedUri, {
                 mimeType: 'application/pdf',
                 dialogTitle: `Invoice #${invoice.invoiceNumber}`,
                 UTI: 'com.adobe.pdf',
@@ -395,6 +441,44 @@ export default function ManualInvoiceDetail({ route, navigation }) {
             Alert.alert('Error', err?.message || 'Could not share invoice');
         } finally {
             setSharing(false);
+        }
+    }, [invoice, buildHTML]);
+
+    const handleDownload = useCallback(async () => {
+        if (!invoice) return;
+        setDownloading(true);
+        try {
+            const html = buildHTML();
+            const { uri: temporaryUri } = await Print.printToFileAsync({ html, base64: false });
+            const fileName = invoiceFileName(invoice.invoiceNumber);
+
+            if (Platform.OS === 'android') {
+                const permission = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+                if (!permission.granted) return;
+
+                const destinationUri = await StorageAccessFramework.createFileAsync(
+                    permission.directoryUri,
+                    fileName,
+                    'application/pdf'
+                );
+                const base64 = await FileSystem.readAsStringAsync(temporaryUri, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
+                await FileSystem.writeAsStringAsync(destinationUri, base64, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
+                Alert.alert('Invoice downloaded', `${fileName} was saved successfully.`);
+            } else {
+                await Sharing.shareAsync(temporaryUri, {
+                    mimeType: 'application/pdf',
+                    dialogTitle: `Save ${fileName}`,
+                    UTI: 'com.adobe.pdf',
+                });
+            }
+        } catch (err) {
+            Alert.alert('Error', err?.message || 'Could not download invoice');
+        } finally {
+            setDownloading(false);
         }
     }, [invoice, buildHTML]);
 
@@ -442,8 +526,20 @@ export default function ManualInvoiceDetail({ route, navigation }) {
                     )}
                     {/* Share */}
                     <TouchableOpacity
+                        onPress={handleDownload}
+                        disabled={downloading || sharing}
+                        style={[topBtnS.btn, { backgroundColor: isDark ? C.surfaceHigh : C.surfaceLow, borderColor: C.border }]}
+                        activeOpacity={0.82}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                        {downloading
+                            ? <ActivityIndicator size="small" color={C.primary} />
+                            : <Ionicons name="download-outline" size={17} color={C.primary} />
+                        }
+                    </TouchableOpacity>
+                    <TouchableOpacity
                         onPress={handleShare}
-                        disabled={sharing}
+                        disabled={sharing || downloading}
                         style={[topBtnS.btn, { backgroundColor: C.primary }]}
                         activeOpacity={0.82}
                         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
@@ -716,14 +812,14 @@ export default function ManualInvoiceDetail({ route, navigation }) {
 
                 {/* ── Edit button at bottom ──────────────────────────────────── */}
                 {!readOnly && (
-                <TouchableOpacity
-                    onPress={handleEdit}
-                    style={[detailS.editFullBtn, { backgroundColor: isDark ? C.surfaceHigh : C.surfaceLow, borderColor: C.border }]}
-                    activeOpacity={0.78}
-                >
-                    <Ionicons name="create-outline" size={18} color={C.primary} />
-                    <Text style={[detailS.editFullBtnText, { color: C.primary }]}>Edit Invoice</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={handleEdit}
+                        style={[detailS.editFullBtn, { backgroundColor: isDark ? C.surfaceHigh : C.surfaceLow, borderColor: C.border }]}
+                        activeOpacity={0.78}
+                    >
+                        <Ionicons name="create-outline" size={18} color={C.primary} />
+                        <Text style={[detailS.editFullBtnText, { color: C.primary }]}>Edit Invoice</Text>
+                    </TouchableOpacity>
                 )}
 
                 <View style={{ height: 40 }} />

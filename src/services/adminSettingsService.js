@@ -8,6 +8,10 @@ export const adminSettingsService = {
         const response = await axiosClient.get('/api/admin-settings');
         return response.data;
     },
+    updateBookingPolicy: async (payload) => {
+        const response = await axiosClient.put('/api/admin-settings/booking-policy', payload);
+        return response.data;
+    },
     update: async (payload) => {
         const response = await axiosClient.put('/api/admin-settings', payload);
         return response.data;
