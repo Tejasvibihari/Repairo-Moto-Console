@@ -22,12 +22,16 @@ import PopUp from '../../../components/common/PopUp';
 import { getImageUrl } from '../../../utils/imageUtils';
 import MechanicRatingsCard from '../../../components/common/MechanicRatingCard';
 import { callNumber, digitsOnly } from '../../../utils/phoneUtils';
+import useTrip from '../../../hooks/useTrip';
+import TripActionCard from '../../../components/employee/TripActionCard';
+import { getTripFix } from '../../../tracking/locationTask';
 
 // ─── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
     pending: { label: 'Pending', bg: 'rgba(158,142,120,0.18)', text: '#9E8E78', dot: '#9E8E78' },
     in_progress: { label: 'In Progress', bg: 'rgba(226,167,49,0.18)', text: '#E2A731', dot: '#E2A731' },
     mechanic_assigned: { label: 'Mechanic Assigned', bg: 'rgba(52,152,219,0.18)', text: '#3498DB', dot: '#3498DB' },
+    mechanic_start: { label: 'On the way', bg: 'rgba(52,152,219,0.18)', text: '#3498DB', dot: '#3498DB' },
     mechanic_arrived: { label: 'Mechanic Arrived', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', dot: '#9B59B6' },
     completion_requested: { label: 'Completion Requested', bg: 'rgba(46,204,154,0.12)', text: '#2ECC9A', dot: '#2ECC9A' },
     work_completed: { label: 'Work Completed', bg: 'rgba(46,204,154,0.12)', text: '#2ECC9A', dot: '#2ECC9A' },
@@ -867,7 +871,9 @@ const MechanicActionStrip = ({
 }) => {
     const s = normalizeStatus(status);
 
-    if (s === 'pending' || s === 'mechanic_assigned') {
+    // "Mechanic Assigned" now shows the Start button (TripActionCard). Mark Arrived appears once he has
+    // started. Pending stays as before for an order the admin never assigned through the new flow.
+    if (s === 'pending' || s === 'mechanic_start') {
         return (
             <View style={[actionStyles.strip, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}>
                 <View style={actionStyles.stripLeft}>
@@ -1044,6 +1050,7 @@ const SaveChangesBanner = ({ theme, onSave, saving }) => (
 const WORKFLOW_STEPS = [
     { key: 'pending', label: 'Pending' },
     { key: 'mechanic_assigned', label: 'Assigned' },
+    { key: 'mechanic_start', label: 'On the way' },
     { key: 'mechanic_arrived', label: 'Arrived' },
     { key: 'in_progress', label: 'In Progress' },
     { key: 'completion_requested', label: 'Completion Requested' },
@@ -1556,6 +1563,7 @@ export default function EmployeeOrderDetail({ route, navigation }) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [arrivedLoading, setArrivedLoading] = useState(false);
+    const tripApi = useTrip({ enabled: true });
     const [items, setItems] = useState([]);
     const [originalItems, setOriginalItems] = useState([]);
     const [drawerVisible, setDrawerVisible] = useState(false);
@@ -1644,14 +1652,25 @@ export default function EmployeeOrderDetail({ route, navigation }) {
     const handleMarkArrived = async () => {
         setArrivedLoading(true);
         try {
-            await axiosClient.put(`/api/admin/order/${order._id}/mechanic-arrived`);
-            await fetchOrder();
+            const fix = await getTripFix();            // exact spot → the last stretch to the door is counted
+            await axiosClient.put(`/api/admin/order/${order._id}/mechanic-arrived`, fix || {});
+            await Promise.all([fetchOrder(), tripApi.refresh()]);
         } catch (err) {
             showPopup('Error', err?.response?.data?.message || 'Failed to mark arrival.');
         } finally {
             setArrivedLoading(false);
         }
     };
+
+    // ── Trip buttons (Start / Arrived at customer / Arrived to Hub) ──
+    const runTripAction = async (fn, ...args) => {
+        const r = await fn(...args);
+        if (!r.ok) showPopup('Trip', r.message);
+        await Promise.all([fetchOrder(), tripApi.refresh()]);
+    };
+    const handleTripStart = (id) => runTripAction(tripApi.start, id);
+    const handleTripArrive = (id) => runTripAction(tripApi.arrive, id);
+    const handleHubArrived = (id) => runTripAction(tripApi.hubArrived, id);
 
     const handleRequestWorkStart = async (photo) => {
         setPhotoModalSubmitting(true);
@@ -1902,6 +1921,18 @@ export default function EmployeeOrderDetail({ route, navigation }) {
 
                     {/* Workflow Timeline */}
                     <WorkflowTimeline status={status} theme={theme} />
+
+                    {/* ── Trip: Start · Arrived at customer · Arrived to Hub (mechanic + delivery) ── */}
+                    <TripActionCard
+                        order={order}
+                        trip={tripApi.trip}
+                        position={position}
+                        busy={tripApi.busy}
+                        theme={theme}
+                        onStart={handleTripStart}
+                        onArrive={handleTripArrive}
+                        onHubArrived={handleHubArrived}
+                    />
 
                     {/* ── Mechanic Action Strip ── */}
                     {!isDelivery && (

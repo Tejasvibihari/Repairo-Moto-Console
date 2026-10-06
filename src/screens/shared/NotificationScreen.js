@@ -36,6 +36,7 @@ const TYPE_META = {
     delivery_update: { icon: 'bicycle-outline', color: '#3498DB' },
     delivery_assigned: { icon: 'bicycle', color: '#2980B9' },
     mechanic_assigned: { icon: 'build-outline', color: '#E67E22' },
+    mechanic_started: { icon: 'navigate-outline', color: '#3498DB' },
     mechanic_arrived: { icon: 'location-outline', color: '#3498DB' },
     work_started: { icon: 'construct-outline', color: '#E67E22' },
     work_start_otp: { icon: 'key-outline', color: '#9E8E78' },

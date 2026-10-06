@@ -16,6 +16,7 @@ const STATUS_CONFIG = {
     'Pending': { color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', icon: 'time-outline' },
     'In Progress': { color: '#3B82F6', bg: 'rgba(59,130,246,0.12)', icon: 'construct-outline' },
     'Mechanic Assigned': { color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)', icon: 'person-outline' },
+    'Mechanic Start': { color: '#3B82F6', bg: 'rgba(59,130,246,0.12)', icon: 'navigate-outline' },
     'Completed': { color: '#2ECC9A', bg: 'rgba(46,204,154,0.12)', icon: 'checkmark-circle-outline' },
     'Invoice Generated': { color: '#e2a731', bg: 'rgba(226,167,49,0.12)', icon: 'document-text-outline' },
     'Cancelled': { color: '#FF6B6B', bg: 'rgba(255,107,107,0.12)', icon: 'close-circle-outline' },

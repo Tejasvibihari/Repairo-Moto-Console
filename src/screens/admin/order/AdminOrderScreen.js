@@ -28,6 +28,7 @@ const STATUS_PILLS = [
     { key: '', label: 'All' },
     { key: 'pending', label: 'Pending' },
     { key: 'mechanic assigned', label: 'Mechanic Assigned' },
+    { key: 'mechanic start', label: 'On the way' },
     { key: 'mechanic arrived', label: 'Mechanic Arrived' },
     { key: 'in progress', label: 'In Progress' },
     { key: 'work completed', label: 'Work Completed' },

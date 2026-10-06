@@ -14,6 +14,7 @@ import InvoiceModal from '../../../components/admin/order/InvoiceModal';
 import AssignmentPanel from '../../../components/admin/order/AssignmentPanel';
 import RescheduleModal, { canRescheduleStatus } from '../../../components/admin/order/RescheduleModal';
 import FollowUpReminderCard from '../../../components/admin/order/FollowUpReminderCard';
+import OrderTripCard from '../../../components/admin/order/OrderTripCard';
 import CancelOrderModal from '../../../components/admin/order/CancelOrderModal';
 import useEmployee from '../../../hooks/useEmployee';
 import useVendor from '../../../hooks/useVendor';
@@ -28,6 +29,7 @@ const { width } = Dimensions.get('window');
 const STATUS_CONFIG = {
     pending: { label: 'Pending', bg: 'rgba(158,142,120,0.18)', text: '#9E8E78', dot: '#9E8E78' },
     mechanic_assigned: { label: 'Mechanic Assigned', bg: 'rgba(52,152,219,0.18)', text: '#3498DB', dot: '#3498DB' },
+    mechanic_start: { label: 'On the way', bg: 'rgba(52,152,219,0.18)', text: '#3498DB', dot: '#3498DB' },
     mechanic_arrived: { label: 'Mechanic Arrived', bg: 'rgba(155,89,182,0.18)', text: '#9B59B6', dot: '#9B59B6' },
     in_progress: { label: 'In Progress', bg: 'rgba(226,167,49,0.18)', text: '#E2A731', dot: '#E2A731' },
     work_completed: { label: 'Work Completed', bg: 'rgba(46,204,154,0.18)', text: '#2ECC9A', dot: '#2ECC9A' },
@@ -104,7 +106,7 @@ const starStyles = StyleSheet.create({
 // ─── Force Status Update Modal ────────────────────────────────────────────────
 const ForceStatusModal = ({ visible, onClose, onConfirm, theme, currentStatus }) => {
     const statusOptions = [
-        'Pending', 'Mechanic Assigned', 'Mechanic Arrived', 'In Progress',
+        'Pending', 'Mechanic Assigned', 'Mechanic Start', 'Mechanic Arrived', 'In Progress',
         'Work Completed', 'Invoice Generated', 'Completed', 'Cancelled',
     ];
     const [selected, setSelected] = useState(currentStatus);
@@ -424,6 +426,7 @@ const OrderTimeline = ({ order, theme }) => {
     const steps = [
         { key: 'pending', label: 'Pending', icon: 'time-outline', timestamp: order.createdAt },
         { key: 'mechanic_assigned', label: 'Mechanic Assigned', icon: 'person-add-outline', timestamp: order.assignedAt },
+        { key: 'mechanic_start', label: 'Mechanic Started', icon: 'navigate-outline', timestamp: order.mechanicStartedAt },
         { key: 'mechanic_arrived', label: 'Mechanic Arrived', icon: 'location-outline', timestamp: order.arrivedAt },
         { key: 'in_progress', label: 'Work Started', icon: 'construct-outline', timestamp: order.workStartedAt },
         { key: 'work_completed', label: 'Work Done', icon: 'checkmark-done-outline', timestamp: order.workCompletedAt },
@@ -1107,6 +1110,7 @@ export default function AdminOrderDetail({ route, navigation }) {
 
                     <OrderTimeline order={order} theme={theme} />
                     <AssignmentSummaryCard order={order} theme={theme} onManage={() => setPanelVisible(true)} />
+                    <OrderTripCard orderId={order._id} theme={theme} />
 
                     {(paymentStatus || isInvoiceGenerated) && <PaymentStatusCard order={order} theme={theme} />}
 

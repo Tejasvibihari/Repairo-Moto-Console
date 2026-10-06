@@ -136,6 +136,7 @@ export default function EmployeeOrdersScreen() {
             'Pending',
             'In Progress',
             'Mechanic Assigned',
+            'Mechanic Start',
             'Mechanic Arrived',
         ]);
         return [...filteredOrders].sort((a, b) => {

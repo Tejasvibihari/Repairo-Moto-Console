@@ -84,6 +84,7 @@ const PAYMENT_META = {
 const STATUS_BADGE = {
     'Pending': { bg: 'rgba(245,158,11,0.15)', text: '#F59E0B' },
     'Mechanic Assigned': { bg: 'rgba(139,92,246,0.15)', text: '#8B5CF6' },
+    'Mechanic Start': { bg: 'rgba(59,130,246,0.15)', text: '#3B82F6' },
     'Mechanic Arrived': { bg: 'rgba(6,182,212,0.15)', text: '#06B6D4' },
     'In Progress': { bg: 'rgba(59,130,246,0.15)', text: '#3B82F6' },
     'Completion Requested': { bg: 'rgba(249,115,22,0.15)', text: '#F97316' },

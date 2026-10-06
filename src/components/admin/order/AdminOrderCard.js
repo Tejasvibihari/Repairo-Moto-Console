@@ -25,6 +25,12 @@ const STATUS_CONFIG = {
         text: '#3498DB',
         dot: '#3498DB'
     },
+    mechanic_start: {
+        label: 'On the way',
+        bg: 'rgba(52,152,219,0.18)',
+        text: '#3498DB',
+        dot: '#3498DB'
+    },
     mechanic_arrived: {
         label: 'Mechanic Arrived',
         bg: 'rgba(52,152,219,0.18)',

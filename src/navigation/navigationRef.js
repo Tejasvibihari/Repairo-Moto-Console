@@ -13,7 +13,7 @@ export const navigationRef = createNavigationContainerRef();
 // Notification types that point at an order
 export const ORDER_NOTIFICATION_TYPES = [
     'new_order', 'order_update', 'order_cancelled', 'order_rescheduled', 'order_assigned',
-    'mechanic_assigned', 'mechanic_arrived', 'delivery_assigned', 'delivery_update',
+    'mechanic_assigned', 'mechanic_started', 'mechanic_arrived', 'delivery_assigned', 'delivery_update',
     'work_started', 'work_start_otp', 'work_complete_otp', 'order_confirmed_complete',
     'invoice_generated', 'payment_received', 'general',
 ];

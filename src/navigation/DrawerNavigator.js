@@ -48,6 +48,7 @@ import AdminLeadNavigator from './AdminLeadNavigator';
 import AttendanceScreen from '../screens/employee/attendance/AttendanceScreen';
 import AttendanceSettingsScreen from '../screens/admin/settings/AttendanceSettingsScreen';
 import AdminAttendanceScreen from '../screens/admin/attendance/AdminAttendanceScreen';
+import StaffOverviewScreen from '../screens/admin/staff/StaffOverviewScreen';
 import { prewarmLocation, resetLocationCache } from '../utils/attendanceLocation';
 
 const Drawer = createDrawerNavigator();
@@ -86,6 +87,7 @@ const getDrawerConfig = (role, user) => {
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
             { name: 'LiveMechanics', label: 'Live Tracking', icon: 'locate-outline', iconActive: 'locate', lib: 'ion' },
             ...(isManager ? [] : [{ name: 'AttendanceReport', label: 'Employee Attendance', icon: 'calendar-outline', iconActive: 'calendar', lib: 'ion' }]),
+            ...(isManager ? [] : [{ name: 'StaffOverview', label: 'Staff Overview', icon: 'stats-chart-outline', iconActive: 'stats-chart', lib: 'ion' }]),
             { name: 'ShopStatus', label: 'Shop Status', icon: 'storefront-outline', iconActive: 'storefront', lib: 'ion' },
             { name: 'AttendanceSettings', label: 'Attendance Alerts', icon: 'finger-print-outline', iconActive: 'finger-print', lib: 'ion' },
             { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
@@ -449,6 +451,7 @@ export default function DrawerNavigator() {
             <Drawer.Screen name="ShopStatus" component={ShopStatusScreen} />
             <Drawer.Screen name="AttendanceSettings" component={AttendanceSettingsScreen} />
             <Drawer.Screen name="AttendanceReport" component={AdminAttendanceScreen} />
+            <Drawer.Screen name="StaffOverview" component={StaffOverviewScreen} />
             <Drawer.Screen name="Attendance" component={AttendanceScreen} />
             <Drawer.Screen name="LiveMechanics" component={LiveMechanicsScreen} />
             <Drawer.Screen name="Notifications" component={NotificationsScreen} />
