@@ -30,3 +30,15 @@ export const shopStatusService = {
         return response.data.status;
     },
 };
+
+// WhatsApp order-status alerts to customers (admin on/off switch).
+export const whatsappAlertService = {
+    get: async () => {
+        const response = await axiosClient.get('/api/admin-settings/whatsapp');
+        return !!response.data.orderStatusEnabled;
+    },
+    set: async (orderStatusEnabled) => {
+        const response = await axiosClient.put('/api/admin-settings/whatsapp', { orderStatusEnabled });
+        return !!response.data.orderStatusEnabled;
+    },
+};

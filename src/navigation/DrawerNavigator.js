@@ -47,6 +47,8 @@ import AdminCouponNavigator from './AdminCouponNavigator';
 import AdminLeadNavigator from './AdminLeadNavigator';
 import AttendanceScreen from '../screens/employee/attendance/AttendanceScreen';
 import AttendanceSettingsScreen from '../screens/admin/settings/AttendanceSettingsScreen';
+import WhatsAppAlertsScreen from '../screens/admin/settings/WhatsAppAlertsScreen';
+import AdminReferralScreen from '../screens/admin/settings/AdminReferralScreen';
 import AdminAttendanceScreen from '../screens/admin/attendance/AdminAttendanceScreen';
 import StaffOverviewScreen from '../screens/admin/staff/StaffOverviewScreen';
 import { prewarmLocation, resetLocationCache } from '../utils/attendanceLocation';
@@ -76,20 +78,22 @@ const getDrawerConfig = (role, user) => {
     if (category === 'admin' || isManager) {
         HomeNav = AdminNavigator;
         group1 = [
-            { name: 'Dashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
+            { section: 'Workspace', name: 'Dashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
             { name: 'Orders', label: 'Orders', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' },
-            { name: 'CreateInvoice', label: 'Create Invoice', icon: 'add-circle-outline', iconActive: 'add-circle', lib: 'ion' },
+            { section: 'Billing', name: 'CreateInvoice', label: 'Create Invoice', icon: 'add-circle-outline', iconActive: 'add-circle', lib: 'ion' },
             { name: 'Invoices', label: 'Invoices', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
-            { name: 'AdminLeads', label: 'Leads', icon: 'people-outline', iconActive: 'people', lib: 'ion' },
+            { section: 'Communication & Growth', name: 'AdminLeads', label: 'Leads', icon: 'people-outline', iconActive: 'people', lib: 'ion' },
             { name: 'Coupons', label: 'Coupons', icon: 'pricetag-outline', iconActive: 'pricetag', lib: 'ion' },
-            { name: 'Banners', label: 'Banners', icon: 'images-outline', iconActive: 'images', lib: 'ion' },   // ← add this
+            { name: 'Banners', label: 'Banners', icon: 'images-outline', iconActive: 'images', lib: 'ion' },
             { name: 'AdminNotifications', label: 'Send Notifications', icon: 'megaphone-outline', iconActive: 'megaphone', lib: 'ion' },
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
-            { name: 'LiveMechanics', label: 'Live Tracking', icon: 'locate-outline', iconActive: 'locate', lib: 'ion' },
+            { section: 'Operations', name: 'LiveMechanics', label: 'Live Tracking', icon: 'locate-outline', iconActive: 'locate', lib: 'ion' },
             ...(isManager ? [] : [{ name: 'AttendanceReport', label: 'Employee Attendance', icon: 'calendar-outline', iconActive: 'calendar', lib: 'ion' }]),
             ...(isManager ? [] : [{ name: 'StaffOverview', label: 'Staff Overview', icon: 'stats-chart-outline', iconActive: 'stats-chart', lib: 'ion' }]),
             { name: 'ShopStatus', label: 'Shop Status', icon: 'storefront-outline', iconActive: 'storefront', lib: 'ion' },
-            { name: 'AttendanceSettings', label: 'Attendance Alerts', icon: 'finger-print-outline', iconActive: 'finger-print', lib: 'ion' },
+            { section: 'Settings', name: 'AttendanceSettings', label: 'Attendance Alerts', icon: 'finger-print-outline', iconActive: 'finger-print', lib: 'ion' },
+            { name: 'WhatsAppAlerts', label: 'WhatsApp Alerts', icon: 'logo-whatsapp', iconActive: 'logo-whatsapp', lib: 'ion' },
+            { name: 'AdminReferrals', label: 'Referral Wallets', icon: 'gift-outline', iconActive: 'gift', lib: 'ion' },
             { name: 'AdminSettings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings', lib: 'ion' },
         ];
     } else if (category === 'employee') {
@@ -101,21 +105,21 @@ const getDrawerConfig = (role, user) => {
         // on top of e.g. an open order detail.
         const homeTabs = isTelecaller(user) ? 'TelecallerTabs' : 'EmployeeTabs';
         group1.push({
-            name: 'Home', label: 'Home', icon: 'home-outline', iconActive: 'home', lib: 'ion',
+            section: 'Work', name: 'Home', label: 'Home', icon: 'home-outline', iconActive: 'home', lib: 'ion',
             activeRoute: 'AdminHome',      // highlighted whenever the user is anywhere inside the home navigator
             target: { route: 'AdminHome', params: { screen: homeTabs, pop: true, params: { screen: 'Dashboard' } } },
         });
         // Every employee marks attendance from here
         group1.push({ name: 'Attendance', label: 'Attendance', icon: 'finger-print-outline', iconActive: 'finger-print', lib: 'ion' });
         if (isTelecaller(user)) {
-            group1.push({ name: 'CreateInvoice', label: 'Create Invoice', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' },
+            group1.push({ section: 'Billing', name: 'CreateInvoice', label: 'Create Invoice', icon: 'receipt-outline', iconActive: 'receipt', lib: 'ion' },
                 { name: 'Invoices', label: 'Invoices', icon: 'document-text-outline', iconActive: 'document-text', lib: 'ion' },
 
             );
         }
 
         if (isAuthorizedChatEmployee) {
-            group1.push({ name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' });
+            group1.push({ section: 'Communication', name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' });
         }
         // group1 = [
         //     { name: 'Dashboard', label: 'Dashboard', icon: 'home-outline', iconActive: 'home', lib: 'ion' },
@@ -183,6 +187,10 @@ function NavItem({ item, isActive, theme, isDark, onPress, delay }) {
     );
 }
 
+function NavSectionLabel({ label, theme }) {
+    return <Text style={[navStyles.sectionLabel, { color: theme.colors.textMuted }]}>{label}</Text>;
+}
+
 const navStyles = StyleSheet.create({
     row: {
         flexDirection: 'row',
@@ -199,6 +207,15 @@ const navStyles = StyleSheet.create({
     label: {
         fontSize: 15,
         letterSpacing: 0.1,
+    },
+    sectionLabel: {
+        fontSize: 10,
+        fontWeight: '800',
+        letterSpacing: 1.1,
+        textTransform: 'uppercase',
+        marginTop: 14,
+        marginBottom: 5,
+        paddingHorizontal: 14,
     },
 });
 
@@ -288,15 +305,17 @@ function CustomDrawerContent(props) {
             >
                 <View style={s.navGroup}>
                     {GROUP_1.map((item, i) => (
-                        <NavItem
-                            key={item.name}
-                            item={item}
-                            isActive={activeRouteName === (item.activeRoute || item.name)}
-                            theme={theme}
-                            isDark={isDark}
-                            onPress={() => navigate(item)}
-                            delay={100 + i * 50}
-                        />
+                        <React.Fragment key={item.name}>
+                            {item.section && <NavSectionLabel label={item.section} theme={theme} />}
+                            <NavItem
+                                item={item}
+                                isActive={activeRouteName === (item.activeRoute || item.name)}
+                                theme={theme}
+                                isDark={isDark}
+                                onPress={() => navigate(item)}
+                                delay={100 + i * 50}
+                            />
+                        </React.Fragment>
                     ))}
                 </View>
 
@@ -450,6 +469,8 @@ export default function DrawerNavigator() {
             <Drawer.Screen name="AdminSettings" component={AdminSettingsScreen} />
             <Drawer.Screen name="ShopStatus" component={ShopStatusScreen} />
             <Drawer.Screen name="AttendanceSettings" component={AttendanceSettingsScreen} />
+            <Drawer.Screen name="WhatsAppAlerts" component={WhatsAppAlertsScreen} />
+            <Drawer.Screen name="AdminReferrals" component={AdminReferralScreen} />
             <Drawer.Screen name="AttendanceReport" component={AdminAttendanceScreen} />
             <Drawer.Screen name="StaffOverview" component={StaffOverviewScreen} />
             <Drawer.Screen name="Attendance" component={AttendanceScreen} />
