@@ -22,6 +22,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { showLocationDisclosure } from './locationDisclosure';
 
 // Load the native modules defensively. If this build/APK was made BEFORE
 // expo-location / expo-task-manager were added, requiring them throws
@@ -178,12 +179,26 @@ if (isTrackingAvailable) {
 }
 
 // ── public API ───────────────────────────────────────────────────────────────
-export async function ensureLocationPermissions() {
+export async function ensureLocationPermissions({ force = false } = {}) {
     if (!isTrackingAvailable) {
         const e = new Error(NATIVE_MISSING_MSG);
         e.code = 'NATIVE_MISSING';
         throw e;
     }
+
+    // Tell the person WHY we need location before the system dialog appears.
+    // Skipped when everything is already granted (or the OS will no longer show a dialog anyway).
+    const [fg0, bg0] = await Promise.all([
+        Location.getForegroundPermissionsAsync(),
+        Location.getBackgroundPermissionsAsync(),
+    ]);
+    const canPrompt = (p) => p.status !== 'granted' && p.canAskAgain !== false;
+    if ((canPrompt(fg0) || canPrompt(bg0)) && !(await showLocationDisclosure({ force }))) {
+        const e = new Error('Location permission is required to be Online.');
+        e.code = 'LOCATION_DENIED';
+        throw e;
+    }
+
     const fg = await Location.requestForegroundPermissionsAsync();
     if (fg.status !== 'granted') {
         const e = new Error('Location permission is required to be Online.');

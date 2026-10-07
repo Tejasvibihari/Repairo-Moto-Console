@@ -7,10 +7,10 @@ import {
     TextInput,
     Platform,
     ActivityIndicator,
-    Alert,
     KeyboardAvoidingView,
     Animated,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,12 +34,12 @@ export default function AdminLoginScreen({ navigation }) {
 
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
-            Alert.alert('Missing Fields', 'Please enter both email and password.');
+            showPopUp('Missing Fields', 'Please enter both email and password.');
             return;
         }
         const result = await login(email.trim(), password, 'admin');
         if (!result.success) {
-            Alert.alert('Login Failed', result.error);
+            showPopUp('Login Failed', result.error);
         }
         // On success AuthGate handles the switch — no navigation needed here
     };

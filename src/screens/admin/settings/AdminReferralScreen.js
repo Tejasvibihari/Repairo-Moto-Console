@@ -4,9 +4,10 @@
 // Every change is stored on the server with who/when/before/after/note.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert,
+    View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, 
     KeyboardAvoidingView, Platform, StyleSheet,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
@@ -37,7 +38,7 @@ export default function AdminReferralScreen() {
             setSearching(true);
             setResults(await referralAdminService.search(text));
         } catch (e) {
-            Alert.alert('Search failed', e?.response?.data?.message || 'Check your internet and try again.');
+            showPopUp('Search failed', e?.response?.data?.message || 'Check your internet and try again.');
         } finally {
             setSearching(false);
         }
@@ -57,7 +58,7 @@ export default function AdminReferralScreen() {
             setVals({ referralAmount: '', pendingReferralAmount: '', referralCount: '' });
             setNote('');
         } catch (e) {
-            Alert.alert('Could not load', e?.response?.data?.message || 'Try again.');
+            showPopUp('Could not load', e?.response?.data?.message || 'Try again.');
         } finally {
             setLoadingDetail(false);
         }
@@ -68,15 +69,15 @@ export default function AdminReferralScreen() {
         for (const k of Object.keys(vals)) {
             if (vals[k].trim() !== '') payload[k] = vals[k].trim();
         }
-        if (Object.keys(payload).length === 2) return Alert.alert('Nothing to save', 'Enter at least one value.');
+        if (Object.keys(payload).length === 2) return showPopUp('Nothing to save', 'Enter at least one value.');
         try {
             setSaving(true);
             await referralAdminService.update(detail.user._id, payload);
             await open(detail.user._id);
             search(q);
-            Alert.alert('Saved', 'Referral details updated.');
+            showPopUp('Saved', 'Referral details updated.');
         } catch (e) {
-            Alert.alert('Could not save', e?.response?.data?.message || 'Check your internet and try again.');
+            showPopUp('Could not save', e?.response?.data?.message || 'Check your internet and try again.');
         } finally {
             setSaving(false);
         }

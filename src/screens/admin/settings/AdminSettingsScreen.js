@@ -11,9 +11,9 @@ import {
     KeyboardAvoidingView,
     Platform,
     Modal,
-    Alert,
     RefreshControl,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
@@ -480,7 +480,7 @@ function BookingPolicyCard({ settings, onSaved, theme, showToast }) {
             return;
         }
 
-        Alert.alert(
+        showPopUp(
             'Replace closure dates?',
             'Saving replaces the complete existing closure list with the dates shown here.',
             [

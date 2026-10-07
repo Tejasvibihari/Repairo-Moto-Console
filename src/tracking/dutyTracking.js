@@ -12,7 +12,8 @@
 //
 // syncDutyTracking() is idempotent and cheap, so it is simply called every time the attendance
 // state is (re)loaded — after an action, when a screen gains focus, when the app reopens.
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
+import { showPopUp } from '../utils/popupService';
 import { store } from '../store';
 import axiosClient from '../services/axiosClient';
 import {
@@ -23,6 +24,7 @@ import {
     startTracking,
     stopTracking,
 } from './locationTask';
+import { resetLocationDisclosureDecline } from './locationDisclosure';
 
 export const TRACKABLE_POSITIONS = ['mechanic', 'delivery'];
 export const isTrackablePosition = (p) => TRACKABLE_POSITIONS.includes(p);
@@ -37,7 +39,7 @@ function explainDenied(e) {
     const bg = e.code === 'BACKGROUND_DENIED';
     if (alertedFor === e.code) return;
     alertedFor = e.code;
-    Alert.alert(
+    showPopUp(
         'Location permission needed',
         bg
             ? 'To be online, please set location access to "Allow all the time" so dispatch can find you when the app is in the background.'
@@ -54,6 +56,7 @@ async function run(state) {
 
     // Not working right now (break, signed out, not marked) → stop sharing
     if (state !== 'checked_in') {
+        resetLocationDisclosureDecline();                          // next check-in shows the disclosure again
         await stopTracking();
         return { ok: true };
     }

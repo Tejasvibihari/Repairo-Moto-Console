@@ -6,11 +6,11 @@ import {
     ScrollView,
     TouchableOpacity,
     ActivityIndicator,
-    Alert,
     KeyboardAvoidingView,
     Platform,
     StyleSheet,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { useSelector } from 'react-redux';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
@@ -119,7 +119,7 @@ export default function LeadFormScreen() {
                 navigation.replace('LeadDetail', { leadId: res.data._id, lead: res.data });
             }
         } catch (e) {
-            Alert.alert(editing ? 'Could not update lead' : 'Could not add lead', getErrorMessage(e, 'Please try again.'));
+            showPopUp(editing ? 'Could not update lead' : 'Could not add lead', getErrorMessage(e, 'Please try again.'));
         } finally {
             setSaving(false);
         }

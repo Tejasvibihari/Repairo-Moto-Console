@@ -13,9 +13,9 @@ import {
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
-    Alert,
     StyleSheet,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
@@ -74,9 +74,9 @@ export default function AttendanceSettingsScreen() {
 
     const addNumber = () => {
         const number = cleanNumber(newNumber);
-        if (!number) return Alert.alert('Invalid number', 'Enter a 10-digit mobile number (or include the country code).');
-        if (numbers.some((n) => n.number === number)) return Alert.alert('Already added', 'This number is already on the list.');
-        if (numbers.length >= 20) return Alert.alert('Limit reached', 'You can add up to 20 numbers.');
+        if (!number) return showPopUp('Invalid number', 'Enter a 10-digit mobile number (or include the country code).');
+        if (numbers.some((n) => n.number === number)) return showPopUp('Already added', 'This number is already on the list.');
+        if (numbers.length >= 20) return showPopUp('Limit reached', 'You can add up to 20 numbers.');
         setNumbers((prev) => [...prev, { name: newName.trim(), number, active: true }]);
         setNewName('');
         setNewNumber('');
@@ -87,9 +87,9 @@ export default function AttendanceSettingsScreen() {
         try {
             setSaving(true);
             apply(await attendanceSettingsService.update({ whatsappEnabled, notifyEmployee, numbers }));
-            Alert.alert('Saved', 'Attendance alert settings updated.');
+            showPopUp('Saved', 'Attendance alert settings updated.');
         } catch (e) {
-            Alert.alert('Could not save', e?.response?.data?.message || 'Check your internet and try again.');
+            showPopUp('Could not save', e?.response?.data?.message || 'Check your internet and try again.');
         } finally {
             setSaving(false);
         }

@@ -1,5 +1,6 @@
 // src/utils/leadUtils.js
-import { Linking, Alert } from 'react-native';
+import { Linking } from 'react-native';
+import { showPopUp } from './popupService';
 
 // ── Role / identity ───────────────────────────────────────────────────────────
 
@@ -31,7 +32,7 @@ export const openMap = async (location = {}) => {
     try {
         await Linking.openURL(url);
     } catch (_) {
-        Alert.alert('Cannot open maps', 'No app could open this location.');
+        showPopUp('Cannot open maps', 'No app could open this location.');
     }
 };
 

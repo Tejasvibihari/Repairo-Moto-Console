@@ -6,11 +6,11 @@
 export default ({ config }) => {
   return {
     ...config,
-    name: "Repairo Moto Console",
-    slug: "repairo-moto-console",
-    version: "1.2.0",
+    "name": "Console Repairo Moto",
+    "slug": "repairo-moto-console",
+    version: "2.0.0",
     orientation: "portrait",
-    icon: "./assets/icon.png",
+    icon: "./assets/console.png",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     splash: {
@@ -22,7 +22,7 @@ export default ({ config }) => {
       [
         "expo-notifications",
         {
-          icon: "./assets/logo72.png",
+          icon: "./assets/console.png",
           color: "#e2a731",
           defaultChannel: "orders",
         },
@@ -50,7 +50,7 @@ export default ({ config }) => {
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
+        foregroundImage: "./assets/console.png",
         backgroundColor: "#ffffff",
       },
       edgeToEdgeEnabled: true,
@@ -63,7 +63,7 @@ export default ({ config }) => {
         "FOREGROUND_SERVICE_LOCATION",
         "POST_NOTIFICATIONS",
       ],
-      versionCode: 4,
+      versionCode: 5,
       googleServicesFile: "./google-services.json",
       config: {
         googleMaps: {

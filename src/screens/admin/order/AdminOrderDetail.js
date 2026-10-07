@@ -1,9 +1,10 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
     View, Text, ScrollView, StyleSheet, TouchableOpacity,
-    Animated, Platform, Alert, ActivityIndicator, Linking,
+    Animated, Platform, ActivityIndicator, Linking,
     Image, Modal, Dimensions, Pressable, TextInput, RefreshControl, Switch,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
@@ -207,7 +208,7 @@ const CodPaymentModal = ({
     const handleConfirm = () => {
         const parsed = parseFloat(amount);
         if (isNaN(parsed) || parsed < 0) {
-            Alert.alert('Invalid Amount', 'Please enter a valid amount.');
+            showPopUp('Invalid Amount', 'Please enter a valid amount.');
             return;
         }
         // Pass both amount and GST flag to parent
@@ -351,9 +352,9 @@ const PaymentStatusCard = ({ order, theme }) => {
 
     const handlePayNow = () => {
         if (razorpayLink) {
-            Linking.openURL(razorpayLink).catch(() => Alert.alert('Error', 'Could not open payment link'));
+            Linking.openURL(razorpayLink).catch(() => showPopUp('Error', 'Could not open payment link'));
         } else {
-            Alert.alert('Not Available', 'No payment link found for this order.');
+            showPopUp('Not Available', 'No payment link found for this order.');
         }
     };
 

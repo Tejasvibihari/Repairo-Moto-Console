@@ -7,9 +7,9 @@ import {
     TextInput,
     Platform,
     ActivityIndicator,
-    Alert,
     KeyboardAvoidingView,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { useAuth } from '../../../hooks/useAuth';
@@ -30,7 +30,7 @@ export default function VendorLoginScreen({ navigation }) {
 
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
-            Alert.alert('Error', 'Please enter both email and password.');
+            showPopUp('Error', 'Please enter both email and password.');
             return;
         }
 
@@ -38,7 +38,7 @@ export default function VendorLoginScreen({ navigation }) {
         if (result.success) {
             // Navigation handled by auth state change
         } else {
-            Alert.alert('Login Failed', result.error);
+            showPopUp('Login Failed', result.error);
         }
     };
 

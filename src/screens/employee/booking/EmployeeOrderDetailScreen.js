@@ -4,11 +4,12 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
     View, Text, ScrollView, StyleSheet, TouchableOpacity,
-    Animated, Platform, Alert, ActivityIndicator, Linking,
+    Animated, Platform, ActivityIndicator, Linking,
     TextInput, Modal, Dimensions, Keyboard, Image,
     KeyboardAvoidingView,
     RefreshControl,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -496,7 +497,7 @@ const PhotoOtpModal = ({
     const pickPhoto = async () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission required', 'Camera access is needed to take a photo.');
+            showPopUp('Permission required', 'Camera access is needed to take a photo.');
             return;
         }
         const result = await ImagePicker.launchCameraAsync({
@@ -512,7 +513,7 @@ const PhotoOtpModal = ({
 
     const handlePhotoNext = async () => {
         if (!photo) {
-            Alert.alert('Photo required', `Please take the ${photoLabel} before continuing.`);
+            showPopUp('Photo required', `Please take the ${photoLabel} before continuing.`);
             return;
         }
         try {
@@ -520,13 +521,13 @@ const PhotoOtpModal = ({
             setStep('otp');
         } catch (err) {
             console.log(err)
-            Alert.alert('Upload Failed', err?.response?.data?.message || 'Could not upload photo. Please try again.');
+            showPopUp('Upload Failed', err?.response?.data?.message || 'Could not upload photo. Please try again.');
         }
     };
 
     const handleSubmitOtp = async () => {
         if (otp.length < 4) {
-            Alert.alert('Enter OTP', 'Please enter the complete 4-digit OTP.');
+            showPopUp('Enter OTP', 'Please enter the complete 4-digit OTP.');
             return;
         }
         await onSubmit(otp);
@@ -1158,7 +1159,7 @@ const AddItemDrawer = ({ visible, type, onClose, onSave, theme, editItem }) => {
     const handleSave = () => {
         Keyboard.dismiss();
         if (!name.trim()) {
-            Alert.alert('Missing Name', `Please enter a ${type} name.`);
+            showPopUp('Missing Name', `Please enter a ${type} name.`);
             return;
         }
         const parsedPrice = parseFloat(price);
@@ -1624,7 +1625,7 @@ export default function EmployeeOrderDetail({ route, navigation }) {
             setItems(builtItems);
             setOriginalItems(builtItems);
         } catch (err) {
-            Alert.alert('Error', 'Failed to load order details');
+            showPopUp('Error', 'Failed to load order details');
         } finally {
             setLoading(false);
         }
@@ -1710,10 +1711,10 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         setResendingOtp(true);
         try {
             await axiosClient.post(`/api/admin/order/${order._id}/resend-work-start-otp`);
-            Alert.alert('OTP Resent', 'A new OTP has been sent to the customer.');
+            showPopUp('OTP Resent', 'A new OTP has been sent to the customer.');
         } catch (err) {
             const msg = err?.response?.data?.message || 'Failed to resend OTP.';
-            Alert.alert('Error', msg);
+            showPopUp('Error', msg);
         } finally {
             setResendingOtp(false);
         }
@@ -1757,10 +1758,10 @@ export default function EmployeeOrderDetail({ route, navigation }) {
         setResendingOtp(true);
         try {
             await axiosClient.post(`/api/admin/order/${order._id}/resend-completion-otp`);
-            Alert.alert('OTP Resent', 'A new completion OTP has been sent to the customer.');
+            showPopUp('OTP Resent', 'A new completion OTP has been sent to the customer.');
         } catch (err) {
             const msg = err?.response?.data?.message || 'Failed to resend OTP.';
-            Alert.alert('Error', msg);
+            showPopUp('Error', msg);
         } finally {
             setResendingOtp(false);
         }

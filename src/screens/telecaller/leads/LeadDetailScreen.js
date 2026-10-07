@@ -8,11 +8,11 @@ import {
     ActivityIndicator,
     RefreshControl,
     AppState,
-    Alert,
     KeyboardAvoidingView,
     Platform,
     StyleSheet,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { useSelector } from 'react-redux';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -131,7 +131,7 @@ export default function LeadDetailScreen() {
             leadEvents.emit();
             return true;
         } catch (e) {
-            Alert.alert('Could not save', getErrorMessage(e, 'Please try again.'));
+            showPopUp('Could not save', getErrorMessage(e, 'Please try again.'));
             return false;
         } finally {
             setSaving(false);

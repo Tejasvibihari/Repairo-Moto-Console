@@ -16,6 +16,7 @@
 //                              don't wait for it: attendance is saved with coordinates and the
 //                              address is filled in a moment later (see `pendingAddress`).
 import { AppState } from 'react-native';
+import { showLocationDisclosure } from '../tracking/locationDisclosure';
 
 // Load defensively: a build made before expo-location was added must not crash the app.
 let Location = null;
@@ -194,6 +195,7 @@ export function prewarmLocation() {
         try {
             let perm = await Location.getForegroundPermissionsAsync();
             if (perm.status !== 'granted' && perm.canAskAgain !== false) {
+                if (!(await showLocationDisclosure())) return false;   // "Not now" → don't ask the OS
                 perm = await Location.requestForegroundPermissionsAsync();
             }
             if (perm.status !== 'granted') return false;
@@ -246,7 +248,12 @@ export async function getAttendanceLocation() {
     }
 
     let perm = await Location.getForegroundPermissionsAsync();
-    if (perm.status !== 'granted') perm = await Location.requestForegroundPermissionsAsync();
+    if (perm.status !== 'granted') {
+        if (perm.canAskAgain !== false && !(await showLocationDisclosure({ force: true }))) {
+            throw codedError('LOCATION_DENIED', 'Location permission is needed to record where you are marking attendance.');
+        }
+        perm = await Location.requestForegroundPermissionsAsync();
+    }
     if (perm.status !== 'granted') {
         throw codedError('LOCATION_DENIED', 'Location permission is needed to record where you are marking attendance.');
     }

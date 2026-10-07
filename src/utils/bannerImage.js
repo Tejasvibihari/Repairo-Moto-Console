@@ -15,7 +15,7 @@
 
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { Alert } from 'react-native';
+import { showPopUp } from './popupService';
 
 // 16:9 — matches common mobile home-screen / promo banner carousels.
 export const BANNER_ASPECT = [16, 9];
@@ -45,7 +45,7 @@ const normalizeBannerImage = async (uri) => {
 export const pickBannerImageFromLibrary = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-        Alert.alert('Permission required', 'Photo library access is needed to choose a banner image.');
+        showPopUp('Permission required', 'Photo library access is needed to choose a banner image.');
         return null;
     }
 
@@ -66,7 +66,7 @@ export const pickBannerImageFromLibrary = async () => {
 export const pickBannerImageFromCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-        Alert.alert('Permission required', 'Camera access is needed to take a banner photo.');
+        showPopUp('Permission required', 'Camera access is needed to take a banner photo.');
         return null;
     }
 

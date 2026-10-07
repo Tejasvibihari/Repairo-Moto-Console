@@ -5,7 +5,8 @@
 // (so "Resume Work" is one tap away). Otherwise it stays hidden — the Attendance
 // screen in the drawer has the full status, Take a Break and Sign Out.
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { showPopUp } from '../../utils/popupService';
 import { Ionicons } from '@expo/vector-icons';
 import { useTodayAttendance, useLocationWarm, useNow } from '../../hooks/useAttendance';
 import { fmtDuration, fmtTime, openBreak, totalBreakMinutes } from '../../utils/attendanceUtils';
@@ -66,7 +67,7 @@ export default function AttendanceCard({ theme, style }) {
     const onMark = async () => {
         const res = await checkIn();
         if (res.ok) {
-            Alert.alert('Attendance marked', `You checked in at ${fmtTime(res.attendance?.checkIn?.at)}. Have a great day!`);
+            showPopUp('Attendance marked', `You checked in at ${fmtTime(res.attendance?.checkIn?.at)}. Have a great day!`);
         }
     };
 

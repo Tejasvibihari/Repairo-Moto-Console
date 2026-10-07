@@ -3,7 +3,7 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSelector } from 'react-redux';
 import { LightTheme, DarkTheme } from '../../styles/Theme';
 
-export default function PopUp({ visible, title, message, primaryLabel, secondaryLabel, onPrimary, onSecondary, onClose, primaryColor }) {
+export default function PopUp({ visible, title, message, primaryLabel, secondaryLabel, onPrimary, onSecondary, onClose, primaryColor, actions }) {
     const mode = useSelector((state) => state.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const colors = theme.colors;
@@ -16,6 +16,26 @@ export default function PopUp({ visible, title, message, primaryLabel, secondary
                 <View style={[styles.box, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
                     <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
                     <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
+                    {Array.isArray(actions) && actions.length > 0 ? (
+                        <View style={styles.actionsColumn}>
+                            {actions.map((a, i) => (
+                                <TouchableOpacity
+                                    key={i}
+                                    style={[
+                                        styles.actionBtn,
+                                        a.variant === 'ghost'
+                                            ? { borderWidth: 1, borderColor: colors.border }
+                                            : { backgroundColor: a.color || primaryColor || colors.primary },
+                                    ]}
+                                    onPress={a.onPress}
+                                >
+                                    <Text style={a.variant === 'ghost' ? { color: colors.textPrimary, fontWeight: '600' } : styles.primaryText}>
+                                        {a.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    ) : (
                     <View style={styles.actions}>
                         {!!secondaryLabel && (
                             <TouchableOpacity style={styles.secondaryBtn} onPress={onSecondary}>
@@ -26,6 +46,7 @@ export default function PopUp({ visible, title, message, primaryLabel, secondary
                             <Text style={styles.primaryText}>{primaryLabel}</Text>
                         </TouchableOpacity>
                     </View>
+                    )}
                 </View>
             </View>
         </Modal>
@@ -63,6 +84,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'flex-end',
         gap: 12,
+    },
+    actionsColumn: {
+        gap: 10,
+    },
+    actionBtn: {
+        paddingVertical: 11,
+        paddingHorizontal: 16,
+        borderRadius: 10,
+        alignItems: 'center',
     },
     secondaryBtn: {
         paddingVertical: 8,

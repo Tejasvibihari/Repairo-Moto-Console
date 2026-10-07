@@ -2,7 +2,8 @@
 //
 // Admin: master switch for the WhatsApp message customers get when their order status changes.
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Switch, ScrollView, ActivityIndicator, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, Switch, ScrollView, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
@@ -38,7 +39,7 @@ export default function WhatsAppAlertsScreen() {
             setEnabled(await whatsappAlertService.set(value));
         } catch (e) {
             setEnabled(previous);
-            Alert.alert('Could not save', e?.response?.data?.message || 'Check your internet and try again.');
+            showPopUp('Could not save', e?.response?.data?.message || 'Check your internet and try again.');
         } finally {
             setSaving(false);
         }

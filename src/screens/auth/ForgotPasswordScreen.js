@@ -7,9 +7,9 @@ import {
     TextInput,
     Platform,
     ActivityIndicator,
-    Alert,
     KeyboardAvoidingView,
 } from 'react-native';
+import { showPopUp } from '../../utils/popupService';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +27,7 @@ export default function ForgotPasswordScreen({ navigation, route }) {
 
     const handleResetPassword = async () => {
         if (!email.trim()) {
-            Alert.alert('Missing Field', 'Please enter your email address.');
+            showPopUp('Missing Field', 'Please enter your email address.');
             return;
         }
 
@@ -44,17 +44,17 @@ export default function ForgotPasswordScreen({ navigation, route }) {
             const data = await response.json();
 
             if (response.ok) {
-                Alert.alert(
+                showPopUp(
                     'Link Sent',
                     `A password reset link has been sent to your email.`,
                     [{ text: 'OK', onPress: () => navigation.goBack() }]
                 );
             } else {
-                Alert.alert('Error', data.message || 'Something went wrong.');
+                showPopUp('Error', data.message || 'Something went wrong.');
             }
         } catch (error) {
             console.error(error);
-            Alert.alert('Network Error', 'Failed to connect to the server. Please try again later.');
+            showPopUp('Network Error', 'Failed to connect to the server. Please try again later.');
         } finally {
             setLoading(false);
         }

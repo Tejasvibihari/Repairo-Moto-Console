@@ -3,12 +3,13 @@
 // Attendance helpers: error alerts, map link and IST date/time formatting. Times are
 // formatted by hand (like ShopStatusScreen) so nothing depends on Intl/timezone support of
 // the JS engine. (Getting the location lives in ./attendanceLocation.)
-import { Alert, Linking } from 'react-native';
+import { Linking } from 'react-native';
+import { showPopUp } from './popupService';
 
 export function showAttendanceError(e, title = 'Attendance') {
     const denied = e?.code === 'LOCATION_DENIED';
     const message = e?.response?.data?.message || e?.message || 'Something went wrong. Check your internet and try again.';
-    Alert.alert(
+    showPopUp(
         denied ? 'Location permission needed' : title,
         message,
         denied

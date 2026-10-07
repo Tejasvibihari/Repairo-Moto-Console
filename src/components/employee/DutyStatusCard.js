@@ -9,7 +9,8 @@
 //
 // The only way to go offline is the same as before attendance existed: take a break or sign out.
 import React from 'react';
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { showPopUp } from '../../utils/popupService';
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,7 +38,7 @@ export default function DutyStatusCard({ theme }) {
     const dot = online ? c.success : c.textMuted;
 
     const goOffline = () =>
-        Alert.alert(
+        showPopUp(
             'Go offline?',
             'You go offline by taking a break or by signing out. Your location stops being shared.',
             [

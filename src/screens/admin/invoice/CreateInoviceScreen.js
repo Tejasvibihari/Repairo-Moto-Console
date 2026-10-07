@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View, Text, TextInput, StyleSheet, ScrollView,
-    TouchableOpacity, Switch, Alert, ActivityIndicator,
+    TouchableOpacity, Switch, ActivityIndicator,
     Modal, Animated, Dimensions, Platform, PanResponder,
     Keyboard, KeyboardAvoidingView, TouchableWithoutFeedback,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -226,8 +227,8 @@ const ItemDrawer = ({ visible, onClose, onSave, type, editItem, theme }) => {
     const hasPreview = numPrice > 0 && numQty > 0;
 
     const handleSave = () => {
-        if (!name.trim()) { Alert.alert('Required', `Please enter a ${type === 'part' ? 'part' : 'service'} name.`); return; }
-        if (!price || numPrice <= 0) { Alert.alert('Required', 'Please enter a valid price.'); return; }
+        if (!name.trim()) { showPopUp('Required', `Please enter a ${type === 'part' ? 'part' : 'service'} name.`); return; }
+        if (!price || numPrice <= 0) { showPopUp('Required', 'Please enter a valid price.'); return; }
         onSave({
             [nameKey]: name.trim(),
             quantity: numQty || 1,
@@ -777,11 +778,11 @@ export default function CreateInvoiceScreen({ navigation, route }) {
 
     const handleSubmit = async () => {
         if (!customer.name || !customer.contactNo) {
-            Alert.alert('Missing Info', 'Customer name and contact are required.');
+            showPopUp('Missing Info', 'Customer name and contact are required.');
             return;
         }
         if (parts.length === 0 && services.length === 0) {
-            Alert.alert('Missing Items', 'Please add at least one part or service.');
+            showPopUp('Missing Items', 'Please add at least one part or service.');
             return;
         }
 
@@ -915,12 +916,12 @@ export default function CreateInvoiceScreen({ navigation, route }) {
                 await axiosClient.post('/api/manual-invoices', payload);
             }
             if (isEditing) {
-                Alert.alert('Updated', 'Invoice has been updated.', [
+                showPopUp('Updated', 'Invoice has been updated.', [
                     { text: 'OK', onPress: () => navigation.navigate('ManualInvoiceDetail', { invoiceId }) }
                 ]);
             } else {
                 resetForm();
-                Alert.alert('Success', 'Invoice created!', [
+                showPopUp('Success', 'Invoice created!', [
                     { text: 'OK', onPress: () => navigation.goBack() }
                 ]);
             }
@@ -928,11 +929,11 @@ export default function CreateInvoiceScreen({ navigation, route }) {
             console.error('Invoice creation error', error);
             const message = error.response?.data?.message || error.message || 'Network error';
             if (error.response?.status === 409) {
-                Alert.alert('Conflict', message.includes('already') ? message : 'Invoice number already exists. Please try again.');
+                showPopUp('Conflict', message.includes('already') ? message : 'Invoice number already exists. Please try again.');
             } else if (error.response?.status === 400) {
-                Alert.alert('Validation Error', message);
+                showPopUp('Validation Error', message);
             } else {
-                Alert.alert('Error', message);
+                showPopUp('Error', message);
             }
         } finally {
             setLoading(false);

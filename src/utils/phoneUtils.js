@@ -1,5 +1,6 @@
 // src/utils/phoneUtils.js
-import { Linking, Alert } from 'react-native';
+import { Linking } from 'react-native';
+import { showPopUp } from './popupService';
 
 export const digitsOnly = (v = '') => String(v).replace(/\D/g, '');
 
@@ -20,7 +21,7 @@ export const callNumber = async (phone) => {
         await Linking.openURL(`tel:${n}`);
         return true;
     } catch (_) {
-        Alert.alert('Cannot start the call', 'This device could not open the dialer.');
+        showPopUp('Cannot start the call', 'This device could not open the dialer.');
         return false;
     }
 };
@@ -33,6 +34,6 @@ export const openWhatsApp = async (phone, text) => {
     try {
         await Linking.openURL(url);
     } catch (_) {
-        Alert.alert('Cannot open WhatsApp', 'WhatsApp does not seem to be installed.');
+        showPopUp('Cannot open WhatsApp', 'WhatsApp does not seem to be installed.');
     }
 };

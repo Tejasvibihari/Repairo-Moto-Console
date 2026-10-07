@@ -15,8 +15,8 @@ import {
     Keyboard,
     Image,
     ActionSheetIOS,
-    Alert,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSelector } from 'react-redux';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -120,7 +120,7 @@ const BannerImageField = ({ previewUri, onPicked, theme, isDark, picking, setPic
             const asset = fromCamera ? await pickBannerImageFromCamera() : await pickBannerImageFromLibrary();
             if (asset) onPicked(asset);
         } catch (err) {
-            Alert.alert('Error', 'Could not process that image. Please try another one.');
+            showPopUp('Error', 'Could not process that image. Please try another one.');
         } finally {
             setPicking(false);
         }
@@ -139,7 +139,7 @@ const BannerImageField = ({ previewUri, onPicked, theme, isDark, picking, setPic
                 }
             );
         } else {
-            Alert.alert('Banner Image', 'Choose a source', [
+            showPopUp('Banner Image', 'Choose a source', [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Gallery', onPress: () => runPick(false) },
                 { text: 'Camera', onPress: () => runPick(true) },

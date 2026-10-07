@@ -6,7 +6,8 @@
 // The server is the source of truth: on open/foreground we re-sync the switch with it,
 // and resume tracking if the server says we are still online (e.g. after the app was killed).
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Switch, Alert, Linking, ActivityIndicator, AppState, StyleSheet } from 'react-native';
+import { View, Text, Switch, Linking, ActivityIndicator, AppState, StyleSheet } from 'react-native';
+import { showPopUp } from '../../utils/popupService';
 import { useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import axiosClient from '../../services/axiosClient';
@@ -73,7 +74,7 @@ export default function DutySwitch({ theme }) {
         setBusy(true);
         try {
             if (next) {
-                await ensureLocationPermissions();               // 1. permissions
+                await ensureLocationPermissions({ force: true }); // 1. permissions (disclosure first)
                 await setTrackingToken(token);
                 await axiosClient.patch(STATUS_URL, { online: true }); // 2. server ON (+ admin push)
                 try {
@@ -90,7 +91,7 @@ export default function DutySwitch({ theme }) {
         } catch (e) {
             const denied = e?.code === 'LOCATION_DENIED' || e?.code === 'BACKGROUND_DENIED';
             const msg = e?.response?.data?.message || e?.message || 'Could not change status. Check your internet.';
-            Alert.alert(
+            showPopUp(
                 denied ? 'Location permission needed' : e?.code === 'NATIVE_MISSING' ? 'Update required' : 'Unable to change status',
                 msg,
                 denied

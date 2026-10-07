@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    ActivityIndicator, Alert, Animated, Platform, Image,
+    ActivityIndicator, Animated, Platform, Image,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { useSelector } from 'react-redux';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
@@ -211,7 +212,7 @@ export default function ManualInvoiceDetail({ route, navigation }) {
             }
             Animated.timing(fadeAnim, { toValue: 1, duration: 380, useNativeDriver: true }).start();
         } catch (err) {
-            Alert.alert('Error', err?.response?.data?.message || 'Failed to load invoice');
+            showPopUp('Error', err?.response?.data?.message || 'Failed to load invoice');
             navigation.goBack();
         } finally {
             setLoading(false);
@@ -438,7 +439,7 @@ export default function ManualInvoiceDetail({ route, navigation }) {
                 UTI: 'com.adobe.pdf',
             });
         } catch (err) {
-            Alert.alert('Error', err?.message || 'Could not share invoice');
+            showPopUp('Error', err?.message || 'Could not share invoice');
         } finally {
             setSharing(false);
         }
@@ -467,7 +468,7 @@ export default function ManualInvoiceDetail({ route, navigation }) {
                 await FileSystem.writeAsStringAsync(destinationUri, base64, {
                     encoding: FileSystem.EncodingType.Base64,
                 });
-                Alert.alert('Invoice downloaded', `${fileName} was saved successfully.`);
+                showPopUp('Invoice downloaded', `${fileName} was saved successfully.`);
             } else {
                 await Sharing.shareAsync(temporaryUri, {
                     mimeType: 'application/pdf',
@@ -476,7 +477,7 @@ export default function ManualInvoiceDetail({ route, navigation }) {
                 });
             }
         } catch (err) {
-            Alert.alert('Error', err?.message || 'Could not download invoice');
+            showPopUp('Error', err?.message || 'Could not download invoice');
         } finally {
             setDownloading(false);
         }

@@ -17,9 +17,9 @@ import {
     KeyboardAvoidingView,
     Platform,
     Modal,
-    Alert,
     RefreshControl,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { useSelector } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -326,7 +326,7 @@ export default function ShopStatusScreen() {
 
         // Closing the whole app is high-impact — make the admin confirm it.
         if (draft.isClosed && !server?.isClosed) {
-            Alert.alert(
+            showPopUp(
                 'Close the customer app?',
                 'Customers will not be able to book or use anything until you reopen it' +
                 (draft.reopenDate ? ` (or until ${fmtReopen(draft.reopenDate, draft.reopenTime)}).` : '.'),

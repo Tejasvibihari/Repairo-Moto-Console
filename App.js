@@ -19,6 +19,7 @@ import { LightTheme, DarkTheme } from './src/styles/Theme';
 import { syncSystemTheme } from './src/store/slices/themeSlice';
 
 import UpdateModal from "./src/components/common/UpdateModal";
+import PopUpHost from "./src/components/common/PopUpHost";
 import useVersionCheck from "./src/utils/useVersionCheck";
 
 
@@ -64,24 +65,25 @@ function ThemedApp() {
   );
 }
 export default function App() {
-  // const [updateInfo, setUpdateInfo] = useVersionCheck(
-  //   process.env.EXPO_PUBLIC_API_URL || "https://api.repairomoto.in",
-  //   "console"
-  // );
+  const [updateInfo, setUpdateInfo] = useVersionCheck(
+    process.env.EXPO_PUBLIC_API_URL || "https://api.repairomoto.in",
+    "console"
+  );
 
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <SafeAreaProvider>
           <ThemedApp />
+          <PopUpHost />
 
-          {/* <UpdateModal
-           visible={updateInfo.visible}
+          <UpdateModal
+            visible={updateInfo.visible}
             force={updateInfo.force}
             message={updateInfo.message}
             storeUrl={updateInfo.storeUrl}
             onLater={() => setUpdateInfo((prev) => ({ ...prev, visible: false }))}
-          /> */}
+          />
         </SafeAreaProvider>
       </PersistGate>
     </Provider>

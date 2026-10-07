@@ -3,10 +3,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View, Text, ScrollView, StyleSheet, TouchableOpacity,
-    TextInput, Animated, Alert, ActivityIndicator,
+    TextInput, Animated, ActivityIndicator,
     KeyboardAvoidingView, Platform, Modal, Dimensions,
     Keyboard,
 } from 'react-native';
+import { showPopUp } from '../../../utils/popupService';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
@@ -111,8 +112,8 @@ const AddItemDrawer = ({ visible, type, onClose, onSave, theme, editItem }) => {
 
     const handleSave = () => {
         Keyboard.dismiss();
-        if (!name.trim()) { Alert.alert('Missing Name', `Please enter a ${type} name.`); return; }
-        if (!price || parseFloat(price) <= 0) { Alert.alert('Invalid Price', 'Please enter a valid price greater than 0.'); return; }
+        if (!name.trim()) { showPopUp('Missing Name', `Please enter a ${type} name.`); return; }
+        if (!price || parseFloat(price) <= 0) { showPopUp('Invalid Price', 'Please enter a valid price greater than 0.'); return; }
         onSave({ id: editItem?.id || genId(), type, name: name.trim(), quantity, price, discountType, discountValue });
         onClose();
     };
@@ -1158,7 +1159,7 @@ export default function AdminGenerateInvoice({ route, navigation }) {
         });
     }, []);
     const removeItem = useCallback((id) => {
-        Alert.alert('Remove Item', 'Are you sure you want to remove this item?', [
+        showPopUp('Remove Item', 'Are you sure you want to remove this item?', [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Remove', style: 'destructive', onPress: () => setItems((prev) => prev.filter((i) => i.id !== id)) },
         ]);
@@ -1242,7 +1243,7 @@ export default function AdminGenerateInvoice({ route, navigation }) {
 
     const handleRemoveCoupon = () => {
         if (!order?._id || !couponInfo?.code) return;
-        Alert.alert(
+        showPopUp(
             'Remove Coupon',
             `Remove coupon "${couponInfo.code}" from this order? The customer will no longer get this discount.`,
             [
@@ -1256,7 +1257,7 @@ export default function AdminGenerateInvoice({ route, navigation }) {
                             await axiosClient.delete(`/api/admin/coupons/order/${order._id}`);
                             setCouponInfo(null);
                         } catch (err) {
-                            Alert.alert('Error', err?.response?.data?.message || 'Failed to remove coupon. Please try again.');
+                            showPopUp('Error', err?.response?.data?.message || 'Failed to remove coupon. Please try again.');
                         } finally {
                             setRemovingCoupon(false);
                         }
@@ -1267,7 +1268,7 @@ export default function AdminGenerateInvoice({ route, navigation }) {
     };
 
     const handleGenerateInvoice = async () => {
-        if (items.length === 0) { Alert.alert('No Items', 'Please add at least one part or service before generating the invoice.'); return; }
+        if (items.length === 0) { showPopUp('No Items', 'Please add at least one part or service before generating the invoice.'); return; }
         setSubmitting(true);
         try {
             const partsAndServices = items.map((item) => {
@@ -1287,7 +1288,7 @@ export default function AdminGenerateInvoice({ route, navigation }) {
             if (gstEnabled) {
                 const { gstin, businessName, businessAddress, businessCity, businessState, businessPincode } = gstDetails;
                 if (!gstin?.trim() || !businessName?.trim() || !businessAddress?.trim() || !businessCity?.trim() || !businessState?.trim() || !businessPincode?.trim()) {
-                    Alert.alert('Incomplete GST Details', 'Please fill all required GST business details before generating the invoice.');
+                    showPopUp('Incomplete GST Details', 'Please fill all required GST business details before generating the invoice.');
                     return;
                 }
             }
@@ -1327,9 +1328,9 @@ export default function AdminGenerateInvoice({ route, navigation }) {
             };
 
             await axiosClient.put(`/api/admin/order/${order._id}/update-order/generate-invoice`, payload);
-            Alert.alert('✅ Invoice Generated', `Invoice has been successfully generated for Order #${order.orderId}.`, [{ text: 'Done', onPress: () => navigation.goBack() }]);
+            showPopUp('✅ Invoice Generated', `Invoice has been successfully generated for Order #${order.orderId}.`, [{ text: 'Done', onPress: () => navigation.goBack() }]);
         } catch (err) {
-            Alert.alert('Error', err?.response?.data?.message || 'Failed to generate invoice. Please try again.');
+            showPopUp('Error', err?.response?.data?.message || 'Failed to generate invoice. Please try again.');
         } finally {
             setSubmitting(false);
         }
