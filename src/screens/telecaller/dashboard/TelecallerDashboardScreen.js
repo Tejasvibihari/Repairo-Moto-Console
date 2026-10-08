@@ -15,6 +15,7 @@ import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
 import StatusBadge from '../../../components/telecaller/StatusBadge';
 import AttendanceCard from '../../../components/employee/AttendanceCard';
+import { AttendanceSummary, Chip, WeekChart } from '../../../components/employee/dashboard/DashboardWidgets';
 import { leadService, getErrorMessage } from '../../../services/leadService';
 import { leadEvents } from '../../../utils/leadEvents';
 import { LEAD_STATUS, FILTER_STATUSES } from '../../../constants/leadConstants';
@@ -121,6 +122,30 @@ export default function TelecallerDashboardScreen() {
                         <Ionicons name="add-circle-outline" size={20} color="#1a1a1a" />
                         <Text style={styles.addBtnText}>Add a lead</Text>
                     </TouchableOpacity>
+
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                        {data.overdueFollowUps > 0 && (
+                            <TouchableOpacity activeOpacity={0.8} onPress={() => goToLeads('follow_up')}>
+                                <Chip icon="alert-circle-outline" color="#FF6B6B" theme={theme}
+                                    text={`${data.overdueFollowUps} overdue follow-up${data.overdueFollowUps === 1 ? '' : 's'}`} />
+                            </TouchableOpacity>
+                        )}
+                        <Chip icon="trending-up-outline" color="#2ECC9A" theme={theme}
+                            text={`${data.conversionPct ?? 0}% converted · ${data.monthConverted ?? 0} of ${data.monthLeads ?? 0} leads this month`} />
+                    </View>
+
+                    {data.attendance ? (
+                        <>
+                            <Text style={[styles.cardTitle, { color: C.textPrimary, marginBottom: 8 }]}>Attendance</Text>
+                            <AttendanceSummary attendance={data.attendance} theme={theme} />
+                        </>
+                    ) : null}
+                    {data.week ? (
+                        <>
+                            <Text style={[styles.cardTitle, { color: C.textPrimary, marginBottom: 8 }]}>Last 7 days</Text>
+                            <WeekChart week={data.week} tracked={false} showJobs={false} theme={theme} />
+                        </>
+                    ) : null}
 
                     {pipeline.length > 0 && (
                         <View style={[styles.card, { backgroundColor: C.surface, borderColor: C.border }]}>

@@ -10,44 +10,51 @@ import {
     RefreshControl,
 } from 'react-native';
 import { useSelector } from 'react-redux';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LightTheme, DarkTheme } from '../../../styles/Theme';
-import axiosClient from '../../../services/axiosClient';
 import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
 import DutyStatusCard from '../../../components/employee/DutyStatusCard';
 import AttendanceCard from '../../../components/employee/AttendanceCard';
+import { employeeDashboardService } from '../../../services/employeeDashboardService';
+import { fmtDuration } from '../../../utils/attendanceUtils';
+import {
+    ATTENDANCE_STATE,
+    AttendanceSummary,
+    Chip,
+    DistanceSummary,
+    EmptyNote,
+    OrderRow,
+    WeekChart,
+    fmtKm,
+} from '../../../components/employee/dashboard/DashboardWidgets';
 
-// ── Stat card config ───────────────────────────────────────────────────────────
-const STAT_CARDS = [
-    {
-        key: 'totalOrders',
-        label: 'Total Orders',
-        icon: 'receipt-outline',
-        color: '#e2a731',
-    },
-    {
-        key: 'inProgressOrders',
-        label: 'In Progress',
-        icon: 'construct-outline',
-        color: '#3B82F6',
-    },
-    {
-        key: 'completedOrders',
-        label: 'Completed',
-        icon: 'checkmark-circle-outline',
-        color: '#2ECC9A',
-    },
-    {
-        key: 'cancelledOrders',
-        label: 'Cancelled',
-        icon: 'close-circle-outline',
-        color: '#FF6B6B',
-    },
+// ── Stat cards (values come from the server: Utils/employeeStats.js) ───────────
+const todayCards = (d) => {
+    const o = d.orders;
+    const att = d.attendance?.today;
+    const tracked = !!d.distance;
+    return [
+        { key: 'jobsToday', label: 'Jobs Today', icon: 'calendar-outline', color: '#e2a731', value: `${o.scheduledTodayDone}/${o.scheduledToday}`, sub: 'finished' },
+        { key: 'worked', label: 'Worked Today', icon: 'time-outline', color: '#3B82F6', value: fmtDuration(att?.workedMinutes), sub: (ATTENDANCE_STATE[att?.state] || ATTENDANCE_STATE.not_marked).label },
+        tracked
+            ? { key: 'kmToday', label: 'Distance Today', icon: 'speedometer-outline', color: '#8B5CF6', value: fmtKm(d.distance.todayKm), sub: `${d.distance.todayTrips} trip${d.distance.todayTrips === 1 ? '' : 's'}` }
+            : { key: 'needs', label: 'Needs Mechanic', icon: 'person-add-outline', color: '#8B5CF6', value: d.team?.needsMechanic ?? 0, sub: 'new bookings' },
+        { key: 'doneToday', label: 'Done Today', icon: 'checkmark-done-outline', color: '#2ECC9A', value: o.completedToday, sub: `${o.completedMonth} this month` },
+    ];
+};
+
+const orderCards = (o) => [
+    { key: 'total', label: 'Total Orders', icon: 'receipt-outline', color: '#e2a731', value: o.total },
+    { key: 'pending', label: 'Pending', icon: 'hourglass-outline', color: '#F59E0B', value: o.pending },
+    { key: 'open', label: 'In Progress', icon: 'construct-outline', color: '#3B82F6', value: o.open },
+    { key: 'done', label: 'Completed', icon: 'checkmark-circle-outline', color: '#2ECC9A', value: o.completed },
+    { key: 'cancelled', label: 'Cancelled', icon: 'close-circle-outline', color: '#FF6B6B', value: o.cancelled },
+    { key: 'overdue', label: 'Overdue', icon: 'alarm-outline', color: '#FF6B6B', value: o.overdue, sub: 'past booking date' },
 ];
 
 // ── Animated stat card ─────────────────────────────────────────────────────────
-function StatCard({ config, value, theme, isDark, index }) {
+function StatCard({ config, value, sub, theme, isDark, index }) {
     const translateY = useRef(new Animated.Value(20)).current;
     const opacity = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(0.85)).current;
@@ -104,6 +111,11 @@ function StatCard({ config, value, theme, isDark, index }) {
             <Text style={[cardStyles.label, { color: theme.colors.textMuted }]}>
                 {config.label}
             </Text>
+            {sub ? (
+                <Text style={[cardStyles.sub, { color: theme.colors.textMuted }]} numberOfLines={1}>
+                    {sub}
+                </Text>
+            ) : null}
 
             {/* Bottom accent bar */}
             <View style={[cardStyles.accentBar, { backgroundColor: config.color }]} />
@@ -130,7 +142,7 @@ const cardStyles = StyleSheet.create({
         justifyContent: 'center',
     },
     value: {
-        fontSize: 28,
+        fontSize: 26,
         fontWeight: '800',
         letterSpacing: -0.5,
         lineHeight: 32,
@@ -139,6 +151,11 @@ const cardStyles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
         letterSpacing: 0.3,
+    },
+    sub: {
+        fontSize: 11,
+        fontWeight: '500',
+        marginTop: -4,
     },
     accentBar: {
         position: 'absolute',
@@ -275,58 +292,90 @@ export default function EmployeeDashboardScreen() {
     const isDark = mode === 'dark';
 
     const user = useSelector((s) => s.auth.user);
-    const firstName = user?.firstName || user?.name?.split(' ')[0] || 'there';
 
-    const [counts, setCounts] = useState(null);
+    const [dash, setDash] = useState(null);       // full dashboard from /overview
+    const [legacy, setLegacy] = useState(null);   // order counts only (server not updated yet)
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
+    const hasData = useRef(false);
 
-    // Header entrance animation
-    const headerOpacity = useRef(new Animated.Value(0)).current;
-    const headerTranslateY = useRef(new Animated.Value(-10)).current;
-
-    useEffect(() => {
-        Animated.parallel([
-            Animated.timing(headerOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-            Animated.spring(headerTranslateY, { toValue: 0, speed: 18, bounciness: 4, useNativeDriver: true }),
-        ]).start();
-    }, []);
-
-    const fetchCounts = useCallback(async () => {
+    const fetchDashboard = useCallback(async () => {
         try {
             setError(null);
-            const { data } = await axiosClient.get('/api/admin/dashboard/order-counts');
-
-            if (data.success) {
-                setCounts(data.data);
-            } else {
-                setError(data.message || 'Failed to load data.');
+            const res = await employeeDashboardService.overview();
+            if (res.success) {
+                hasData.current = true;
+                setDash(res.data);
+                setLegacy(null);
+            } else if (!hasData.current) {
+                setError(res.message || 'Failed to load data.');
             }
         } catch (err) {
-
-            setError(err.response?.data?.message || 'Failed to load dashboard.');
+            if (err.response?.status === 404) {
+                // Older server without /overview → still show the (now correct) order counts.
+                try {
+                    const res = await employeeDashboardService.orderCounts();
+                    if (res.success) {
+                        hasData.current = true;
+                        setDash(null);
+                        setLegacy(res.data);
+                        return;
+                    }
+                } catch (_) { /* fall through to the error below */ }
+            }
+            // A failed background refresh keeps the numbers already on screen.
+            if (!hasData.current) setError(err.response?.data?.message || 'Failed to load dashboard.');
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
     }, []);
 
-    useEffect(() => {
-        fetchCounts();
-    }, [fetchCounts]);
+    // Refresh whenever the tab comes back into view, so numbers never go stale after
+    // finishing an order or marking attendance.
+    useFocusEffect(
+        useCallback(() => {
+            fetchDashboard();
+        }, [fetchDashboard])
+    );
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-        fetchCounts();
-    }, [fetchCounts]);
+        fetchDashboard();
+    }, [fetchDashboard]);
 
-    const getGreeting = () => {
-        const hour = new Date().getHours();
-        if (hour < 12) return 'Good morning';
-        if (hour < 17) return 'Good afternoon';
-        return 'Good evening';
-    };
+    const openOrder = useCallback(
+        (order) => navigation.navigate('EmployeeOrderDetail', { orderId: order._id }),
+        [navigation]
+    );
+
+    const tracked = !!dash?.distance;
+    const o = dash?.orders;
+
+    const grid = (cards, startIndex = 0) => (
+        <View style={styles.grid}>
+            {cards.map((cfg, i) => (
+                <StatCard
+                    key={cfg.key}
+                    config={cfg}
+                    value={cfg.value}
+                    sub={cfg.sub}
+                    theme={theme}
+                    isDark={isDark}
+                    index={startIndex + i}
+                />
+            ))}
+        </View>
+    );
+
+    const skeleton = (
+        <View style={styles.grid}>
+            {[0, 1, 2, 3].map((i) => (
+                <SkeletonCard key={i} theme={theme} isDark={isDark} />
+            ))}
+        </View>
+    );
 
     return (
         <TabScreenWrapper greeting="Dashboard" showBookingIcon={false} showMenuIcon={true}>
@@ -343,47 +392,94 @@ export default function EmployeeDashboardScreen() {
                     />
                 }
             >
-
-
                 {/* ── Mark attendance (only until today's attendance is marked) ── */}
-                <AttendanceCard theme={theme} />
+                <AttendanceCard theme={theme} onStateChange={fetchDashboard} />
 
                 {/* ── Online / Offline status — mechanics + delivery partners; follows attendance ── */}
                 {['mechanic', 'delivery'].includes(user?.position) && <DutyStatusCard theme={theme} />}
 
-                {/* ── Stats section ── */}
-                <SectionHeader title="Overview" theme={theme} />
-
                 {loading && !refreshing ? (
-                    <View style={styles.grid}>
-                        {[0, 1, 2, 3].map((i) => (
-                            <SkeletonCard key={i} theme={theme} isDark={isDark} />
-                        ))}
-                    </View>
+                    <>
+                        <SectionHeader title="Today" theme={theme} />
+                        {skeleton}
+                    </>
                 ) : error ? (
-                    <View style={[styles.errorBox, { backgroundColor: `${theme.colors.error}12`, borderColor: `${theme.colors.error}30` }]}>
-                        <Ionicons name="alert-circle-outline" size={20} color={theme.colors.error} />
-                        <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
-                        <TouchableOpacity onPress={fetchCounts} activeOpacity={0.8}>
-                            <Text style={[styles.retryText, { color: theme.colors.primary }]}>Retry</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <View style={styles.grid}>
-                        {STAT_CARDS.map((cfg, i) => (
-                            <StatCard
-                                key={cfg.key}
-                                config={cfg}
-                                value={counts?.[cfg.key]}
-                                theme={theme}
-                                isDark={isDark}
-                                index={i}
-                            />
-                        ))}
-                    </View>
-                )}
+                    <>
+                        <SectionHeader title="Overview" theme={theme} />
+                        <View style={[styles.errorBox, { backgroundColor: `${theme.colors.error}12`, borderColor: `${theme.colors.error}30` }]}>
+                            <Ionicons name="alert-circle-outline" size={20} color={theme.colors.error} />
+                            <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
+                            <TouchableOpacity onPress={fetchDashboard} activeOpacity={0.8}>
+                                <Text style={[styles.retryText, { color: theme.colors.primary }]}>Retry</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </>
+                ) : legacy ? (
+                    <>
+                        <SectionHeader title="Orders" theme={theme} />
+                        {grid([
+                            { key: 'total', label: 'Total Orders', icon: 'receipt-outline', color: '#e2a731', value: legacy.totalOrders },
+                            { key: 'open', label: 'In Progress', icon: 'construct-outline', color: '#3B82F6', value: legacy.inProgressOrders },
+                            { key: 'done', label: 'Completed', icon: 'checkmark-circle-outline', color: '#2ECC9A', value: legacy.completedOrders },
+                            { key: 'cancelled', label: 'Cancelled', icon: 'close-circle-outline', color: '#FF6B6B', value: legacy.cancelledOrders },
+                        ])}
+                    </>
+                ) : dash ? (
+                    <>
+                        {/* ── Today ── */}
+                        <SectionHeader title="Today" theme={theme} />
+                        {grid(todayCards(dash))}
+
+                        {/* ── Orders ── */}
+                        <SectionHeader title="Orders" theme={theme} />
+                        {grid(orderCards(o), 4)}
+                        <View style={styles.chipRow}>
+                            {dash.rating ? (
+                                <Chip icon="star" color="#e2a731" theme={theme}
+                                    text={dash.rating.count ? `${dash.rating.average.toFixed(1)} rating · ${dash.rating.count} review${dash.rating.count === 1 ? '' : 's'}` : 'No reviews yet'} />
+                            ) : null}
+                            <Chip icon="trending-up-outline" color="#2ECC9A" theme={theme} text={`${o.completionPct}% completion`} />
+                            {o.cancelledMonth > 0 ? (
+                                <Chip icon="close-circle-outline" color="#FF6B6B" theme={theme} text={`${o.cancelledMonth} cancelled this month`} />
+                            ) : null}
+                        </View>
+
+                        {/* ── Attendance ── */}
+                        <SectionHeader title="Attendance" theme={theme} />
+                        <AttendanceSummary attendance={dash.attendance} theme={theme} />
+
+                        {/* ── Distance (mechanic / delivery) ── */}
+                        {tracked ? (
+                            <>
+                                <SectionHeader title="Distance Travelled" theme={theme} />
+                                <DistanceSummary distance={dash.distance} theme={theme} />
+                            </>
+                        ) : null}
+
+                        {/* ── Last 7 days ── */}
+                        <SectionHeader title="Last 7 Days" theme={theme} />
+                        <WeekChart week={dash.week} tracked={tracked} theme={theme} />
+
+                        {/* ── Upcoming jobs ── */}
+                        <SectionHeader title="Upcoming · Next 7 Days" theme={theme} />
+                        {dash.upcoming?.length ? (
+                            dash.upcoming.map((ord) => <OrderRow key={ord._id} order={ord} theme={theme} onPress={openOrder} />)
+                        ) : (
+                            <EmptyNote text="Nothing scheduled in the next 7 days." theme={theme} />
+                        )}
+
+                        {/* ── Recent activity ── */}
+                        <SectionHeader title="Recent Activity" theme={theme} />
+                        {dash.recent?.length ? (
+                            dash.recent.map((ord) => <OrderRow key={ord._id} order={ord} theme={theme} onPress={openOrder} />)
+                        ) : (
+                            <EmptyNote text="No orders yet." theme={theme} />
+                        )}
+                    </>
+                ) : null}
 
                 {/* ── Quick actions ── */}
+                <View style={{ height: 8 }} />
                 <SectionHeader title="Quick Actions" theme={theme} />
 
                 <QuickAction
@@ -394,14 +490,6 @@ export default function EmployeeDashboardScreen() {
                     delay={200}
                     onPress={() => navigation.navigate('Orders')}
                 />
-                {/* <QuickAction
-                    icon="person-outline"
-                    label="My Profile"
-                    theme={theme}
-                    isDark={isDark}
-                    delay={280}
-                    onPress={() => navigation.navigate('Profile')}
-                /> */}
             </ScrollView>
         </TabScreenWrapper>
     );
@@ -447,6 +535,13 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         gap: 12,
         marginBottom: 28,
+    },
+    chipRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: -12,
+        marginBottom: 24,
     },
     errorBox: {
         flexDirection: 'row',

@@ -63,7 +63,7 @@ export default ({ config }) => {
         "FOREGROUND_SERVICE_LOCATION",
         "POST_NOTIFICATIONS",
       ],
-      versionCode: 5,
+      versionCode: 6,
       googleServicesFile: "./google-services.json",
       config: {
         googleMaps: {

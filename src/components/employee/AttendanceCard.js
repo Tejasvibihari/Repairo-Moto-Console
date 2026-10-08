@@ -4,18 +4,27 @@
 // Shows while today's attendance is not marked, and while the employee is on a break
 // (so "Resume Work" is one tap away). Otherwise it stays hidden — the Attendance
 // screen in the drawer has the full status, Take a Break and Sign Out.
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { showPopUp } from '../../utils/popupService';
 import { Ionicons } from '@expo/vector-icons';
 import { useTodayAttendance, useLocationWarm, useNow } from '../../hooks/useAttendance';
 import { fmtDuration, fmtTime, openBreak, totalBreakMinutes } from '../../utils/attendanceUtils';
 
-export default function AttendanceCard({ theme, style }) {
+export default function AttendanceCard({ theme, style, onStateChange }) {
     const { state, attendance, error, busy, refresh, checkIn, endBreak } = useTodayAttendance();
     useLocationWarm(state === 'not_marked');     // location is ready before the employee taps
     const nowMs = useNow(state === 'on_break');
     const c = theme.colors;
+
+    // Tell the parent when the state really changes (not on first load), e.g. so the dashboard
+    // can refresh its numbers right after check-in / break / sign-out.
+    const prevState = useRef(null);
+    useEffect(() => {
+        if (state === 'loading') return;
+        if (prevState.current && prevState.current !== state) onStateChange?.(state);
+        prevState.current = state;
+    }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (state === 'loading' || state === 'checked_in' || state === 'checked_out') return null;
 

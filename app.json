@@ -49,7 +49,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.roottechnology.repairomotoconsole",
-      "versionCode": 5,
+      "versionCode": 6,
       "googleServicesFile": "./google-services.json",
       "config": {
         "googleMaps": {
