@@ -17,6 +17,8 @@ import { LightTheme, DarkTheme } from '../../../styles/Theme';
 import TabScreenWrapper from '../../../components/common/TabScreenWrapper';
 import { useNavigation } from '@react-navigation/native';
 import axiosClient from '../../../services/axiosClient';
+import AttendanceCard from '../../../components/employee/AttendanceCard';
+import { isManagerStaff } from '../../../utils/attendanceUtils';
 import DashboardFilterSheet, {
     PERIOD_OPTIONS,
     DEFAULT_FILTERS,
@@ -749,6 +751,8 @@ export default function AdminDashboardScreen() {
     const mode = useSelector((s) => s.theme?.mode || 'light');
     const theme = mode === 'dark' ? DarkTheme : LightTheme;
     const insets = useSafeAreaInsets();
+    const user = useSelector((s) => s.auth.user);
+    const canMarkAttendance = isManagerStaff(user);
 
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
     const [options, setOptions] = useState(null);
@@ -852,6 +856,9 @@ export default function AdminDashboardScreen() {
                     />
                 }
             >
+                {/* Managers / operational managers mark their own attendance here */}
+                {canMarkAttendance && <AttendanceCard theme={theme} style={{ marginBottom: 0 }} />}
+
                 {/* ── Filters ── */}
                 <FilterBar
                     filters={filters}

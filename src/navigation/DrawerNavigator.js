@@ -88,6 +88,8 @@ const getDrawerConfig = (role, user) => {
             { name: 'AdminNotifications', label: 'Send Notifications', icon: 'megaphone-outline', iconActive: 'megaphone', lib: 'ion' },
             { name: 'AdminSupport', label: 'Chat Support', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', lib: 'ion' },
             { section: 'Operations', name: 'LiveMechanics', label: 'Live Tracking', icon: 'locate-outline', iconActive: 'locate', lib: 'ion' },
+            // Managers mark their own attendance too (admins have no attendance of their own)
+            ...(isManager ? [{ name: 'Attendance', label: 'My Attendance', icon: 'finger-print-outline', iconActive: 'finger-print', lib: 'ion' }] : []),
             ...(isManager ? [] : [{ name: 'AttendanceReport', label: 'Employee Attendance', icon: 'calendar-outline', iconActive: 'calendar', lib: 'ion' }]),
             ...(isManager ? [] : [{ name: 'StaffOverview', label: 'Staff Overview', icon: 'stats-chart-outline', iconActive: 'stats-chart', lib: 'ion' }]),
             { name: 'ShopStatus', label: 'Shop Status', icon: 'storefront-outline', iconActive: 'storefront', lib: 'ion' },
@@ -432,7 +434,7 @@ export default function DrawerNavigator() {
     // Employees: get the phone's location ready as soon as the app opens, so marking
     // attendance later is instant (permission is asked here too, not at tap time).
     const roleName = role ? role.toLowerCase() : '';
-    const isEmployee = (ROLE_CATEGORY[roleName] || roleName) === 'employee' && !hasManagerAdminAccess(role, user);
+    const isEmployee = (ROLE_CATEGORY[roleName] || roleName) === 'employee';
     useEffect(() => {
         if (isEmployee) prewarmLocation();
     }, [isEmployee]);

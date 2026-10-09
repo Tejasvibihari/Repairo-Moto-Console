@@ -6,6 +6,13 @@
 import { Linking } from 'react-native';
 import { showPopUp } from './popupService';
 
+// Managers / operational managers log in as employees but get the admin-style drawer and
+// dashboard — they still have to mark their own attendance like everyone else.
+export const isManagerStaff = (user) =>
+    ['manager', 'operational manager', 'ops manager'].includes(
+        String(user?.position || '').trim().toLowerCase().replace(/_/g, ' ')
+    );
+
 export function showAttendanceError(e, title = 'Attendance') {
     const denied = e?.code === 'LOCATION_DENIED';
     const message = e?.response?.data?.message || e?.message || 'Something went wrong. Check your internet and try again.';
