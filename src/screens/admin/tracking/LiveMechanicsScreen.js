@@ -17,6 +17,47 @@ const ROLE = {
     delivery: { label: 'Delivery', pin: '#3B82F6' },
 };
 
+// Distinct colour per employee (assigned once per person, stays the same while the screen is open).
+const PALETTE = [
+    '#E53935', '#1E88E5', '#43A047', '#8E24AA', '#FB8C00', '#00ACC1', '#D81B60', '#6D4C41',
+    '#3949AB', '#7CB342', '#F4511E', '#00897B', '#5E35B1', '#C0CA33', '#039BE5', '#546E7A',
+];
+const colorForIndex = (i) =>
+    i < PALETTE.length ? PALETTE[i] : `hsl(${Math.round((i * 137.508) % 360)}, 70%, 45%)`;
+
+const EmployeeMarker = React.memo(function EmployeeMarker({ m, color, selected, now, onPress }) {
+    // Custom marker views are bitmaps; only let them re-render briefly after something changes
+    const [track, setTrack] = useState(true);
+    const initial = (m.name || '?').trim().charAt(0).toUpperCase();
+    useEffect(() => {
+        setTrack(true);
+        const t = setTimeout(() => setTrack(false), 400);
+        return () => clearTimeout(t);
+    }, [color, selected, initial]);
+
+    return (
+        <Marker
+            coordinate={{ latitude: m.lat, longitude: m.lng }}
+            title={m.name}
+            description={`${ROLE[m.position]?.label || 'Staff'} · Updated ${ago(m.at, now)}`}
+            onPress={onPress}
+            tracksViewChanges={track}
+            anchor={{ x: 0.5, y: 1 }}
+            zIndex={selected ? 10 : 1}
+        >
+            <View style={styles.markerWrap}>
+                <View style={[
+                    styles.markerBubble,
+                    { backgroundColor: color, borderColor: selected ? '#e2a731' : '#fff', borderWidth: selected ? 4 : 3 },
+                ]}>
+                    <Text style={styles.markerText}>{initial}</Text>
+                </View>
+                <View style={[styles.markerTip, { borderTopColor: selected ? '#e2a731' : color }]} />
+            </View>
+        </Marker>
+    );
+});
+
 const ago = (iso, now) => {
     if (!iso) return '—';
     const sec = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
@@ -43,6 +84,14 @@ export default function LiveMechanicsScreen() {
         return () => clearInterval(t);
     }, []);
 
+    // employee id -> colour (first come, first served; never reused while screen is open)
+    const colorMap = useRef({});
+    const colorOf = (id) => {
+        const map = colorMap.current;
+        if (!map[id]) map[id] = colorForIndex(Object.keys(map).length);
+        return map[id];
+    };
+
     const located = useMemo(() => mechanics.filter((m) => m.lat != null && m.lng != null), [mechanics]);
 
     // Fit the map to everyone the first time we have data
@@ -68,12 +117,12 @@ export default function LiveMechanicsScreen() {
             <View style={styles.root}>
                 <MapView ref={mapRef} style={StyleSheet.absoluteFill} initialRegion={PATNA} showsCompass>
                     {located.map((m) => (
-                        <Marker
+                        <EmployeeMarker
                             key={m.id}
-                            coordinate={{ latitude: m.lat, longitude: m.lng }}
-                            title={m.name}
-                            description={`${ROLE[m.position]?.label || 'Staff'} · Updated ${ago(m.at, now)}`}
-                            pinColor={selectedId === m.id ? '#e2a731' : (ROLE[m.position]?.pin || '#2ECC9A')}
+                            m={m}
+                            color={colorOf(m.id)}
+                            selected={selectedId === m.id}
+                            now={now}
                             onPress={() => setSelectedId(m.id)}
                         />
                     ))}
@@ -113,7 +162,7 @@ export default function LiveMechanicsScreen() {
                                     }]}
                                 >
                                     <View style={styles.row}>
-                                        <View style={[styles.dot, { backgroundColor: c.success }]} />
+                                        <View style={[styles.dot, { backgroundColor: colorOf(m.id) }]} />
                                         <Text style={[styles.name, { color: c.textPrimary }]} numberOfLines={1}>{m.name}</Text>
                                     </View>
                                     {!!ROLE[m.position] && (
@@ -143,6 +192,13 @@ export default function LiveMechanicsScreen() {
 
 const styles = StyleSheet.create({
     root: { flex: 1 },
+    markerWrap: { alignItems: 'center' },
+    markerBubble: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+    markerText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+    markerTip: {
+        width: 0, height: 0, marginTop: -2, borderLeftWidth: 7, borderRightWidth: 7, borderTopWidth: 10,
+        borderLeftColor: 'transparent', borderRightColor: 'transparent',
+    },
     pill: {
         position: 'absolute', top: 12, alignSelf: 'center', flexDirection: 'row', alignItems: 'center',
         gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, elevation: 4,
